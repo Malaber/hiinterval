@@ -1,9 +1,12 @@
+import CoreTransferable
 import Foundation
 import HiIntervalCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct HistoryView: View {
     @EnvironmentObject private var store: AppStore
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var showClearConfirmation = false
 
     private var entries: [WorkoutHistoryEntry] {
@@ -49,7 +52,10 @@ struct HistoryView: View {
             .toolbar {
                 if !entries.isEmpty {
                     ToolbarItemGroup(placement: .topBarTrailing) {
-                        ShareLink(item: HistoryExport.csv(entries: entries)) {
+                        ShareLink(
+                            item: HistoryCSVDocument(csv: HistoryCSVExporter.csv(entries: entries)),
+                            preview: SharePreview("HiInterval History")
+                        ) {
                             Image(systemName: "square.and.arrow.up")
                         }
                         .accessibilityLabel("Export history")
@@ -60,6 +66,7 @@ struct HistoryView: View {
                             Image(systemName: "trash")
                         }
                         .accessibilityLabel("Clear history")
+                        .accessibilityIdentifier("history.clear")
                     }
                 }
             }
@@ -69,6 +76,7 @@ struct HistoryView: View {
                 titleVisibility: .visible
             ) {
                 Button("Clear history", role: .destructive) { store.clearHistory() }
+                    .accessibilityIdentifier("history.clear.confirm")
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("Saved workout plans are not affected.")
@@ -95,7 +103,7 @@ struct HistoryView: View {
                 .monospacedDigit()
             Text(label)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.primary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
@@ -103,37 +111,65 @@ struct HistoryView: View {
     }
 
     private func historyRow(_ entry: WorkoutHistoryEntry) -> some View {
-        HStack(spacing: 14) {
-            VStack {
-                Text(entry.completedAt, format: .dateTime.day())
-                    .font(.system(.title2, design: .rounded, weight: .bold))
-                Text(entry.completedAt, format: .dateTime.month(.abbreviated))
-                    .font(.caption.weight(.semibold))
-                    .textCase(.uppercase)
-                    .foregroundStyle(.secondary)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(alignment: .top, spacing: 14) {
+                        historyDate(entry)
+                        historyDescription(entry)
+                    }
+                    historyDuration(entry)
+                }
+            } else {
+                HStack(spacing: 14) {
+                    historyDate(entry)
+                    historyDescription(entry)
+                    Spacer(minLength: 8)
+                    historyDuration(entry)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
+                }
             }
-            .frame(width: 50, height: 58)
-            .background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text(entry.planName)
-                    .font(.headline)
-                    .lineLimit(2)
-                Text("\(entry.exerciseCount) exercises · \(entry.roundCount) rounds")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 8)
-            Text(SessionFormat.duration(entry.elapsedDurationSeconds))
-                .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                .monospacedDigit()
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.tertiary)
         }
         .padding(16)
         .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
         .accessibilityElement(children: .combine)
+    }
+
+    private func historyDate(_ entry: WorkoutHistoryEntry) -> some View {
+        VStack {
+            Text(entry.completedAt, format: .dateTime.day())
+                .font(.system(.title2, design: .rounded, weight: .bold))
+            Text(entry.completedAt, format: .dateTime.month(.abbreviated))
+                .font(.caption.weight(.semibold))
+                .textCase(.uppercase)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: true, vertical: true)
+        }
+        .frame(minWidth: 50, minHeight: 58)
+        .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 8 : 0)
+        .background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func historyDescription(_ entry: WorkoutHistoryEntry) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(entry.planName)
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("\(entry.exerciseCount) exercises · \(entry.roundCount) rounds")
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func historyDuration(_ entry: WorkoutHistoryEntry) -> some View {
+        Text(SessionFormat.duration(entry.elapsedDurationSeconds))
+            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+            .monospacedDigit()
     }
 }
 
@@ -162,6 +198,7 @@ private struct HistoryDetailView: View {
                             Text(entry.planName)
                                 .font(.system(.title, design: .rounded, weight: .bold))
                                 .multilineTextAlignment(.center)
+                                .accessibilityIdentifier("history.detail.title")
                             Text(entry.completedAt, format: .dateTime.weekday(.wide).month(.wide).day().hour().minute())
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
@@ -178,6 +215,7 @@ private struct HistoryDetailView: View {
                             Label(reuseMessage, systemImage: "checkmark.circle.fill")
                                 .font(.subheadline)
                                 .foregroundStyle(.green)
+                                .accessibilityIdentifier("history.reuse.status")
                         }
 
                         Button {
@@ -200,6 +238,7 @@ private struct HistoryDetailView: View {
                                 .padding(.vertical, 10)
                         }
                         .buttonStyle(.bordered)
+                        .accessibilityIdentifier("history.rename")
 
                         Button(role: .destructive) {
                             showDelete = true
@@ -209,6 +248,7 @@ private struct HistoryDetailView: View {
                                 .padding(.vertical, 10)
                         }
                         .buttonStyle(.bordered)
+                        .accessibilityIdentifier("history.delete")
                     }
                     .padding(20)
                 }
@@ -219,9 +259,12 @@ private struct HistoryDetailView: View {
             }
         }
         .background(Color(uiColor: .systemGroupedBackground))
+        .accessibilityIdentifier("history.detail.screen")
         .alert("Rename session", isPresented: $showRename) {
             TextField("Session name", text: $renamedPlan)
+                .accessibilityIdentifier("history.rename.field")
             Button("Save") { rename() }
+                .accessibilityIdentifier("history.rename.save")
             Button("Cancel", role: .cancel) {}
         }
         .confirmationDialog("Delete this session?", isPresented: $showDelete, titleVisibility: .visible) {
@@ -229,6 +272,7 @@ private struct HistoryDetailView: View {
                 store.deleteHistory(id: entryID)
                 dismiss()
             }
+            .accessibilityIdentifier("history.delete.confirm")
             Button("Cancel", role: .cancel) {}
         }
     }
@@ -261,6 +305,12 @@ private struct HistoryDetailView: View {
         plan.name += " Copy"
         plan.createdAt = Date()
         plan.updatedAt = plan.createdAt
+        for index in plan.exercises.indices {
+            plan.exercises[index].id = UUID()
+        }
+        for index in plan.roundOverrides.indices {
+            plan.roundOverrides[index].id = UUID()
+        }
         if store.savePlan(plan) {
             store.selectPlan(id: plan.id)
             reuseMessage = "Plan copied and selected"
@@ -268,23 +318,15 @@ private struct HistoryDetailView: View {
     }
 }
 
-private enum HistoryExport {
-    static func csv(entries: [WorkoutHistoryEntry]) -> String {
-        let formatter = ISO8601DateFormatter()
-        let header = "completed_at,plan,duration_seconds,rounds,exercises"
-        let rows = entries.map { entry in
-            [
-                formatter.string(from: entry.completedAt),
-                escaped(entry.planName),
-                String(entry.elapsedDurationSeconds),
-                String(entry.roundCount),
-                String(entry.exerciseCount),
-            ].joined(separator: ",")
-        }
-        return ([header] + rows).joined(separator: "\n")
-    }
+private struct HistoryCSVDocument: Transferable {
+    let csv: String
 
-    private static func escaped(_ value: String) -> String {
-        "\"\(value.replacingOccurrences(of: "\"", with: "\"\""))\""
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(exportedContentType: .commaSeparatedText) { document in
+            let destination = FileManager.default.temporaryDirectory
+                .appendingPathComponent("HiInterval-History.csv")
+            try Data(document.csv.utf8).write(to: destination, options: .atomic)
+            return SentTransferredFile(destination)
+        }
     }
 }

@@ -132,6 +132,44 @@ final class WorkoutTimelineTests: XCTestCase {
         XCTAssertGreaterThan(try WorkoutTimeline(plan: plan).totalDurationSeconds, 0)
     }
 
+    func testValidationRejectsInvalidExerciseAndRoundOverrides() {
+        assertValidationError(
+            makePlan(exercises: [ExerciseStep(name: "Move", duration: .custom(seconds: 0))]),
+            equals: .invalidDuration(field: "Exercise work")
+        )
+        assertValidationError(
+            makePlan(exercises: [ExerciseStep(name: "Move", recovery: .custom(seconds: -1))]),
+            equals: .invalidDuration(field: "Exercise recovery")
+        )
+        assertValidationError(
+            makePlan(exercises: [ExerciseStep(name: "Move", sideConfiguration: .leftRight(switchSeconds: -1))]),
+            equals: .invalidDuration(field: "Exercise recovery")
+        )
+
+        var outOfRange = makePlan(rounds: 2)
+        outOfRange.roundOverrides = [WorkoutRoundOverride(roundNumber: 3)]
+        assertValidationError(outOfRange, equals: .invalidRoundCount)
+
+        var invalidWork = makePlan(rounds: 2)
+        invalidWork.roundOverrides = [WorkoutRoundOverride(roundNumber: 1, workSeconds: 0)]
+        assertValidationError(invalidWork, equals: .invalidDuration(field: "Round work"))
+
+        var invalidSwitch = makePlan(rounds: 2)
+        invalidSwitch.roundOverrides = [
+            WorkoutRoundOverride(
+                roundNumber: 1,
+                sideConfiguration: .leftRight(switchSeconds: -1)
+            ),
+        ]
+        assertValidationError(invalidSwitch, equals: .invalidDuration(field: "Side switch"))
+
+        var invalidSplit = makePlan(work: 1, rounds: 2)
+        invalidSplit.roundOverrides = [
+            WorkoutRoundOverride(roundNumber: 1, sideConfiguration: .leftRight()),
+        ]
+        assertValidationError(invalidSplit, equals: .invalidDuration(field: "Split round work"))
+    }
+
     private func assertValidationError(
         _ plan: WorkoutPlan,
         equals expected: WorkoutValidationError,

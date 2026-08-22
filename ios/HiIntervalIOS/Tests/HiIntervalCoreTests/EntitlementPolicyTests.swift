@@ -42,6 +42,24 @@ final class EntitlementPolicyTests: XCTestCase {
             ),
             .monthlyCredit
         )
+
+        let monthlyCreditUsed = five + [date(2026, 8, 8)]
+        XCTAssertEqual(
+            policy.access(
+                for: UsageRecord(trialStartedAt: start, completedWorkoutDates: monthlyCreditUsed),
+                now: date(2026, 8, 10),
+                calendar: calendar
+            ),
+            .locked
+        )
+        XCTAssertEqual(
+            policy.access(
+                for: UsageRecord(trialStartedAt: start, completedWorkoutDates: monthlyCreditUsed),
+                now: date(2026, 9, 1),
+                calendar: calendar
+            ),
+            .monthlyCredit
+        )
     }
 
     func testFutureTrialEndsAtThirtyDayBoundary() {
@@ -69,6 +87,28 @@ final class EntitlementPolicyTests: XCTestCase {
         XCTAssertEqual(policy.access(for: usage, now: date(2026, 9, 1), calendar: calendar), .monthlyCredit)
     }
 
+    func testWorkoutAfterDateTrialExpiryConsumesMonthlyCredit() {
+        let policy = EntitlementPolicy(monetizationEnabled: true)
+        let start = date(2026, 1, 1)
+        let usage = UsageRecord(
+            trialStartedAt: start,
+            completedWorkoutDates: [
+                date(2026, 1, 2),
+                date(2026, 1, 3),
+                date(2026, 2, 2),
+            ]
+        )
+
+        XCTAssertEqual(
+            policy.access(for: usage, now: date(2026, 2, 20), calendar: calendar),
+            .locked
+        )
+        XCTAssertEqual(
+            policy.access(for: usage, now: date(2026, 3, 1), calendar: calendar),
+            .monthlyCredit
+        )
+    }
+
     func testPurchaseWinsAndUnstartedTrialReportsFullAllowance() {
         let policy = EntitlementPolicy(monetizationEnabled: true)
         XCTAssertEqual(
@@ -89,4 +129,3 @@ final class EntitlementPolicyTests: XCTestCase {
         calendar.date(from: DateComponents(year: year, month: month, day: day))!
     }
 }
-

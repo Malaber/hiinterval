@@ -29,7 +29,10 @@ enum AppTab: String, CaseIterable, Identifiable {
 
 struct RootView: View {
     @EnvironmentObject private var store: AppStore
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = AppTab.train
+    private let usesUITestAccessibilitySize = ProcessInfo.processInfo.arguments.contains("--ui-testing")
+        && ProcessInfo.processInfo.environment["HIINTERVAL_UI_TEST_DYNAMIC_TYPE"] == "accessibility5"
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -49,8 +52,18 @@ struct RootView: View {
             .tag(AppTab.settings)
             .tabItem { tabLabel(.settings) }
         }
+        .modifier(UITestDynamicTypeModifier(enabled: usesUITestAccessibilitySize))
+        .toolbarBackground(Color(uiColor: .systemBackground), for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
         .tint(HITheme.accent)
         .preferredColorScheme(store.data.preferences.appearance.colorScheme)
+        .task {
+            await synchronizeReminders()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await synchronizeReminders() }
+        }
         .alert(
             "HiInterval",
             isPresented: Binding(
@@ -72,4 +85,21 @@ struct RootView: View {
             .accessibilityIdentifier("tab.\(tab.rawValue)")
     }
 
+    private func synchronizeReminders() async {
+        _ = try? await store.reminders.synchronize(settings: store.data.preferences.reminders)
+    }
+
+}
+
+private struct UITestDynamicTypeModifier: ViewModifier {
+    let enabled: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if enabled {
+            content.dynamicTypeSize(.accessibility5)
+        } else {
+            content
+        }
+    }
 }

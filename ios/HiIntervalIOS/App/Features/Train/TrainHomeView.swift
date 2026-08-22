@@ -37,12 +37,12 @@ struct TrainHomeView: View {
             Text("READY WHEN YOU ARE")
                 .font(.caption.weight(.bold))
                 .tracking(1.4)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.primary)
             Text("Move with intent.")
                 .font(.system(.largeTitle, design: .rounded, weight: .bold))
             Text("Build exact intervals once. Stay focused while HiInterval handles every cue.")
                 .font(.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.primary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 8)
@@ -56,7 +56,7 @@ struct TrainHomeView: View {
                     Label("UP NEXT", systemImage: "waveform.path.ecg")
                         .font(.caption.weight(.bold))
                         .tracking(1)
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(.primary)
                     Text(plan.name)
                         .font(.system(.title2, design: .rounded, weight: .bold))
                         .accessibilityIdentifier("train.selected-plan-name")
@@ -85,6 +85,7 @@ struct TrainHomeView: View {
             } label: {
                 Label("Start workout", systemImage: "play.fill")
                     .font(.headline)
+                    .foregroundStyle(Color.black.opacity(0.88))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
             }
@@ -107,7 +108,7 @@ struct TrainHomeView: View {
                 .monospacedDigit()
             Text(label)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.primary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -119,14 +120,14 @@ struct TrainHomeView: View {
                 Text("LAST SESSION")
                     .font(.caption.weight(.bold))
                     .tracking(1.2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary)
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(entry.planName)
                             .font(.headline)
                         Text(entry.completedAt, style: .relative)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.primary)
                     }
                     Spacer()
                     Text(SessionFormat.duration(entry.elapsedDurationSeconds))
@@ -135,7 +136,10 @@ struct TrainHomeView: View {
                 }
             }
             .padding(18)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20))
+            .background(
+                Color(uiColor: .secondarySystemGroupedBackground),
+                in: RoundedRectangle(cornerRadius: 20)
+            )
         }
     }
 
@@ -147,7 +151,7 @@ struct TrainHomeView: View {
                 .foregroundStyle(Color.accentColor)
         }
         .font(.footnote)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(.primary)
         .padding(.horizontal, 4)
         .accessibilityIdentifier("train.free-status")
     }

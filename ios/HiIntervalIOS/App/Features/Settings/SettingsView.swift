@@ -3,7 +3,9 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var store: AppStore
+    @Environment(\.colorScheme) private var colorScheme
     @State private var reminderMessage: String?
+    @State private var reminderTask: Task<Void, Never>?
 
     private let weekdays: [(Int, String)] = [
         (2, "M"), (3, "T"), (4, "W"), (5, "T"), (6, "F"), (7, "S"), (1, "S"),
@@ -19,13 +21,16 @@ struct SettingsView: View {
                 appearanceSection
                 aboutSection
             }
+            // Liquid-glass tab bars allow scroll content to show through. Keep controls out
+            // of that visual layer so their contrast stays stable while the form is at rest.
+            .safeAreaPadding(.bottom, 64)
             .navigationTitle("Settings")
         }
         .accessibilityIdentifier("settings.screen")
     }
 
     private var accessSection: some View {
-        Section("Access") {
+        Section {
             HStack(spacing: 14) {
                 Image(systemName: "infinity")
                     .font(.title2.weight(.bold))
@@ -37,22 +42,28 @@ struct SettingsView: View {
                         .font(.headline)
                     Text("Everything is free. Future purchase rules are disabled.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.primary)
                 }
             }
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("settings.free-status")
+        } header: {
+            settingsHeader("Access")
         }
     }
 
     private var cuesSection: some View {
         Section {
-            Picker("Audio cues", selection: preferenceBinding(\.cueStyle)) {
-                Label("Tones", systemImage: "bell.fill").tag(CueStyle.tones)
-                Label("Spoken", systemImage: "waveform").tag(CueStyle.spoken)
-                Label("Silent", systemImage: "speaker.slash.fill").tag(CueStyle.silent)
+            Picker(selection: preferenceBinding(\.cueStyle)) {
+                Text("Tones").tag(CueStyle.tones)
+                Text("Spoken").tag(CueStyle.spoken)
+                Text("Silent").tag(CueStyle.silent)
+            } label: {
+                Text("Audio cues")
+                    .foregroundStyle(settingsTextColor)
             }
             .pickerStyle(.navigationLink)
+            .tint(.primary)
             .accessibilityIdentifier("settings.cues")
 
             if store.data.preferences.cueStyle == .spoken {
@@ -61,26 +72,41 @@ struct SettingsView: View {
                     Text("English").tag(CueLanguage.english)
                     Text("Deutsch").tag(CueLanguage.german)
                 }
+                .tint(.primary)
                 .accessibilityIdentifier("settings.cue-language")
             }
 
             Toggle("Haptic cues", isOn: preferenceBinding(\.hapticsEnabled))
                 .accessibilityIdentifier("settings.haptics")
+            Toggle("Lower other audio during cues", isOn: preferenceBinding(\.duckOtherAudio))
+                .accessibilityIdentifier("settings.duck-audio")
             Toggle("Final three-second countdown", isOn: preferenceBinding(\.countdownEnabled))
                 .accessibilityIdentifier("settings.countdown")
+
+            settingsNote("Spoken cues can follow device language or use English or German.")
+                .accessibilityIdentifier("settings.cues-note")
         } header: {
-            Text("Cues")
-        } footer: {
-            Text("Spoken cues can follow device language or use English or German.")
+            settingsHeader("Cues")
         }
     }
 
     private var behaviorSection: some View {
-        Section("Workout behavior") {
-            Toggle("Pause when app leaves foreground", isOn: preferenceBinding(\.pauseWhenInactive))
-                .accessibilityIdentifier("settings.pause-background")
-            Toggle("Keep screen awake during workouts", isOn: preferenceBinding(\.keepScreenAwake))
-                .accessibilityIdentifier("settings.keep-awake")
+        Section {
+            Toggle(isOn: preferenceBinding(\.pauseWhenInactive)) {
+                Text("Pause when app leaves foreground")
+                    .foregroundStyle(settingsTextColor)
+            }
+            .accessibilityIdentifier("settings.pause-background")
+            Toggle(isOn: preferenceBinding(\.keepScreenAwake)) {
+                Text("Keep screen awake during workouts")
+                    .foregroundStyle(settingsTextColor)
+            }
+            .accessibilityIdentifier("settings.keep-awake")
+
+            settingsNote("If background pause is off, elapsed time catches up when HiInterval returns; cues resume in the app.")
+                .accessibilityIdentifier("settings.background-behavior-note")
+        } header: {
+            settingsHeader("Workout behavior")
         }
     }
 
@@ -97,7 +123,7 @@ struct SettingsView: View {
                         } label: {
                             Text(label)
                                 .font(.subheadline.weight(.bold))
-                                .frame(width: 34, height: 34)
+                                .frame(width: 44, height: 44)
                                 .foregroundStyle(
                                     store.data.preferences.reminders.weekdays.contains(weekday)
                                         ? Color(uiColor: .systemBackground)
@@ -133,17 +159,17 @@ struct SettingsView: View {
             if let reminderMessage {
                 Text(reminderMessage)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary)
             }
+
+            settingsNote("Reminders repeat weekly and stay entirely on this device.")
         } header: {
-            Text("Scheduled reminders")
-        } footer: {
-            Text("Reminders repeat weekly and stay entirely on this device.")
+            settingsHeader("Scheduled reminders")
         }
     }
 
     private var appearanceSection: some View {
-        Section("Appearance") {
+        Section {
             Picker("Theme", selection: preferenceBinding(\.appearance)) {
                 Text("System").tag(AppearancePreference.system)
                 Text("Light").tag(AppearancePreference.light)
@@ -151,6 +177,8 @@ struct SettingsView: View {
             }
             .pickerStyle(.segmented)
             .accessibilityIdentifier("settings.appearance")
+        } header: {
+            settingsHeader("Appearance")
         }
     }
 
@@ -159,11 +187,31 @@ struct SettingsView: View {
             LabeledContent("App", value: "HiInterval")
             LabeledContent("Version", value: version)
             LabeledContent("Storage", value: "On device")
+            settingsNote("No account, tracking, ads, or network connection required.")
         } header: {
-            Text("About")
-        } footer: {
-            Text("No account, tracking, ads, or network connection required.")
+            settingsHeader("About")
         }
+    }
+
+    private func settingsHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.headline)
+            .textCase(nil)
+            .foregroundStyle(.primary)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private func settingsNote(_ message: String) -> some View {
+        Text(message)
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(settingsTextColor)
+            .fixedSize(horizontal: false, vertical: true)
+            .layoutPriority(1)
+            .padding(.vertical, 2)
+    }
+
+    private var settingsTextColor: Color {
+        colorScheme == .dark ? Color.white : Color.black
     }
 
     private var version: String {
@@ -232,12 +280,17 @@ struct SettingsView: View {
     }
 
     private func schedule(_ settings: ReminderSettings) {
-        Task {
+        reminderTask?.cancel()
+        reminderTask = Task {
             do {
+                try await Task.sleep(for: .milliseconds(200))
                 let accepted = try await store.reminders.synchronize(settings: settings)
+                guard !Task.isCancelled else { return }
                 reminderMessage = accepted
                     ? (settings.enabled ? "Reminder schedule updated." : nil)
                     : "Notification permission is disabled. Enable it in iOS Settings."
+            } catch is CancellationError {
+                return
             } catch {
                 reminderMessage = error.localizedDescription
             }

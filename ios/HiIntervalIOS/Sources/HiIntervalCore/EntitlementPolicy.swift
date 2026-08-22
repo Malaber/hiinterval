@@ -44,7 +44,10 @@ public struct EntitlementPolicy: Equatable, Sendable {
         }
 
         let trialEnd = calendar.date(byAdding: .day, value: trialDays, to: trialStart) ?? trialStart
-        let trialWorkouts = usage.completedWorkoutDates.filter { $0 >= trialStart }.count
+        let completedDuringDateWindow = usage.completedWorkoutDates
+            .filter { $0 >= trialStart && $0 < trialEnd && $0 <= now }
+            .sorted()
+        let trialWorkouts = min(completedDuringDateWindow.count, max(0, trialWorkoutLimit))
         if now < trialEnd, trialWorkouts < trialWorkoutLimit {
             let days = max(0, calendar.dateComponents([.day], from: now, to: trialEnd).day ?? 0)
             return .trial(
@@ -53,8 +56,14 @@ public struct EntitlementPolicy: Equatable, Sendable {
             )
         }
 
-        let alreadyUsedMonthlyCredit = usage.completedWorkoutDates.contains {
-            calendar.isDate($0, equalTo: now, toGranularity: .month) && $0 >= trialEnd
+        let creditsUsedAfterWorkoutLimit = completedDuringDateWindow
+            .dropFirst(max(0, trialWorkoutLimit))
+        let creditsUsedAfterDateLimit = usage.completedWorkoutDates.filter {
+            $0 >= trialEnd && $0 <= now
+        }
+        let completedCreditDates = Array(creditsUsedAfterWorkoutLimit) + creditsUsedAfterDateLimit
+        let alreadyUsedMonthlyCredit = completedCreditDates.contains {
+            calendar.isDate($0, equalTo: now, toGranularity: .month)
         }
         return alreadyUsedMonthlyCredit ? .locked : .monthlyCredit
     }
@@ -71,4 +80,3 @@ public enum WorkoutAccess: Equatable, Sendable {
         self != .locked
     }
 }
-

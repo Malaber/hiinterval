@@ -51,16 +51,23 @@ private struct ActiveWorkoutView: View {
                 .frame(width: 5)
                 .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                header
-                phaseRibbon
-                Spacer(minLength: 24)
-                timerBody
-                Spacer(minLength: 24)
-                controls
+            GeometryReader { geometry in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        header
+                        phaseRibbon
+                        Spacer(minLength: 24)
+                        timerBody
+                        Spacer(minLength: 24)
+                        controls
+                    }
+                    .frame(minHeight: max(0, geometry.size.height - 32))
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 16)
+                }
+                .scrollIndicators(.hidden)
+                .scrollBounceBehavior(.basedOnSize)
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 16)
         }
         .overlay {
             if controller.engine.state == .paused {
@@ -191,6 +198,17 @@ private struct ActiveWorkoutView: View {
                 .accessibilityLabel("Phase progress")
                 .accessibilityValue("\(Int(controller.engine.phaseProgress * 100)) percent")
 
+            HStack(spacing: 6) {
+                Image(systemName: "stopwatch")
+                Text("\(SessionFormat.duration(totalRemainingSeconds)) remaining")
+                    .monospacedDigit()
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(totalRemainingSeconds) seconds remaining in workout")
+            .accessibilityIdentifier("session.total-remaining")
+
             HStack {
                 if let position = phase?.position {
                     Label(
@@ -294,6 +312,16 @@ private struct ActiveWorkoutView: View {
         let kind = PhaseStyle.label(for: phase?.kind)
         let side = phase?.side.map { $0 == .left ? "left side" : "right side" } ?? ""
         return "\(remaining) seconds remaining, \(kind), \(side)"
+    }
+
+    private var totalRemainingSeconds: Int {
+        max(
+            0,
+            Int(ceil(
+                Double(controller.engine.timeline.totalDurationSeconds)
+                    - controller.engine.totalElapsedSeconds
+            ))
+        )
     }
 
     private func sideSuffix(_ side: WorkoutSide?) -> String {

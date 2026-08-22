@@ -141,11 +141,18 @@ public struct IntervalTimerEngine: Equatable, Sendable {
     }
 
     public mutating func restartPhase(at date: Date) -> [TimerEvent] {
-        guard let currentPhase, state == .running || state == .paused else { return [] }
+        guard state == .running || state == .paused else { return [] }
+        var events: [TimerEvent] = []
+        if state == .running {
+            events = tick(at: date)
+            guard state == .running else { return events }
+        }
+        guard let currentPhase else { return events }
         remainingSeconds = Double(currentPhase.durationSeconds)
         remainingAtAnchor = remainingSeconds
         if state == .running { anchorDate = date }
-        return [.phaseRestarted(currentPhase)]
+        events.append(.phaseRestarted(currentPhase))
+        return events
     }
 }
 

@@ -1,0 +1,70 @@
+name: HiIntervalApp
+options:
+  minimumXcodeGenVersion: 2.38.0
+packages:
+  HiIntervalCore:
+    path: .
+targets:
+  HiInterval:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: App
+      - path: Assets.xcassets
+      - path: AppIcon.icon
+        buildPhase: resources
+    dependencies:
+      - package: HiIntervalCore
+        product: HiIntervalCore
+    settings:
+      base:
+        PRODUCT_NAME: HiInterval
+        PRODUCT_BUNDLE_IDENTIFIER: de.malaber.hiinterval
+        DEVELOPMENT_TEAM: VWKG94374J
+        MARKETING_VERSION: 0.1.0
+        CURRENT_PROJECT_VERSION: 1
+        SWIFT_VERSION: 6.0
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        PROVISIONING_PROFILE_SPECIFIER: $(HIINTERVAL_APP_PROFILE_NAME)
+        GENERATE_INFOPLIST_FILE: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        INFOPLIST_KEY_CFBundleIconName: AppIcon
+        INFOPLIST_KEY_CFBundleDisplayName: HiInterval
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleLightContent
+        INFOPLIST_KEY_UIRequiresFullScreen: NO
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.healthcare-fitness
+  HiIntervalUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: UITests
+    dependencies:
+      - target: HiInterval
+    settings:
+      base:
+        PRODUCT_NAME: HiIntervalUITests
+        PRODUCT_BUNDLE_IDENTIFIER: de.malaber.hiinterval.ui-tests
+        DEVELOPMENT_TEAM: VWKG94374J
+        SWIFT_VERSION: 6.0
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: HiInterval
+schemes:
+  HiInterval:
+    build:
+      targets:
+        HiInterval: all
+    test:
+      gatherCoverageData: false
+      environmentVariables:
+        HIINTERVAL_UI_TEST_ARTIFACT_DIR: $(HIINTERVAL_UI_TEST_ARTIFACT_DIR)
+      targets:
+        - name: HiIntervalUITests

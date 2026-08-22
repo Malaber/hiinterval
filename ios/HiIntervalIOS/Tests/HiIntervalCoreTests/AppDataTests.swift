@@ -72,6 +72,12 @@ final class AppDataTests: XCTestCase {
         XCTAssertEqual(preferences.cueLanguage, .system)
     }
 
+    func testPreferencesDecodeMissingFieldsWithSafeDefaults() throws {
+        let preferences = try JSONDecoder().decode(UserPreferences.self, from: Data("{}".utf8))
+
+        XCTAssertEqual(preferences, UserPreferences())
+    }
+
     private func makeEntry(date: Date, seconds: Int = 60) -> WorkoutHistoryEntry {
         WorkoutHistoryEntry(
             planID: UUID(),

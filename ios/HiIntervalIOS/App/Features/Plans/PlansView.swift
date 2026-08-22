@@ -106,11 +106,15 @@ struct PlansView: View {
                     .font(.headline)
                 Text("Every interval, side switch, and recovery can be tuned to your workout.")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary)
             }
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 8)
+        .padding(14)
+        .background(
+            Color(uiColor: .secondarySystemBackground),
+            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+        )
     }
 
     private var emptyState: some View {
@@ -168,6 +172,10 @@ private struct PlanEditorDestination: Identifiable {
 }
 
 private struct PlanCard: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .headline) private var titleSize = 17
+
     let plan: WorkoutPlan
     let isSelected: Bool
     let onSelect: () -> Void
@@ -185,32 +193,26 @@ private struct PlanCard: View {
             HStack(alignment: .top, spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 14)
-                        .fill(isSelected ? PlanPalette.accent : PlanPalette.secondary.opacity(0.16))
+                        .fill(colorScheme == .dark ? Color.white : Color.black)
                     Image(systemName: isSelected ? "waveform.path.ecg" : "figure.highintensity.intervaltraining")
                         .font(.title3.weight(.semibold))
-                        .foregroundStyle(isSelected ? Color.white : PlanPalette.secondary)
+                        .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
                 }
                 .frame(width: 48, height: 48)
+                .overlay {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(PlanPalette.accent, lineWidth: 3)
+                    }
+                }
+                .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 8) {
-                        Text(plan.name)
-                            .font(.headline)
-                            .lineLimit(2)
-                        if isSelected {
-                            Text("READY")
-                                .font(.caption2.bold())
-                                .tracking(0.8)
-                                .foregroundStyle(PlanPalette.accent)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 4)
-                                .background(PlanPalette.accent.opacity(0.14), in: Capsule())
-                        }
-                    }
+                    titleBlock
                     Text(plan.exercises.prefix(3).map(\.name).joined(separator: " · "))
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                        .foregroundStyle(PlanPalette.cardText(for: colorScheme))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)
                 Menu {
@@ -230,40 +232,41 @@ private struct PlanCard: View {
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.headline)
-                        .frame(width: 38, height: 38)
+                        .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Options for \(plan.name)")
                 .accessibilityIdentifier("plan.menu.\(plan.id.uuidString)")
             }
 
-            HStack(spacing: 0) {
-                PlanMetric(icon: "clock", value: duration, label: "Duration")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                PlanMetric(icon: "repeat", value: "\(plan.roundCount)", label: "Rounds")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                PlanMetric(icon: "figure.run", value: "\(plan.exercises.count)", label: "Exercises")
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 12) {
+                    planMetrics
+                }
+            } else {
+                HStack(spacing: 0) {
+                    planMetrics
+                }
             }
 
-            HStack(spacing: 10) {
-                Button(action: onSelect) {
-                    Label(isSelected ? "Selected" : "Use this plan", systemImage: isSelected ? "checkmark.circle.fill" : "play.circle.fill")
-                        .frame(maxWidth: .infinity)
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 10) {
+                    selectionButton
+                    editButton
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(isSelected)
-                .accessibilityIdentifier("plan.select.\(plan.id.uuidString)")
-
-                Button(action: onEdit) {
-                    Label("Edit", systemImage: "slider.horizontal.3")
+            } else {
+                HStack(spacing: 10) {
+                    selectionButton
+                    editButton
                 }
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier("plan.edit.\(plan.id.uuidString)")
             }
         }
         .padding(16)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .foregroundStyle(PlanPalette.cardText(for: colorScheme))
+        .background(
+            PlanPalette.cardSurface(for: colorScheme),
+            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+        )
         .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(isSelected ? PlanPalette.accent.opacity(0.7) : Color.primary.opacity(0.08), lineWidth: isSelected ? 1.5 : 1)
@@ -274,7 +277,82 @@ private struct PlanCard: View {
             Button("Duplicate", action: onDuplicate)
             Button("Delete", role: .destructive, action: onDelete)
         }
+        // Give the card its own accessibility container. Without `.contain`, applying an
+        // identifier to this layout container can flatten or overwrite the identifiers of
+        // its Button descendants when SwiftUI switches between the HStack and large-type
+        // VStack layouts.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("plan.card.\(plan.id.uuidString)")
+    }
+
+    @ViewBuilder
+    private var titleBlock: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 6) {
+                planTitle
+                readyBadge
+            }
+        } else {
+            HStack(spacing: 8) {
+                planTitle
+                readyBadge
+            }
+        }
+    }
+
+    private var planTitle: some View {
+        Text(plan.name)
+            .font(.system(size: titleSize, weight: .semibold))
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private var readyBadge: some View {
+        if isSelected {
+            Text("READY")
+                .font(.caption2.bold())
+                .tracking(0.8)
+                .foregroundStyle(PlanPalette.cardText(for: colorScheme))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(PlanPalette.accent.opacity(0.14), in: Capsule())
+        }
+    }
+
+    @ViewBuilder
+    private var planMetrics: some View {
+        PlanMetric(icon: "clock", value: duration, label: "Duration", showsIcon: false)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        PlanMetric(icon: "repeat", value: "\(plan.roundCount)", label: "Rounds", showsIcon: false)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        PlanMetric(icon: "figure.run", value: "\(plan.exercises.count)", label: "Exercises", showsIcon: false)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var selectionButton: some View {
+        Button(action: onSelect) {
+            Label(
+                isSelected ? "Selected" : "Use this plan",
+                systemImage: isSelected ? "checkmark.circle.fill" : "play.circle.fill"
+            )
+            .font(.headline)
+            .foregroundStyle(Color.black.opacity(0.9))
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .padding(.horizontal, 12)
+            .background(PlanPalette.accent, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(isSelected ? "Current plan" : "")
+        .accessibilityIdentifier("plan.select.\(plan.id.uuidString)")
+    }
+
+    private var editButton: some View {
+        Button(action: onEdit) {
+            Label("Edit", systemImage: "slider.horizontal.3")
+                .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil)
+        }
+        .buttonStyle(.bordered)
+        .tint(PlanPalette.cardText(for: colorScheme))
+        .accessibilityIdentifier("plan.edit.\(plan.id.uuidString)")
     }
 }

@@ -227,7 +227,6 @@ public extension WorkoutPlan {
             }
         }
 
-
         for override in roundOverrides {
             guard (1...roundCount).contains(override.roundNumber) else {
                 throw WorkoutValidationError.invalidRoundCount

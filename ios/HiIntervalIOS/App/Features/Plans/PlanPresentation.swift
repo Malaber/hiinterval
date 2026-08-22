@@ -6,6 +6,18 @@ enum PlanPalette {
     static let accent = Color(red: 0.18, green: 0.76, blue: 0.67)
     static let secondary = Color(red: 0.46, green: 0.38, blue: 0.96)
     static let warning = Color(red: 0.96, green: 0.55, blue: 0.20)
+
+    static func cardSurface(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark
+            ? Color(red: 0.07, green: 0.085, blue: 0.10)
+            : Color.white
+    }
+
+    static func cardText(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark
+            ? Color(red: 0.97, green: 0.98, blue: 0.99)
+            : Color(red: 0.04, green: 0.05, blue: 0.06)
+    }
 }
 
 enum PlanFormatting {
@@ -66,18 +78,27 @@ enum PlanFormatting {
 }
 
 struct PlanMetric: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let icon: String
     let value: String
     let label: String
+    var showsIcon = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Label(value, systemImage: icon)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
+            HStack(spacing: 5) {
+                if showsIcon {
+                    Image(systemName: icon)
+                        .accessibilityHidden(true)
+                }
+                Text(value)
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(PlanPalette.cardText(for: colorScheme))
             Text(label)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PlanPalette.cardText(for: colorScheme))
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(label), \(value)")

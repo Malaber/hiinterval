@@ -109,6 +109,73 @@ final class IntervalTimerEngineTests: XCTestCase {
         XCTAssertEqual(engine.totalProgress, 1)
     }
 
+    func testProgressAndNextPhaseExposeGlanceableState() {
+        var engine = makeEngine(durations: [10, 5])
+
+        XCTAssertEqual(engine.nextPhase, engine.timeline.phases[1])
+        XCTAssertEqual(engine.phaseProgress, 0)
+        _ = engine.start(at: start)
+        _ = engine.tick(at: start.addingTimeInterval(2.5))
+        XCTAssertEqual(engine.phaseProgress, 0.25, accuracy: 0.0001)
+        XCTAssertEqual(engine.totalElapsedSeconds, 2.5, accuracy: 0.0001)
+
+        _ = engine.skip(at: start.addingTimeInterval(2.5))
+        XCTAssertNil(engine.nextPhase)
+    }
+
+    func testInvalidStateActionsAreNoOps() {
+        var engine = makeEngine(durations: [2])
+
+        XCTAssertEqual(engine.tick(at: start), [])
+        XCTAssertEqual(engine.pause(at: start), [])
+        XCTAssertEqual(engine.resume(at: start), [])
+        XCTAssertEqual(engine.skip(at: start), [])
+        XCTAssertEqual(engine.restartPhase(at: start), [])
+
+        _ = engine.start(at: start)
+        XCTAssertEqual(engine.start(at: start), [])
+        _ = engine.pause(at: start)
+        XCTAssertEqual(engine.pause(at: start), [])
+        _ = engine.resume(at: start)
+        XCTAssertEqual(engine.resume(at: start), [])
+    }
+
+    func testPauseAndSkipPropagateCompletionReachedByClock() {
+        var pausing = makeEngine(durations: [1])
+        _ = pausing.start(at: start)
+        XCTAssertEqual(pausing.pause(at: start.addingTimeInterval(2)), [.workoutCompleted])
+
+        var skipping = makeEngine(durations: [1])
+        _ = skipping.start(at: start)
+        XCTAssertEqual(skipping.skip(at: start.addingTimeInterval(2)), [.workoutCompleted])
+    }
+
+    func testDelayedRestartAdvancesThenRestartsCurrentPhase() {
+        var engine = makeEngine(durations: [2, 3])
+        let secondPhase = engine.timeline.phases[1]
+        _ = engine.start(at: start)
+
+        let events = engine.restartPhase(at: start.addingTimeInterval(3))
+
+        XCTAssertEqual(engine.currentPhaseIndex, 1)
+        XCTAssertEqual(engine.remainingSeconds, 3)
+        XCTAssertEqual(events, [.phaseStarted(secondPhase), .phaseRestarted(secondPhase)])
+    }
+
+    func testDelayedRestartPropagatesCompletionWithoutRestarting() {
+        var engine = makeEngine(durations: [2, 3])
+        _ = engine.start(at: start)
+
+        let events = engine.restartPhase(at: start.addingTimeInterval(8))
+
+        XCTAssertEqual(engine.state, .finished)
+        XCTAssertEqual(events.last, .workoutCompleted)
+        XCTAssertFalse(events.contains { event in
+            if case .phaseRestarted = event { return true }
+            return false
+        })
+    }
+
     private func makeEngine(durations: [Int]) -> IntervalTimerEngine {
         let phases = durations.enumerated().map { index, duration in
             WorkoutPhase(
@@ -123,4 +190,3 @@ final class IntervalTimerEngineTests: XCTestCase {
         )
     }
 }
-

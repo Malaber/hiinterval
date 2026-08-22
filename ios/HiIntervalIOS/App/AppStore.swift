@@ -15,7 +15,6 @@ final class AppStore: ObservableObject {
 
     @Published private(set) var lastErrorMessage: String?
 
-    let cues: WorkoutCueService
     let reminders: ReminderScheduler
 
     private let defaults: UserDefaults
@@ -28,13 +27,11 @@ final class AppStore: ObservableObject {
         arguments: [String] = ProcessInfo.processInfo.arguments,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         now: @escaping () -> Date = { Date() },
-        cues: WorkoutCueService = WorkoutCueService(),
         reminders: ReminderScheduler = ReminderScheduler()
     ) {
         self.defaults = defaults
         self.persistenceKey = persistenceKey
         self.now = now
-        self.cues = cues
         self.reminders = reminders
 
         let launchMode = UITestLaunchMode(arguments: arguments, environment: environment)
@@ -63,8 +60,9 @@ final class AppStore: ObservableObject {
             data = Self.normalized(try AppDataCodec.decode(encoded))
             lastErrorMessage = nil
         } catch {
+            defaults.set(encoded, forKey: "\(persistenceKey).recovery")
             data = AppData.starter(now: now())
-            lastErrorMessage = "Saved data could not be opened. A fresh starter workout was created."
+            lastErrorMessage = "Saved data could not be opened. A recovery copy was kept and a fresh starter workout was created."
             persist()
         }
     }
@@ -134,9 +132,14 @@ final class AppStore: ObservableObject {
             updateHistory(entry)
             return
         }
-        data.history.append(entry)
-        data.history.sort { $0.completedAt > $1.completedAt }
-        data.usage.completedWorkoutDates.append(entry.completedAt)
+
+        // Commit history and entitlement usage as one persisted AppData value. A workout
+        // must never appear in history without also counting toward a future access policy.
+        var updated = data
+        updated.history.append(entry)
+        updated.history.sort { $0.completedAt > $1.completedAt }
+        updated.usage.completedWorkoutDates.append(entry.completedAt)
+        data = updated
     }
 
     func updateHistory(_ entry: WorkoutHistoryEntry) {
@@ -144,8 +147,10 @@ final class AppStore: ObservableObject {
             addHistory(entry)
             return
         }
-        data.history[index] = entry
-        data.history.sort { $0.completedAt > $1.completedAt }
+        var updated = data
+        updated.history[index] = entry
+        updated.history.sort { $0.completedAt > $1.completedAt }
+        data = updated
     }
 
     func deleteHistory(id: UUID) {
