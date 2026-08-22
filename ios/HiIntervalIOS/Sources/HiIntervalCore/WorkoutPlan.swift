@@ -239,6 +239,12 @@ public extension WorkoutPlan {
                sideConfiguration.switchSeconds < 0 {
                 throw WorkoutValidationError.invalidDuration(field: "Side switch")
             }
+            if override.sideConfiguration?.mode == .leftRight,
+               exercises.contains(where: {
+                   (override.workSeconds ?? $0.resolvedWorkSeconds(default: defaultWorkSeconds)) < 2
+               }) {
+                throw WorkoutValidationError.invalidDuration(field: "Split round work")
+            }
         }
     }
 }

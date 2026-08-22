@@ -48,6 +48,30 @@ final class AppDataTests: XCTestCase {
         )
     }
 
+    func testPreferencesDecodeOlderDataWithoutCueLanguage() throws {
+        let json = """
+        {
+          "appearance": "system",
+          "countdownEnabled": true,
+          "cueStyle": "spoken",
+          "hapticsEnabled": true,
+          "keepScreenAwake": true,
+          "pauseWhenInactive": false,
+          "reminders": {
+            "enabled": false,
+            "hour": 18,
+            "minute": 0,
+            "weekdays": []
+          }
+        }
+        """
+
+        let preferences = try JSONDecoder().decode(UserPreferences.self, from: Data(json.utf8))
+
+        XCTAssertEqual(preferences.cueStyle, .spoken)
+        XCTAssertEqual(preferences.cueLanguage, .system)
+    }
+
     private func makeEntry(date: Date, seconds: Int = 60) -> WorkoutHistoryEntry {
         WorkoutHistoryEntry(
             planID: UUID(),

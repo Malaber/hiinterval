@@ -37,6 +37,7 @@ public struct WorkoutHistoryEntry: Codable, Equatable, Identifiable, Sendable {
     public var elapsedDurationSeconds: Int
     public var roundCount: Int
     public var exerciseCount: Int
+    public var planSnapshot: WorkoutPlan?
 
     public init(
         id: UUID = UUID(),
@@ -47,7 +48,8 @@ public struct WorkoutHistoryEntry: Codable, Equatable, Identifiable, Sendable {
         plannedDurationSeconds: Int,
         elapsedDurationSeconds: Int,
         roundCount: Int,
-        exerciseCount: Int
+        exerciseCount: Int,
+        planSnapshot: WorkoutPlan? = nil
     ) {
         self.id = id
         self.planID = planID
@@ -58,11 +60,13 @@ public struct WorkoutHistoryEntry: Codable, Equatable, Identifiable, Sendable {
         self.elapsedDurationSeconds = elapsedDurationSeconds
         self.roundCount = roundCount
         self.exerciseCount = exerciseCount
+        self.planSnapshot = planSnapshot
     }
 }
 
 public struct UserPreferences: Codable, Equatable, Sendable {
     public var cueStyle: CueStyle
+    public var cueLanguage: CueLanguage
     public var hapticsEnabled: Bool
     public var pauseWhenInactive: Bool
     public var countdownEnabled: Bool
@@ -72,6 +76,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
 
     public init(
         cueStyle: CueStyle = .tones,
+        cueLanguage: CueLanguage = .system,
         hapticsEnabled: Bool = true,
         pauseWhenInactive: Bool = false,
         countdownEnabled: Bool = true,
@@ -80,6 +85,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
         reminders: ReminderSettings = ReminderSettings()
     ) {
         self.cueStyle = cueStyle
+        self.cueLanguage = cueLanguage
         self.hapticsEnabled = hapticsEnabled
         self.pauseWhenInactive = pauseWhenInactive
         self.countdownEnabled = countdownEnabled
@@ -87,12 +93,53 @@ public struct UserPreferences: Codable, Equatable, Sendable {
         self.appearance = appearance
         self.reminders = reminders
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case cueStyle
+        case cueLanguage
+        case hapticsEnabled
+        case pauseWhenInactive
+        case countdownEnabled
+        case keepScreenAwake
+        case appearance
+        case reminders
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        cueStyle = try values.decodeIfPresent(CueStyle.self, forKey: .cueStyle) ?? .tones
+        cueLanguage = try values.decodeIfPresent(CueLanguage.self, forKey: .cueLanguage) ?? .system
+        hapticsEnabled = try values.decodeIfPresent(Bool.self, forKey: .hapticsEnabled) ?? true
+        pauseWhenInactive = try values.decodeIfPresent(Bool.self, forKey: .pauseWhenInactive) ?? false
+        countdownEnabled = try values.decodeIfPresent(Bool.self, forKey: .countdownEnabled) ?? true
+        keepScreenAwake = try values.decodeIfPresent(Bool.self, forKey: .keepScreenAwake) ?? true
+        appearance = try values.decodeIfPresent(AppearancePreference.self, forKey: .appearance) ?? .system
+        reminders = try values.decodeIfPresent(ReminderSettings.self, forKey: .reminders) ?? ReminderSettings()
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(cueStyle, forKey: .cueStyle)
+        try values.encode(cueLanguage, forKey: .cueLanguage)
+        try values.encode(hapticsEnabled, forKey: .hapticsEnabled)
+        try values.encode(pauseWhenInactive, forKey: .pauseWhenInactive)
+        try values.encode(countdownEnabled, forKey: .countdownEnabled)
+        try values.encode(keepScreenAwake, forKey: .keepScreenAwake)
+        try values.encode(appearance, forKey: .appearance)
+        try values.encode(reminders, forKey: .reminders)
+    }
 }
 
 public enum CueStyle: String, Codable, CaseIterable, Sendable {
     case tones
     case spoken
     case silent
+}
+
+public enum CueLanguage: String, Codable, CaseIterable, Sendable {
+    case system
+    case english
+    case german
 }
 
 public enum AppearancePreference: String, Codable, CaseIterable, Sendable {
@@ -134,4 +181,3 @@ public enum AppDataCodec {
         return try decoder.decode(AppData.self, from: data)
     }
 }
-

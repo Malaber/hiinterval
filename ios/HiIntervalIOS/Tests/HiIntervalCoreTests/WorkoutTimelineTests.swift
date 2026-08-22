@@ -20,17 +20,17 @@ final class WorkoutTimelineTests: XCTestCase {
             [
                 .warmUp,
                 .work, .recovery,
-                .work, .recovery,
+                .work,
                 .roundRecovery,
                 .work, .recovery,
-                .work, .recovery,
+                .work,
                 .coolDown,
             ]
         )
-        XCTAssertEqual(timeline.totalDurationSeconds, 68)
+        XCTAssertEqual(timeline.totalDurationSeconds, 62)
         XCTAssertEqual(timeline.phases[1].position?.roundIndex, 1)
-        XCTAssertEqual(timeline.phases[7].position?.roundIndex, 2)
-        XCTAssertEqual(timeline.phases[8].position?.exerciseIndex, 2)
+        XCTAssertEqual(timeline.phases[6].position?.roundIndex, 2)
+        XCTAssertEqual(timeline.phases[7].position?.exerciseIndex, 2)
     }
 
     func testExpandsLeftRightStepAndPreservesTotalWorkDuration() throws {

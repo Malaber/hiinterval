@@ -88,7 +88,10 @@ public struct WorkoutTimeline: Codable, Equatable, Sendable {
                 let recoverySeconds = exercise.resolvedRecoverySeconds(
                     default: plan.defaultRecoverySeconds
                 )
-                if recoverySeconds > 0 {
+                let isLastExercise = stepIndex == plan.exercises.count
+                let roundRestReplacesRecovery = isLastExercise
+                    && (roundIndex == plan.roundCount || plan.roundRecoverySeconds > 0)
+                if recoverySeconds > 0, !roundRestReplacesRecovery {
                     result.append(
                         WorkoutPhase(
                             kind: .recovery,
