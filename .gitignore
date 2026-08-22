@@ -1,0 +1,10 @@
+.DS_Store
+.build/
+DerivedData/
+*.xcresult
+*.ipa
+*.xcarchive
+ios/HiIntervalIOS/.swiftpm/
+e2e-artifacts/*
+!e2e-artifacts/.gitkeep
+
