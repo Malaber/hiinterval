@@ -56,4 +56,5 @@ CI runs Swift package coverage in Linux Swift 6.2 plus full XCUITest on named iP
 
 Current suite contains 36 portable core tests and 10 XCUITest flows. Core tests cover plans/timeline expansion, drift-safe timer behavior, persistence/history/safe export, active duration, and future entitlement policy. UI flows cover empty states, plan/library/history management, settings persistence, full training transitions, accessibility audit, and largest Dynamic Type.
 
-See [architecture](docs/architecture.md) and [delivery/testing](docs/delivery.md).
+See [architecture](docs/architecture.md), [delivery/testing](docs/delivery.md), and the
+[App Store Connect/TestFlight setup](docs/app-store-connect-setup.md).

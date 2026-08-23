@@ -22,18 +22,10 @@
     {
       "layers" : [
         {
-          "image-name" : "HiInterval.svg",
-          "name" : "Interval lanes"
+          "image-name" : "HiInterval.png",
+          "name" : "HiInterval"
         }
-      ],
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.24
-      },
-      "translucency" : {
-        "enabled" : true,
-        "value" : 0.08
-      }
+      ]
     }
   ],
   "supported-platforms" : {

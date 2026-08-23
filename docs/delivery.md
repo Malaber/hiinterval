@@ -23,6 +23,11 @@ UI tests launch with deterministic `--ui-testing` fixture mode. Tests must query
 - `ios-checks.yml`: reusable Linux coverage plus macOS iPhone/iPad XCUITest matrix.
 - `testflight.yml`: accepts only successful checks. Successful `main` push uploads when repository variable `TESTFLIGHT_UPLOAD_ENABLED` is `true`; manual upload reruns all checks first and must also target current `main`. GitHub environment `testflight` can require approval.
 
+Until the App Store Connect record and signing settings are provisioned, leave
+`TESTFLIGHT_UPLOAD_ENABLED` unset. Pull requests never upload. Follow the
+[one-time App Store Connect setup](app-store-connect-setup.md), perform one manual upload from
+`main`, then enable automatic delivery.
+
 TestFlight variables:
 
 - `TESTFLIGHT_UPLOAD_ENABLED`: `true` for automatic successful-`main` delivery.
@@ -41,6 +46,6 @@ TestFlight secrets:
 - `APP_STORE_CONNECT_ISSUER_ID`
 - `APP_STORE_CONNECT_PRIVATE_KEY`: complete `.p8` contents.
 
-Workflow scopes secrets only to validation and steps that consume them, imports signing material into temporary keychain, archives with manual signing, exports IPA, uploads signed archive evidence for 14 days, sends IPA with `altool --upload-package` and App Store Connect API key, then removes temporary key/profile files.
+Workflow scopes secrets only to validation and steps that consume them, imports signing material into temporary keychain, archives with manual signing, exports IPA, uploads signed archive evidence for 14 days, sends IPA with Planini's proven `altool --upload-app` and App Store Connect API-key flow, then removes temporary key/profile files.
 
 Superseded CI runs cancel by event/ref. Both automatic and manual delivery verify current `origin/main` before installing signing tools, then fetch and recheck after export immediately before upload. A commit superseded during either checks or archive cannot reach TestFlight.

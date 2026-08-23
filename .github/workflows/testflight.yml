@@ -255,13 +255,10 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
           xcrun altool \
-            --upload-package "${{ steps.artifact.outputs.delivery_dir }}/${{ steps.artifact.outputs.base }}.ipa" \
-            --platform ios \
+            --upload-app \
+            --type ios \
+            --file "${{ steps.artifact.outputs.delivery_dir }}/${{ steps.artifact.outputs.base }}.ipa" \
             --apple-id "$APP_STORE_CONNECT_APP_ID" \
-            --bundle-id "$IOS_BUNDLE_IDENTIFIER" \
-            --bundle-version "$IOS_BUILD_NUMBER" \
-            --bundle-short-version-string "$IOS_MARKETING_VERSION" \
-            --team-id "$APPLE_TEAM_ID" \
             --apiKey "$APP_STORE_CONNECT_KEY_ID" \
             --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
       - name: Remove temporary signing material
