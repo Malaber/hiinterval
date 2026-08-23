@@ -59,17 +59,38 @@ class HiIntervalUITestCase: XCTestCase {
     }
 
     func selectTab(_ name: String, file: StaticString = #filePath, line: UInt = #line) {
+        if tapHittableTab(name) {
+            waitForExistence(element("\(name).screen"), file: file, line: line)
+            return
+        }
+
+        // A completed iOS 26 accessibility audit can transiently leave the app's native tab
+        // buttons absent from the automation tree. A fresh session restores that tree while
+        // retaining the isolated fixture and any settings changed by the test.
+        relaunchPreservingData()
+        if element("\(name).screen").exists {
+            return
+        }
+        if tapHittableTab(name) {
+            waitForExistence(element("\(name).screen"), file: file, line: line)
+            return
+        }
+        XCTFail("No hittable tab labeled '\(name.capitalized)'", file: file, line: line)
+    }
+
+    private func tapHittableTab(_ name: String) -> Bool {
         let matches = app.buttons.matching(NSPredicate(format: "label == %@", name.capitalized))
-        waitForExistence(matches.firstMatch, file: file, line: line)
+        guard matches.firstMatch.waitForExistence(timeout: 3) else {
+            return false
+        }
         for index in 0..<matches.count {
             let candidate = matches.element(boundBy: index)
             if candidate.isHittable {
                 candidate.tap()
-                waitForExistence(element("\(name).screen"), file: file, line: line)
-                return
+                return true
             }
         }
-        XCTFail("No hittable tab labeled '\(name.capitalized)'", file: file, line: line)
+        return false
     }
 
     @discardableResult
@@ -289,6 +310,30 @@ class HiIntervalUITestCase: XCTestCase {
             on: target,
             timeout: 3,
             message: "Could not scroll element into view: \(target)",
+            file: file,
+            line: line
+        )
+    }
+
+    func scrollToTop(
+        _ anchor: XCUIElement,
+        maxSwipes: Int = 8,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        scrollToHittable(anchor, file: file, line: line)
+        for _ in 0..<maxSwipes {
+            let previousY = anchor.frame.minY
+            app.swipeDown()
+            if anchor.exists, abs(anchor.frame.minY - previousY) < 1 {
+                break
+            }
+        }
+        wait(
+            for: NSPredicate(format: "exists == true AND hittable == true"),
+            on: anchor,
+            timeout: 3,
+            message: "Could not restore scroll view to its top anchor: \(anchor)",
             file: file,
             line: line
         )

@@ -30,7 +30,7 @@ final class AccessibilityUITests: HiIntervalUITestCase {
         findings += try auditFindings(on: "Settings", colorScheme: "light")
 
         selectSegment(control: "settings.appearance", option: "Dark")
-        scrollToHittable(element("settings.free-status"))
+        scrollToTop(element("settings.free-status"))
         selectTab("train")
         findings += try auditFindings(on: "Train", colorScheme: "dark")
         selectTab("plans")

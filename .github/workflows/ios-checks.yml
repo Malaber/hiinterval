@@ -32,7 +32,7 @@ jobs:
   ios_ui_e2e:
     name: XCUITest · ${{ matrix.platform }}
     runs-on: macos-26
-    timeout-minutes: 35
+    timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:

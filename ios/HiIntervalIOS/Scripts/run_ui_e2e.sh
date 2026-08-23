@@ -78,6 +78,7 @@ fi
 
 test_status=1
 used_attempts=0
+test_selections=("$only_testing")
 for ((attempt = 1; attempt <= attempts; attempt++)); do
   used_attempts=$attempt
   rm -rf "$result_bundle"
@@ -88,6 +89,10 @@ for ((attempt = 1; attempt <= attempts; attempt++)); do
   xcrun simctl uninstall "$device_udid" de.malaber.hiinterval >/dev/null 2>&1 || true
 
   test_log="$artifact_path/test-attempt-$attempt.log"
+  only_testing_args=()
+  for selection in "${test_selections[@]}"; do
+    only_testing_args+=("-only-testing:$selection")
+  done
   set +e
   xcodebuild \
     -project HiIntervalApp.xcodeproj \
@@ -98,7 +103,7 @@ for ((attempt = 1; attempt <= attempts; attempt++)); do
     -resultBundlePath "$result_bundle" \
     -parallel-testing-enabled NO \
     -maximum-parallel-testing-workers 1 \
-    -only-testing:"$only_testing" \
+    "${only_testing_args[@]}" \
     CODE_SIGNING_ALLOWED=NO \
     test-without-building \
     2>&1 | tee "$test_log"
@@ -112,7 +117,23 @@ for ((attempt = 1; attempt <= attempts; attempt++)); do
     if [[ -d "$result_bundle" ]]; then
       mv "$result_bundle" "$artifact_path/TestResults-attempt-$attempt.xcresult"
     fi
-    echo "Retrying isolated UI test run ($attempt/$attempts)..."
+    failed_tests=()
+    while IFS= read -r failed_test; do
+      if [[ -n "$failed_test" ]]; then
+        failed_tests+=("$failed_test")
+      fi
+    done < <(
+      sed -nE \
+        "s/^Test Case '-\[([^.]*)\.([^ ]+) ([^]]+)\]' failed.*/\1\/\2\/\3/p" \
+        "$test_log"
+    )
+    if [[ ${#failed_tests[@]} -gt 0 ]]; then
+      test_selections=("${failed_tests[@]}")
+      echo "Retrying failed UI tests ($attempt/$attempts): ${test_selections[*]}"
+    else
+      test_selections=("$only_testing")
+      echo "Retrying full isolated UI test run ($attempt/$attempts)..."
+    fi
   fi
 done
 
