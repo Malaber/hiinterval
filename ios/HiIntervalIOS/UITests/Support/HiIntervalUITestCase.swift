@@ -455,11 +455,34 @@ class HiIntervalUITestCase: XCTestCase {
             // SwiftUI exposes the full Form row as the switch element. Its center can land on
             // the label without toggling. Use a fixed trailing inset: a percentage misses the
             // actual switch by roughly 100 points on a full-width iPad Form row.
-            toggle.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
-                .withOffset(CGVector(dx: -28, dy: 0))
-                .tap()
+            for attempt in 0..<3 {
+                toggle.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
+                    .withOffset(CGVector(dx: -28, dy: 0))
+                    .tap()
+                if valueMatches(expected, on: toggle, timeout: 2) {
+                    return
+                }
+                if attempt == 0 {
+                    // iOS 26 can call a row hittable while its switch is still inside a Form
+                    // boundary. Move it toward the viewport center before the bounded retry.
+                    dragScroll(up: toggle.frame.midY >= app.frame.midY)
+                    scrollToHittable(toggle, file: file, line: line)
+                }
+            }
         }
         waitForValue(expected, on: toggle, file: file, line: line)
+    }
+
+    private func valueMatches(
+        _ expected: String,
+        on target: XCUIElement,
+        timeout: TimeInterval
+    ) -> Bool {
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == true AND value == %@", expected),
+            object: target
+        )
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
     func capture(_ name: String) {
