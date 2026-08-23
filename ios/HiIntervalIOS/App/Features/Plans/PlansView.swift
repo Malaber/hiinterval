@@ -92,6 +92,7 @@ struct PlansView: View {
             .padding(.bottom, 32)
         }
         .scrollIndicators(.hidden)
+        .hiStableScrollContrast()
     }
 
     private var intro: some View {
@@ -209,10 +210,15 @@ private struct PlanCard: View {
 
                 VStack(alignment: .leading, spacing: 5) {
                     titleBlock
-                    Text(plan.exercises.prefix(3).map(\.name).joined(separator: " · "))
-                        .font(.subheadline)
-                        .foregroundStyle(PlanPalette.cardText(for: colorScheme))
-                        .fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(plan.exercises.prefix(3)) { exercise in
+                            Text(exercise.name)
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(PlanPalette.cardText(for: colorScheme))
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityLabel("Exercise: \(exercise.name)")
+                        }
+                    }
                 }
                 Spacer(minLength: 4)
                 Menu {
@@ -349,10 +355,14 @@ private struct PlanCard: View {
     private var editButton: some View {
         Button(action: onEdit) {
             Label("Edit", systemImage: "slider.horizontal.3")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
                 .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil)
+                .frame(minHeight: 44)
+                .padding(.horizontal, 16)
+                .background(PlanPalette.cardText(for: colorScheme), in: Capsule())
         }
-        .buttonStyle(.bordered)
-        .tint(PlanPalette.cardText(for: colorScheme))
+        .buttonStyle(.plain)
         .accessibilityIdentifier("plan.edit.\(plan.id.uuidString)")
     }
 }

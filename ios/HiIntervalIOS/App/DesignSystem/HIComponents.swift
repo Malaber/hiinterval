@@ -216,4 +216,13 @@ extension View {
         toolbarBackground(HITheme.canvasRaised, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
     }
+
+    @ViewBuilder
+    func hiStableScrollContrast() -> some View {
+        if #available(iOS 26.0, *) {
+            scrollEdgeEffectStyle(.hard, for: .all)
+        } else {
+            self
+        }
+    }
 }

@@ -14,9 +14,7 @@ enum PlanPalette {
     }
 
     static func cardText(for colorScheme: ColorScheme) -> Color {
-        colorScheme == .dark
-            ? Color(red: 0.97, green: 0.98, blue: 0.99)
-            : Color(red: 0.04, green: 0.05, blue: 0.06)
+        colorScheme == .dark ? Color.white : Color.black
     }
 }
 
@@ -97,7 +95,7 @@ struct PlanMetric: View {
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(PlanPalette.cardText(for: colorScheme))
             Text(label)
-                .font(.caption)
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(PlanPalette.cardText(for: colorScheme))
         }
         .accessibilityElement(children: .ignore)

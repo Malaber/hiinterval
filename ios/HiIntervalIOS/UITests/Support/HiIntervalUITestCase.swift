@@ -59,14 +59,17 @@ class HiIntervalUITestCase: XCTestCase {
     }
 
     func selectTab(_ name: String, file: StaticString = #filePath, line: UInt = #line) {
-        let identified = element("tab.\(name)")
-        let tabBarButton = app.tabBars.buttons[name.capitalized]
-        let visibleButton = app.buttons[name.capitalized]
-        let target = identified.exists
-            ? identified
-            : (tabBarButton.exists ? tabBarButton : visibleButton)
-        tap(target, file: file, line: line)
-        waitForExistence(element("\(name).screen"), file: file, line: line)
+        let matches = app.buttons.matching(NSPredicate(format: "label == %@", name.capitalized))
+        waitForExistence(matches.firstMatch, file: file, line: line)
+        for index in 0..<matches.count {
+            let candidate = matches.element(boundBy: index)
+            if candidate.isHittable {
+                candidate.tap()
+                waitForExistence(element("\(name).screen"), file: file, line: line)
+                return
+            }
+        }
+        XCTFail("No hittable tab labeled '\(name.capitalized)'", file: file, line: line)
     }
 
     @discardableResult
@@ -327,8 +330,34 @@ class HiIntervalUITestCase: XCTestCase {
         } else {
             tap(field, scrolls: true, file: file, line: line)
         }
-        field.typeKey("a", modifierFlags: .command)
+        // Hardware-key shortcuts and delete events are ignored intermittently by iOS 26 when a
+        // SwiftUI TextField has just become first responder. Triple-tap uses the real touch
+        // selection path and selects the complete value.
+        field.tap(withNumberOfTaps: 3, numberOfTouches: 1)
         field.typeText(text)
+
+        // An axis-expanding SwiftUI TextField can be recreated after its first characters on
+        // iPad, which cuts the in-flight XCTest typing event short. Resume from the observed
+        // prefix until the complete value is present; normal fields finish on the first event.
+        var observed = field.value as? String ?? ""
+        var attempts = 0
+        while observed != text && attempts < max(3, text.count) {
+            if text.hasPrefix(observed) {
+                field.typeText(String(text.dropFirst(observed.count)))
+            } else {
+                field.tap(withNumberOfTaps: 3, numberOfTouches: 1)
+                field.typeText(text)
+            }
+            observed = field.value as? String ?? ""
+            attempts += 1
+        }
+        XCTAssertEqual(
+            observed,
+            text,
+            "Text replacement did not produce the requested value",
+            file: file,
+            line: line
+        )
         let keyboardDone = app.keyboards.buttons["Done"]
         if keyboardDone.exists && keyboardDone.isHittable {
             keyboardDone.tap()
@@ -379,8 +408,11 @@ class HiIntervalUITestCase: XCTestCase {
         let expected = enabled ? "1" : "0"
         if String(describing: toggle.value ?? "") != expected {
             // SwiftUI exposes the full Form row as the switch element. Its center can land on
-            // the label without toggling on some runtimes; the trailing point is the switch.
-            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+            // the label without toggling. Use a fixed trailing inset: a percentage misses the
+            // actual switch by roughly 100 points on a full-width iPad Form row.
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
+                .withOffset(CGVector(dx: -28, dy: 0))
+                .tap()
         }
         waitForValue(expected, on: toggle, file: file, line: line)
     }

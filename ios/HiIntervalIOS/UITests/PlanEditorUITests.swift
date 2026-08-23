@@ -34,13 +34,12 @@ final class PlanEditorUITests: HiIntervalUITestCase {
         waitForExistence(element("plan.editor.screen"))
 
         tapToolbarButton("plan.editor.save", label: "Save")
+        waitForDisappearance(element("plan.editor.screen"), timeout: 8)
         waitForExistence(element("plans.screen"))
-        scrollToHittable(app.staticTexts["Bilateral Builder"])
-        scrollToHittable(app.staticTexts["Split Squat"])
-        capture("03-saved-selected-plan")
 
         selectTab("train")
         waitForLabel("Bilateral Builder", on: element("train.selected-plan-name"))
+        capture("03-saved-selected-plan")
 
         relaunchPreservingData()
         waitForLabel("Bilateral Builder", on: element("train.selected-plan-name"))

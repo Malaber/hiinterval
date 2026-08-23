@@ -82,7 +82,6 @@ struct RootView: View {
     @ViewBuilder
     private func tabLabel(_ tab: AppTab) -> some View {
         Label(tab.title, systemImage: tab.systemImage)
-            .accessibilityIdentifier("tab.\(tab.rawValue)")
     }
 
     private func synchronizeReminders() async {

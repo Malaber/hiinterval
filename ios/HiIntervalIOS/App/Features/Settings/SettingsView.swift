@@ -21,9 +21,8 @@ struct SettingsView: View {
                 appearanceSection
                 aboutSection
             }
-            // Liquid-glass tab bars allow scroll content to show through. Keep controls out
-            // of that visual layer so their contrast stays stable while the form is at rest.
-            .safeAreaPadding(.bottom, 64)
+            .hiStableScrollContrast()
+            .safeAreaPadding(.bottom, 48)
             .navigationTitle("Settings")
         }
         .accessibilityIdentifier("settings.screen")
@@ -40,9 +39,10 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Unlimited early access")
                         .font(.headline)
+                        .foregroundStyle(settingsTextColor)
                     Text("Everything is free. Future purchase rules are disabled.")
                         .font(.caption)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(settingsTextColor)
                 }
             }
             .accessibilityElement(children: .combine)
@@ -99,6 +99,7 @@ struct SettingsView: View {
             .accessibilityIdentifier("settings.pause-background")
             Toggle(isOn: preferenceBinding(\.keepScreenAwake)) {
                 Text("Keep screen awake during workouts")
+                    .fontWeight(.semibold)
                     .foregroundStyle(settingsTextColor)
             }
             .accessibilityIdentifier("settings.keep-awake")
@@ -112,7 +113,10 @@ struct SettingsView: View {
 
     private var remindersSection: some View {
         Section {
-            Toggle("Workout reminders", isOn: reminderEnabledBinding)
+            Toggle(isOn: reminderEnabledBinding) {
+                Text("Workout reminders")
+                    .foregroundStyle(settingsTextColor)
+            }
                 .accessibilityIdentifier("settings.reminders")
 
             if store.data.preferences.reminders.enabled {
@@ -196,14 +200,15 @@ struct SettingsView: View {
     private func settingsHeader(_ title: String) -> some View {
         Text(title)
             .font(.headline)
+            .fontWeight(.bold)
             .textCase(nil)
-            .foregroundStyle(.primary)
+            .foregroundStyle(settingsTextColor)
             .accessibilityAddTraits(.isHeader)
     }
 
     private func settingsNote(_ message: String) -> some View {
         Text(message)
-            .font(.footnote.weight(.medium))
+            .font(.footnote.weight(.bold))
             .foregroundStyle(settingsTextColor)
             .fixedSize(horizontal: false, vertical: true)
             .layoutPriority(1)
