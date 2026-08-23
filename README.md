@@ -52,7 +52,7 @@ Generated project uses scheme `HiInterval` and defaults to bundle ID `de.malaber
 .venv/bin/inv check
 ```
 
-CI runs Swift package coverage in Linux Swift 6.2 plus full XCUITest on named iPhone and iPad simulators. Test execution is serial, starts from reset app data and clean derived data, retries one whole isolated test run, and always uploads diagnostic evidence.
+CI runs Swift package coverage in Linux Swift 6.2 plus full XCUITest on named iPhone and iPad simulators. Test execution is serial, starts from reset app data and clean derived data, retries only failed XCTest cases when they can be identified (with a full-run fallback), and always uploads diagnostic evidence. Pull requests run once through the PR event; pushes run automatically on `main`.
 
 Current suite contains 36 portable core tests and 10 XCUITest flows. Core tests cover plans/timeline expansion, drift-safe timer behavior, persistence/history/safe export, active duration, and future entitlement policy. UI flows cover empty states, plan/library/history management, settings persistence, full training transitions, accessibility audit, and largest Dynamic Type.
 

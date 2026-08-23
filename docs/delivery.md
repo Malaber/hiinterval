@@ -12,14 +12,14 @@ Current test inventory is 36 portable core tests plus 10 XCUITest flows. Core co
 2. Requires exact named simulator and generates project from `project.yml`.
 3. Builds once for testing with signing disabled and parallel testing off.
 4. Shuts down only the target simulator, boots it, uninstalls app, then runs tests serially.
-5. Retries one complete isolated run after infrastructure/test failure.
+5. Retries only failed XCTest cases when the log identifies them; infrastructure failures without a test identity fall back to one complete isolated rerun.
 6. Keeps logs, screenshots produced by tests, summary, and `TestResults.xcresult`; removes derived data.
 
 UI tests launch with deterministic `--ui-testing` fixture mode. Tests must query accessibility identifiers and wait for observable state, never sleep for animation timing.
 
 ## GitHub Actions
 
-- `ci.yml`: push, pull request, and manual CI entry point.
+- `ci.yml`: `main` push, pull request, and manual CI entry point. PR branch pushes are covered only by the pull-request event, avoiding duplicate matrices.
 - `ios-checks.yml`: reusable Linux coverage plus macOS iPhone/iPad XCUITest matrix.
 - `testflight.yml`: accepts only successful checks. Successful `main` push uploads when repository variable `TESTFLIGHT_UPLOAD_ENABLED` is `true`; manual upload reruns all checks first and must also target current `main`. GitHub environment `testflight` can require approval.
 
