@@ -1,0 +1,132 @@
+import XCTest
+
+@MainActor
+final class TrainSessionUITests: HiIntervalUITestCase {
+    func testFreshFixtureStartsSelectedWorkout() {
+        launch()
+
+        waitForLabel("Quick Start", on: element("train.selected-plan-name"))
+        XCTAssertTrue(element("train.free-status").exists)
+        capture("01-fresh-train")
+
+        tap(element("train.start"))
+        // Required 60x clock finishes the 36-second fixture in about 0.6 real seconds.
+        // Completion proves the selected plan started without racing transient phase UI.
+        waitForExistence(element("completion.screen"), timeout: 5)
+        capture("02-fixture-started-and-complete")
+    }
+
+    func testPauseResumeSplitTransitionsSkipCompletionAndHistory() {
+        launch()
+        stretchQuickStartForDeterministicClockControl()
+
+        selectTab("train")
+        waitForLabel("Quick Start", on: element("train.selected-plan-name"))
+        tap(element("train.start"))
+        waitForExistence(element("session.screen"), timeout: 5)
+        tap(element("session.pause"))
+        waitForLabel("Resume workout", on: element("session.pause"))
+
+        let remaining = element("session.remaining")
+        let pausedLabel = remaining.label
+        assertLabelRemainsStable(on: remaining)
+        capture("01-session-paused")
+
+        tap(element("session.pause"))
+        waitForLabel("Pause workout", on: element("session.pause"))
+        waitForLabelToChange(from: pausedLabel, on: remaining)
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        waitForLabel("Resume workout", on: element("session.pause"))
+
+        tap(element("session.mute"))
+        waitForLabel("Unmute cues", on: element("session.mute"))
+        tap(element("session.restart"))
+        assertLabelRemainsStable(on: remaining)
+        tap(element("session.mute"))
+        waitForLabel("Mute cues", on: element("session.mute"))
+
+        seekPausedPhase(exercise: "Reverse Lunges", phase: "WORK", side: "LEFT SIDE")
+        capture("02-left-side")
+
+        skipPausedPhase(expectingExercise: "Switch sides")
+        waitForLabel("SWITCH", on: element("session.phase-kind"))
+        waitForLabel("RIGHT SIDE", on: element("session.side"))
+
+        skipPausedPhase(expectingExercise: "Reverse Lunges")
+        waitForLabel("WORK", on: element("session.phase-kind"))
+        waitForLabel("RIGHT SIDE", on: element("session.side"))
+        capture("03-right-side")
+
+        skipPausedPhase(expectingExercise: "Round recovery")
+        waitForLabel("ROUND RECOVERY", on: element("session.phase-kind"))
+        waitForDisappearance(element("session.side"))
+
+        finishBySkippingPausedPhases()
+        waitForExistence(element("completion.screen"), timeout: 5)
+        capture("04-session-complete")
+        tap(element("completion.done"))
+        waitForExistence(element("train.screen"))
+
+        selectTab("history")
+        waitForExistence(app.staticTexts["Quick Start"], timeout: 5)
+        XCTAssertTrue(element("history.entry.\(FixtureID.coreFocusHistory)").exists)
+        capture("05-completion-in-history")
+    }
+
+    private func stretchQuickStartForDeterministicClockControl() {
+        selectTab("plans")
+        tap(
+            planActionButton(
+                planID: FixtureID.quickStartPlan,
+                identifier: "plan.edit.\(FixtureID.quickStartPlan)",
+                fallbackLabel: "Edit"
+            ),
+            scrolls: true
+        )
+        waitForExistence(element("plan.editor.screen"))
+
+        // 5s -> 105s. At required 60x speed, each High Knees phase remains visible for 1.75s.
+        incrementStepper("plan.editor.work", times: 20)
+        // Ten rounds keep session alive while UI assertions and screenshots are collected.
+        incrementStepper("plan.editor.rounds", times: 8)
+        tapToolbarButton("plan.editor.save", label: "Save")
+        waitForExistence(element("plans.screen"))
+    }
+
+    private func seekPausedPhase(exercise: String, phase: String, side: String) {
+        let exerciseElement = element("session.exercise")
+        let phaseElement = element("session.phase-kind")
+        let sideElement = element("session.side")
+
+        for _ in 0..<12 {
+            if exerciseElement.label == exercise,
+               phaseElement.label == phase,
+               sideElement.exists,
+               sideElement.label == side {
+                return
+            }
+            let previous = exerciseElement.label
+            tap(element("session.skip"))
+            waitForLabelToChange(from: previous, on: exerciseElement)
+        }
+        XCTFail(
+            "Could not reach paused phase \(phase) / \(exercise) / \(side). "
+                + "Current: \(phaseElement.label) / \(exerciseElement.label) / \(sideElement.label)"
+        )
+    }
+
+    private func skipPausedPhase(expectingExercise expected: String) {
+        tap(element("session.skip"))
+        waitForLabel(expected, on: element("session.exercise"))
+    }
+
+    private func finishBySkippingPausedPhases() {
+        for _ in 0..<80 {
+            if element("completion.screen").exists { return }
+            let skip = element("session.skip")
+            guard skip.exists else { break }
+            skip.tap()
+        }
+    }
+}

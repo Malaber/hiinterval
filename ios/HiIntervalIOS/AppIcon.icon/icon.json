@@ -1,0 +1,34 @@
+{
+  "fill-specializations" : [
+    {
+      "value" : {
+        "linear-gradient" : [
+          "display-p3:0.05098,0.07059,0.13725,1.00000",
+          "display-p3:0.03922,0.15294,0.18039,1.00000"
+        ]
+      }
+    },
+    {
+      "appearance" : "dark",
+      "value" : {
+        "linear-gradient" : [
+          "display-p3:0.01961,0.02745,0.05882,1.00000",
+          "display-p3:0.01961,0.09412,0.11765,1.00000"
+        ]
+      }
+    }
+  ],
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "HiInterval.png",
+          "name" : "HiInterval"
+        }
+      ]
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : "shared"
+  }
+}

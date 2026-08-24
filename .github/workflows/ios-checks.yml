@@ -1,0 +1,81 @@
+name: Reusable iOS checks
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  swift_package:
+    name: Swift package + coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: swift:6.2
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run tests and coverage gate
+        run: ios/HiIntervalIOS/Scripts/check_coverage.sh
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: swift-coverage
+          retention-days: 14
+          if-no-files-found: warn
+          path: ios/HiIntervalIOS/coverage
+
+  ios_ui_e2e:
+    name: XCUITest · ${{ matrix.platform }}
+    runs-on: macos-26
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: iPhone
+            device_name: iPhone 17 Pro
+            artifact_dir: e2e-artifacts/ios-iphone
+            artifact_name: ios-ui-e2e-iphone
+          - platform: iPad
+            device_name: iPad Pro 13-inch (M5)
+            artifact_dir: e2e-artifacts/ios-ipad
+            artifact_name: ios-ui-e2e-ipad
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          cache: pip
+      - name: Install task runner
+        run: python -m pip install --disable-pip-version-check -e .
+      - name: Install XcodeGen
+        run: python -m invoke install-xcodegen
+      - name: Show native toolchain
+        run: xcodebuild -version && xcodegen --version
+      - name: Run serial ${{ matrix.platform }} UI e2e
+        env:
+          HIINTERVAL_E2E_ATTEMPTS: '2'
+        run: >-
+          python -m invoke ios-ui-e2e
+          --device-name="${{ matrix.device_name }}"
+          --artifact-dir="${{ matrix.artifact_dir }}"
+          --only-testing=HiIntervalUITests
+      - name: Upload ${{ matrix.platform }} UI evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact_name }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: ${{ matrix.artifact_dir }}
+      - name: Add ${{ matrix.platform }} result summary
+        if: always()
+        run: |
+          if [ -f "${{ matrix.artifact_dir }}/summary.md" ]; then
+            cat "${{ matrix.artifact_dir }}/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
