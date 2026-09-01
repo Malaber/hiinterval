@@ -123,6 +123,34 @@ final class IntervalTimerEngineTests: XCTestCase {
         XCTAssertNil(engine.nextPhase)
     }
 
+    func testNextExerciseSkipsRecoveryAndTransitions() {
+        let work = WorkoutPhase(kind: .work, title: "Squat", durationSeconds: 10)
+        let recovery = WorkoutPhase(kind: .recovery, title: "Recover", durationSeconds: 5)
+        let transition = WorkoutPhase(kind: .sideSwitch, title: "Switch", durationSeconds: 3)
+        let nextWork = WorkoutPhase(kind: .work, title: "Lunge", durationSeconds: 10)
+        let coolDown = WorkoutPhase(kind: .coolDown, title: "Cool down", durationSeconds: 5)
+        var engine = IntervalTimerEngine(
+            timeline: WorkoutTimeline(
+                planID: UUID(),
+                planName: "Test",
+                phases: [work, recovery, transition, nextWork, coolDown]
+            )
+        )
+
+        XCTAssertEqual(engine.nextExercisePhase, nextWork)
+        _ = engine.start(at: start)
+        _ = engine.skip(at: start)
+        XCTAssertEqual(engine.nextExercisePhase, nextWork)
+        _ = engine.skip(at: start)
+        XCTAssertEqual(engine.nextExercisePhase, nextWork)
+        _ = engine.skip(at: start)
+        XCTAssertEqual(engine.nextExercisePhase, coolDown)
+        _ = engine.skip(at: start)
+        XCTAssertNil(engine.nextExercisePhase)
+        _ = engine.skip(at: start)
+        XCTAssertNil(engine.nextExercisePhase)
+    }
+
     func testInvalidStateActionsAreNoOps() {
         var engine = makeEngine(durations: [2])
 
@@ -174,6 +202,62 @@ final class IntervalTimerEngineTests: XCTestCase {
             if case .phaseRestarted = event { return true }
             return false
         })
+    }
+
+    func testReturnToPreviousExerciseSkipsNonWorkPhasesAndRestoresDuration() {
+        let firstWork = WorkoutPhase(kind: .work, title: "Squat", durationSeconds: 10)
+        let recovery = WorkoutPhase(kind: .recovery, title: "Recover", durationSeconds: 4)
+        let transition = WorkoutPhase(kind: .sideSwitch, title: "Switch", durationSeconds: 2)
+        let secondWork = WorkoutPhase(kind: .work, title: "Lunge", durationSeconds: 12)
+        var engine = IntervalTimerEngine(
+            timeline: WorkoutTimeline(
+                planID: UUID(),
+                planName: "Test",
+                phases: [firstWork, recovery, transition, secondWork]
+            )
+        )
+        _ = engine.start(at: start)
+        _ = engine.skip(at: start)
+        _ = engine.skip(at: start)
+        _ = engine.skip(at: start)
+
+        XCTAssertEqual(
+            engine.returnToPreviousExercise(at: start),
+            [.phaseStarted(firstWork)]
+        )
+        XCTAssertEqual(engine.currentPhaseIndex, 0)
+        XCTAssertEqual(engine.remainingSeconds, 10)
+        _ = engine.tick(at: start.addingTimeInterval(1))
+        XCTAssertEqual(engine.remainingSeconds, 9)
+    }
+
+    func testReturnToPreviousExercisePreservesPausedState() {
+        var engine = makeEngine(durations: [10, 5, 12])
+        _ = engine.start(at: start)
+        _ = engine.skip(at: start)
+        _ = engine.skip(at: start)
+        _ = engine.pause(at: start)
+
+        XCTAssertEqual(
+            engine.returnToPreviousExercise(at: start.addingTimeInterval(50)),
+            [.phaseStarted(engine.timeline.phases[0])]
+        )
+        XCTAssertEqual(engine.state, .paused)
+        XCTAssertEqual(engine.remainingSeconds, 10)
+    }
+
+    func testReturnToPreviousExerciseHandlesNoPreviousExerciseAndInvalidState() {
+        var engine = makeEngine(durations: [10, 5])
+
+        XCTAssertEqual(engine.returnToPreviousExercise(at: start), [])
+        _ = engine.start(at: start)
+        _ = engine.tick(at: start.addingTimeInterval(2))
+        XCTAssertEqual(engine.returnToPreviousExercise(at: start.addingTimeInterval(2)), [])
+        XCTAssertEqual(engine.remainingSeconds, 8)
+
+        _ = engine.skip(at: start.addingTimeInterval(2))
+        _ = engine.skip(at: start.addingTimeInterval(2))
+        XCTAssertEqual(engine.returnToPreviousExercise(at: start), [])
     }
 
     private func makeEngine(durations: [Int]) -> IntervalTimerEngine {
