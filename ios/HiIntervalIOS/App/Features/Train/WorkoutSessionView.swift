@@ -39,7 +39,6 @@ private struct ActiveWorkoutView: View {
     @ObservedObject var controller: WorkoutSessionController
     @State private var confirmExit = false
     @State private var timer = Timer.publish(every: 0.2, on: .main, in: .common).autoconnect()
-    @State private var pendingRestartTask: Task<Void, Never>?
 
     private var phase: WorkoutPhase? { controller.engine.currentPhase }
     private var phaseColor: Color { PhaseStyle.color(for: phase?.kind) }
@@ -87,7 +86,6 @@ private struct ActiveWorkoutView: View {
             }
         }
         .onDisappear {
-            pendingRestartTask?.cancel()
             UIApplication.shared.isIdleTimerDisabled = false
         }
         .onReceive(timer) { _ in
@@ -263,16 +261,9 @@ private struct ActiveWorkoutView: View {
 
     private var controls: some View {
         HStack(spacing: 28) {
-            controlButton(
-                icon: "arrow.counterclockwise",
-                label: "Restart phase",
-                identifier: "session.restart"
-            ) {
-                handleRestartPress()
-            }
+            restartControl
             .accessibilityHint("Press twice quickly to return to the previous exercise")
             .accessibilityAction(named: "Previous exercise") {
-                cancelPendingRestart()
                 controller.returnToPreviousExercise(preferences: store.data.preferences)
             }
 
@@ -298,6 +289,34 @@ private struct ActiveWorkoutView: View {
             }
         }
         .padding(.bottom, 10)
+    }
+
+    private var restartControl: some View {
+        Image(systemName: "arrow.counterclockwise")
+            .font(.title3.weight(.semibold))
+            .frame(width: 58, height: 58)
+            .background(controlSurface, in: Circle())
+            .overlay { Circle().stroke(sessionForeground.opacity(0.12)) }
+            .contentShape(Circle())
+            .gesture(
+                TapGesture(count: 2)
+                    .exclusively(before: TapGesture(count: 1))
+                    .onEnded { gesture in
+                        switch gesture {
+                        case .first:
+                            controller.returnToPreviousExercise(preferences: store.data.preferences)
+                        case .second:
+                            controller.restart(preferences: store.data.preferences)
+                        }
+                    }
+            )
+            .accessibilityElement()
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel("Restart phase")
+            .accessibilityIdentifier("session.restart")
+            .accessibilityAction {
+                controller.restart(preferences: store.data.preferences)
+            }
     }
 
     private func controlButton(
@@ -342,27 +361,6 @@ private struct ActiveWorkoutView: View {
             return "Preparing \(controller.plan.exercises.count) exercises"
         }
         return "Exercise \(currentExerciseIndex) of \(controller.plan.exercises.count)"
-    }
-
-    private func handleRestartPress() {
-        if pendingRestartTask != nil {
-            cancelPendingRestart()
-            controller.returnToPreviousExercise(preferences: store.data.preferences)
-            return
-        }
-
-        let preferences = store.data.preferences
-        pendingRestartTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(300))
-            guard !Task.isCancelled else { return }
-            controller.restart(preferences: preferences)
-            pendingRestartTask = nil
-        }
-    }
-
-    private func cancelPendingRestart() {
-        pendingRestartTask?.cancel()
-        pendingRestartTask = nil
     }
 
     private var timerAccessibilityLabel: String {
