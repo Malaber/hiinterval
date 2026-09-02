@@ -267,10 +267,6 @@ private struct ActiveWorkoutView: View {
     private var controls: some View {
         HStack(spacing: 28) {
             restartControl
-                .accessibilityHint("Restarts this phase. Use the Previous exercise action to go back with VoiceOver.")
-                .accessibilityAction(named: "Previous exercise") {
-                    controller.returnToPreviousExercise(preferences: store.data.preferences)
-                }
 
             Button {
                 controller.togglePause(preferences: store.data.preferences)
@@ -297,35 +293,39 @@ private struct ActiveWorkoutView: View {
     }
 
     private var restartControl: some View {
-        Image(systemName: "arrow.counterclockwise")
-            .font(.title3.weight(.semibold))
-            .frame(width: 58, height: 58)
-            .background(controlSurface, in: Circle())
-            .overlay { Circle().stroke(sessionForeground.opacity(0.12)) }
-            .contentShape(Circle())
-            .gesture(
-                TapGesture(count: 2)
-                    .exclusively(before: TapGesture(count: 1))
-                    .onEnded { gesture in
-                        switch gesture {
-                        case .first:
-                            if controller.engine.canReturnToPreviousExercise {
-                                controller.returnToPreviousExercise(preferences: store.data.preferences)
-                            } else {
-                                controller.restart(preferences: store.data.preferences)
-                            }
-                        case .second:
-                            controller.restart(preferences: store.data.preferences)
-                        }
+        Button {
+            controller.restart(preferences: store.data.preferences)
+        } label: {
+            Image(systemName: "arrow.counterclockwise")
+                .font(.title3.weight(.semibold))
+                .frame(width: 58, height: 58)
+                .background(controlSurface, in: Circle())
+                .overlay { Circle().stroke(sessionForeground.opacity(0.12)) }
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(
+            TapGesture(count: 2)
+                .onEnded {
+                    if controller.engine.canReturnToPreviousExercise {
+                        controller.returnToPreviousExercise(preferences: store.data.preferences)
                     }
-            )
-            .accessibilityElement()
-            .accessibilityAddTraits(.isButton)
-            .accessibilityLabel("Restart phase")
-            .accessibilityIdentifier("session.restart")
-            .accessibilityAction {
-                controller.restart(preferences: store.data.preferences)
+                }
+        )
+        .accessibilityLabel("Restart phase")
+        .accessibilityHint(
+            controller.engine.canReturnToPreviousExercise
+                ? "Restarts this phase. Use the Previous exercise action to go back with VoiceOver."
+                : "Restarts this phase."
+        )
+        .accessibilityIdentifier("session.restart")
+        .accessibilityActions {
+            if controller.engine.canReturnToPreviousExercise {
+                Button("Previous exercise") {
+                    controller.returnToPreviousExercise(preferences: store.data.preferences)
+                }
             }
+        }
     }
 
     private func controlButton(
