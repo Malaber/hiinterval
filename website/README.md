@@ -17,7 +17,7 @@ cd website
 python3 -m http.server 8080
 ```
 
-The support/privacy contact address is currently `hiinterval@malaber.de`; change both HTML files if a different mailbox should be used.
+The support/privacy contact address is `hiinterval@schaedler.rocks`; change both HTML files if a different mailbox should be used.
 
 ## GitHub Pages
 
