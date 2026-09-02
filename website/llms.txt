@@ -1,0 +1,18 @@
+# HiInterval
+
+HiInterval is a native interval training timer for iPhone and iPad.
+It focuses on configurable workout structure, glanceable phase colors, local history, and privacy.
+
+## Canonical
+https://hiinterval.malaber.de/
+
+## Public pages
+- https://hiinterval.malaber.de/capabilities/
+- https://hiinterval.malaber.de/support/
+- https://hiinterval.malaber.de/privacy/
+
+## Access model
+- Early access: unlimited and free.
+- Future free start: 30 days or 10 completed workouts, whichever comes first.
+- Future ongoing free use: 3 completed workouts per calendar month.
+- Planned unlimited options: EUR 1/year or EUR 5 lifetime, with local App Store equivalents potentially varying.
