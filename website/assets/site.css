@@ -20,6 +20,12 @@
   --max: 1180px;
 }
 
+@property --scroll-y {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; background: var(--ink); }
 body {
@@ -229,8 +235,8 @@ h3 {
   z-index: 2;
 }
 .phone img { width: 100%; height: auto; }
-.phone-a { left: 8%; top: 8%; transform: rotate(-4deg); }
-.phone-b { right: 7%; bottom: 6%; transform: rotate(4.5deg); }
+.phone-a { left: 8%; top: 8%; animation: phone-a-float 7s ease-in-out infinite alternate; }
+.phone-b { right: 7%; bottom: 6%; animation: phone-b-float 8.5s ease-in-out infinite alternate; }
 
 .band {
   border-radius: var(--radius-lg);
@@ -253,6 +259,12 @@ h3 {
   background: var(--surface);
   border: 1px solid var(--stroke);
   box-shadow: 0 20px 48px rgba(0,0,0,.18);
+  transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+}
+.card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(169, 186, 195, .55);
+  box-shadow: 0 24px 54px rgba(0,0,0,.24);
 }
 .card p { color: var(--text-soft); line-height: 1.62; margin-bottom: 0; }
 .card-accent { background: linear-gradient(180deg, rgba(25,199,176,.14), rgba(17,28,36,.98)); border-color: rgba(25,199,176,.38); }
@@ -282,6 +294,9 @@ h3 {
 .screenshot-card h3 { max-width: 12ch; font-size: clamp(1.8rem,4vw,3.1rem); }
 .screenshot-card p { max-width: 32rem; font-weight: 700; opacity: .72; }
 .screenshot-card img {
+  --hover-x: 0px;
+  --hover-y: 0px;
+  --screenshot-rotate: 2deg;
   position: absolute;
   width: min(55%, 310px);
   right: 7%;
@@ -289,11 +304,34 @@ h3 {
   border-radius: 32px;
   border: 6px solid rgba(7,16,22,.96);
   box-shadow: 0 30px 70px rgba(0,0,0,.34);
+  transform: translate(var(--hover-x), calc(var(--scroll-y) + var(--hover-y))) rotate(var(--screenshot-rotate));
+  transition: transform .45s cubic-bezier(.2,.8,.2,1), box-shadow .45s ease;
+  will-change: transform;
+}
+.bento .screenshot-card:nth-child(even) img { --screenshot-rotate: -2deg; }
+.screenshot-card:hover img {
+  --hover-x: 12px;
+  --hover-y: 12px;
+  box-shadow: 0 36px 78px rgba(0,0,0,.4);
 }
 .screenshot-card.blue { background: var(--blue); color: #071016; }
 .screenshot-card.teal { background: var(--teal); color: #071016; }
 .screenshot-card.violet { background: var(--violet); color: #0b0a17; }
 .screenshot-card.orange { background: var(--orange); color: #171006; }
+
+.session-showcase .screenshot-card {
+  padding-right: min(54%, 360px);
+}
+.session-showcase .screenshot-card h3 {
+  max-width: none;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+}
+.session-showcase .screenshot-card p { max-width: none; }
+.session-showcase .screenshot-card img {
+  width: min(45%, 280px);
+  right: 2%;
+  bottom: -22%;
+}
 
 .phase-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-top: 30px; }
 .phase {
@@ -304,7 +342,9 @@ h3 {
   align-content: space-between;
   color: var(--ink);
   font-weight: 900;
+  transition: transform .22s ease, filter .22s ease;
 }
+.phase:hover { transform: translateY(-3px); filter: saturate(1.08) brightness(1.03); }
 .phase span { opacity: .7; font-size: .8rem; text-transform: uppercase; letter-spacing: .1em; }
 .phase strong { font-size: 1.2rem; }
 .phase.work { background: var(--teal); }
@@ -357,6 +397,39 @@ h3 {
 .support-card .button { margin-top: auto; align-self: flex-start; }
 .destination { display: block; margin: 18px 0 20px; color: var(--text); font-weight: 900; word-break: break-word; }
 
+@keyframes phone-a-float {
+  from { transform: translateY(-3px) rotate(-4deg); }
+  to { transform: translateY(8px) rotate(-2.8deg); }
+}
+
+@keyframes phone-b-float {
+  from { transform: translateY(5px) rotate(4.5deg); }
+  to { transform: translateY(-7px) rotate(3.2deg); }
+}
+
+@keyframes screenshot-parallax {
+  from { --scroll-y: 30px; }
+  to { --scroll-y: -18px; }
+}
+
+@keyframes content-reveal {
+  from { opacity: .58; }
+  to { opacity: 1; }
+}
+
+@supports (animation-timeline: view()) {
+  .screenshot-card img {
+    animation: screenshot-parallax linear both;
+    animation-timeline: view();
+    animation-range: entry 0% exit 100%;
+  }
+  .band, .card, .screenshot-card {
+    animation: content-reveal linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 65%;
+  }
+}
+
 .site-footer {
   width: min(calc(100% - 32px), var(--max));
   margin: 80px auto 0;
@@ -399,10 +472,19 @@ h3 {
   .phase-strip { grid-template-columns: repeat(2,1fr); }
   .screenshot-card { min-height: 520px; padding: 26px; border-radius: 30px; }
   .screenshot-card img { width: 68%; right: 5%; }
+  .session-showcase .screenshot-card { min-height: 650px; padding-right: 26px; }
+  .session-showcase .screenshot-card img {
+    position: relative;
+    width: min(76%, 280px);
+    right: auto;
+    bottom: auto;
+    margin: 30px auto -330px;
+  }
   .site-footer { width: min(calc(100% - 24px), var(--max)); flex-direction: column; margin-top: 54px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .button { transition: none; }
+  .phone-a, .phone-b, .band, .card, .screenshot-card, .screenshot-card img { animation: none; }
+  .button, .card, .phase, .screenshot-card img { transition: none; }
 }

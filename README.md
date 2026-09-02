@@ -12,7 +12,7 @@ Native iPhone and iPad HIIT timer. Fast planning, glanceable training, local his
 - Configure appearance, screen wake behavior, reminders, spoken/tonal cues, music ducking, haptics, and app-inactive behavior.
 - Persist everything locally as versioned Codable data. No backend, web component, analytics, or authentication.
 
-App is completely free now. Monetization policy exists only as tested, disabled domain logic: future launch can offer 30 days or 5 completed workouts, then one non-accumulating workout each calendar month unless unlimited access was purchased. No StoreKit product or paywall ships yet.
+App is completely free now. The planned monetization policy keeps every feature free until both at least 30 days have passed and 10 workouts have been completed, then includes three workouts each calendar month unless unlimited access was purchased. The current domain logic is disabled and still needs to be aligned with that policy before monetization launches. No StoreKit product or paywall ships yet.
 
 ## Stack
 
