@@ -125,6 +125,17 @@ final class WorkoutSessionController: ObservableObject {
         )
     }
 
+    func returnToPreviousExercise(preferences: UserPreferences) {
+        let wallDate = Date()
+        let clockDate = virtualNow()
+        handle(
+            engine.returnToPreviousExercise(at: clockDate),
+            preferences: preferences,
+            clockDate: clockDate,
+            wallDate: wallDate
+        )
+    }
+
     func toggleMute() {
         isMuted.toggle()
         cuePlayer.setMuted(isMuted)

@@ -28,6 +28,21 @@ public struct IntervalTimerEngine: Equatable, Sendable {
         return timeline.phases.indices.contains(index) ? timeline.phases[index] : nil
     }
 
+    /// Next exercise the athlete needs to prepare for, skipping recovery and transition phases.
+    /// Cool down remains useful as the final upcoming activity when no work phase remains.
+    public var nextExercisePhase: WorkoutPhase? {
+        let index = currentPhaseIndex + 1
+        guard timeline.phases.indices.contains(index), state != .finished else { return nil }
+        return timeline.phases[index...].first { phase in
+            phase.kind == .work || phase.kind == .coolDown
+        }
+    }
+
+    public var canReturnToPreviousExercise: Bool {
+        guard state == .running || state == .paused, currentPhaseIndex > 0 else { return false }
+        return timeline.phases[..<currentPhaseIndex].contains { $0.kind == .work }
+    }
+
     public var displayedRemainingSeconds: Int {
         max(0, Int(ceil(remainingSeconds - 0.000_001)))
     }
@@ -152,6 +167,32 @@ public struct IntervalTimerEngine: Equatable, Sendable {
         remainingAtAnchor = remainingSeconds
         if state == .running { anchorDate = date }
         events.append(.phaseRestarted(currentPhase))
+        return events
+    }
+
+    /// Returns to the most recent work phase and restores its full duration.
+    /// Recovery and side-switch phases are intentionally skipped because this action repairs an
+    /// accidentally skipped exercise rather than navigating the expanded phase timeline.
+    public mutating func returnToPreviousExercise(at date: Date) -> [TimerEvent] {
+        guard state == .running || state == .paused else { return [] }
+        var events: [TimerEvent] = []
+        if state == .running {
+            events = tick(at: date)
+            guard state == .running else { return events }
+        }
+        guard currentPhaseIndex > 0,
+              let previousIndex = timeline.phases[..<currentPhaseIndex].lastIndex(where: {
+                  $0.kind == .work
+              }) else {
+            return events
+        }
+
+        currentPhaseIndex = previousIndex
+        let previousPhase = timeline.phases[previousIndex]
+        remainingSeconds = Double(previousPhase.durationSeconds)
+        remainingAtAnchor = remainingSeconds
+        if state == .running { anchorDate = date }
+        events.append(.phaseStarted(previousPhase))
         return events
     }
 }

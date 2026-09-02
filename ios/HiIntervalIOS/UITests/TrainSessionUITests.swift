@@ -74,6 +74,70 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         capture("05-completion-in-history")
     }
 
+    func testExerciseProgressNextUpAndRestartNavigation() {
+        launchAtRealtimeSpeed(fixture: .glanceableSession)
+        tap(element("train.start"))
+        waitForExistence(element("session.screen"), timeout: 5)
+
+        waitForLabel("High Knees", on: element("session.exercise"))
+        waitForLabel("WORK", on: element("session.phase-kind"))
+        waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
+        waitForLabel("Next up, Reverse Lunges · Left", on: element("session.next"))
+        capture("01-running-eight-exercise-work")
+
+        tap(element("session.pause"))
+        waitForLabel("Resume workout", on: element("session.pause"))
+
+        // Let time elapse, then prove one restart press restores this phase's full duration.
+        let remaining = element("session.remaining")
+        let fullDuration = remaining.label
+        tap(element("session.pause"))
+        waitForLabelToChange(from: fullDuration, on: remaining)
+        tap(element("session.pause"))
+        waitForLabel("Resume workout", on: element("session.pause"))
+        XCTAssertLessThan(remainingSeconds(from: remaining), 105)
+        tap(element("session.restart"))
+        waitForRemainingSeconds(105, on: remaining)
+        capture("02-single-reset-restored-time")
+
+        // Recovery stays visually current for exercise one; next-up skips it entirely.
+        skipPausedPhase(expectingExercise: "Recover")
+        waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
+        waitForLabel("Next up, Reverse Lunges · Left", on: element("session.next"))
+        tap(element("session.pause"))
+        waitForLabel("Pause workout", on: element("session.pause"))
+        capture("03-running-recovery-background")
+        tap(element("session.pause"))
+        waitForLabel("Resume workout", on: element("session.pause"))
+
+        // Two quick presses repair the accidental skip and restore the previous exercise.
+        element("session.restart").doubleTap()
+        waitForLabel("High Knees", on: element("session.exercise"))
+        waitForLabel("WORK", on: element("session.phase-kind"))
+        waitForRemainingSeconds(105, on: remaining)
+        waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
+        capture("04-double-back-restored-exercise")
+
+        skipPausedPhase(expectingExercise: "Recover")
+        skipPausedPhase(expectingExercise: "Reverse Lunges")
+        waitForLabel("Exercise 2 of 8", on: element("session.exercise-progress"))
+        waitForLabel("Next up, Reverse Lunges · Right", on: element("session.next"))
+        capture("05-second-exercise-selected")
+
+        seekPausedPhase(exercise: "Cool down", phase: "COOL DOWN", attempts: 24)
+        waitForDisappearance(element("session.next"))
+        tap(element("session.pause"))
+        waitForLabel("Pause workout", on: element("session.pause"))
+        capture("06-running-cool-down-background")
+    }
+
+    private func launchAtRealtimeSpeed(fixture: Fixture = .standard) {
+        app = configuredApplication(resetFixture: fixture)
+        app.launchEnvironment["HIINTERVAL_UI_TEST_SPEED"] = "1"
+        app.launch()
+        waitForExistence(element("train.screen"), timeout: 8)
+    }
+
     private func stretchQuickStartForDeterministicClockControl() {
         selectTab("plans")
         tap(
@@ -116,6 +180,24 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         )
     }
 
+    private func seekPausedPhase(exercise: String, phase: String, attempts: Int = 12) {
+        let exerciseElement = element("session.exercise")
+        let phaseElement = element("session.phase-kind")
+
+        for _ in 0..<attempts {
+            if exerciseElement.label == exercise, phaseElement.label == phase {
+                return
+            }
+            let previous = exerciseElement.label
+            tap(element("session.skip"))
+            waitForLabelToChange(from: previous, on: exerciseElement)
+        }
+        XCTFail(
+            "Could not reach paused phase \(phase) / \(exercise). "
+                + "Current: \(phaseElement.label) / \(exerciseElement.label)"
+        )
+    }
+
     private func skipPausedPhase(expectingExercise expected: String) {
         tap(element("session.skip"))
         waitForLabel(expected, on: element("session.exercise"))
@@ -128,5 +210,29 @@ final class TrainSessionUITests: HiIntervalUITestCase {
             guard skip.exists else { break }
             skip.tap()
         }
+    }
+
+    private func remainingSeconds(from element: XCUIElement) -> Int {
+        Int(element.label.split(separator: " ").first ?? "") ?? -1
+    }
+
+    private func waitForRemainingSeconds(
+        _ seconds: Int,
+        on element: XCUIElement,
+        timeout: TimeInterval = 5,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label BEGINSWITH %@", "\(seconds) seconds remaining"),
+            object: element
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [expectation], timeout: timeout),
+            .completed,
+            "Expected \(seconds) seconds remaining, got '\(element.label)'",
+            file: file,
+            line: line
+        )
     }
 }
