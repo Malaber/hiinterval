@@ -73,11 +73,6 @@ private struct ActiveWorkoutView: View {
         }
         .foregroundStyle(sessionForeground)
         .preferredColorScheme(.light)
-        .overlay {
-            if controller.engine.state == .paused {
-                pausedBadge
-            }
-        }
         .onAppear {
             timer = Timer.publish(every: controller.tickInterval, on: .main, in: .common).autoconnect()
             controller.start(preferences: store.data.preferences)
@@ -122,7 +117,9 @@ private struct ActiveWorkoutView: View {
             VStack(spacing: 2) {
                 Text(controller.plan.name)
                     .font(.headline)
-                    .lineLimit(1)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
                 Text("\(Int(controller.engine.totalProgress * 100))% complete")
                     .font(.caption)
                     .foregroundStyle(sessionSecondary)
@@ -148,18 +145,15 @@ private struct ActiveWorkoutView: View {
             ForEach(0..<controller.plan.exercises.count, id: \.self) { offset in
                 let isCurrent = offset + 1 == currentExerciseIndex
                 Capsule()
-                    .fill(isCurrent ? sessionForeground : sessionForeground.opacity(0.2))
+                    .fill(isCurrent ? sessionForeground : sessionForeground.opacity(0.55))
                     .frame(maxWidth: .infinity)
-                    .frame(height: isCurrent ? 8 : 5)
+                    .frame(height: isCurrent ? 8 : 6)
                     .accessibilityHidden(true)
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 24)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Exercise progress")
-        .accessibilityValue(exerciseProgressAccessibilityValue)
-        .accessibilityIdentifier("session.exercise-progress")
+        .accessibilityHidden(true)
     }
 
     private var timerBody: some View {
@@ -169,6 +163,17 @@ private struct ActiveWorkoutView: View {
                 .tracking(1.4)
                 .foregroundStyle(sessionForeground)
                 .accessibilityIdentifier("session.phase-kind")
+
+            if controller.engine.state == .paused {
+                Label("PAUSED", systemImage: "pause.fill")
+                    .font(.caption.weight(.black))
+                    .tracking(1.1)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .foregroundStyle(phaseColor)
+                    .background(sessionForeground, in: Capsule())
+                    .accessibilityIdentifier("session.paused")
+            }
 
             Text(phase?.title ?? "Complete")
                 .font(.system(.title, design: .rounded, weight: .bold))
@@ -200,8 +205,7 @@ private struct ActiveWorkoutView: View {
                 .tint(sessionForeground)
                 .background(sessionForeground.opacity(0.18), in: Capsule())
                 .scaleEffect(y: 2)
-                .accessibilityLabel("Phase progress")
-                .accessibilityValue("\(Int(controller.engine.phaseProgress * 100)) percent")
+                .accessibilityHidden(true)
 
             HStack(spacing: 6) {
                 Image(systemName: "stopwatch")
@@ -220,6 +224,7 @@ private struct ActiveWorkoutView: View {
                         "Exercise \(position.exerciseIndex) of \(position.exerciseCount)",
                         systemImage: "figure.strengthtraining.traditional"
                     )
+                    .accessibilityIdentifier("session.exercise-progress")
                     Spacer()
                     Label(
                         "Round \(position.roundIndex) of \(position.roundCount)",
@@ -243,14 +248,14 @@ private struct ActiveWorkoutView: View {
                         .lineLimit(2)
                         .minimumScaleFactor(0.75)
                 }
-                .foregroundStyle(sessionForeground)
+                .foregroundStyle(phaseColor)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 14)
-                .background(controlSurface, in: RoundedRectangle(cornerRadius: 18))
+                .background(sessionForeground, in: RoundedRectangle(cornerRadius: 18))
                 .overlay {
                     RoundedRectangle(cornerRadius: 18)
-                        .stroke(sessionForeground.opacity(0.12))
+                        .stroke(Color.black.opacity(0.18))
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Next up, \(next.title + sideSuffix(next.side))")
@@ -262,10 +267,10 @@ private struct ActiveWorkoutView: View {
     private var controls: some View {
         HStack(spacing: 28) {
             restartControl
-            .accessibilityHint("Press twice quickly to return to the previous exercise")
-            .accessibilityAction(named: "Previous exercise") {
-                controller.returnToPreviousExercise(preferences: store.data.preferences)
-            }
+                .accessibilityHint("Restarts this phase. Use the Previous exercise action to go back with VoiceOver.")
+                .accessibilityAction(named: "Previous exercise") {
+                    controller.returnToPreviousExercise(preferences: store.data.preferences)
+                }
 
             Button {
                 controller.togglePause(preferences: store.data.preferences)
@@ -304,7 +309,11 @@ private struct ActiveWorkoutView: View {
                     .onEnded { gesture in
                         switch gesture {
                         case .first:
-                            controller.returnToPreviousExercise(preferences: store.data.preferences)
+                            if controller.engine.canReturnToPreviousExercise {
+                                controller.returnToPreviousExercise(preferences: store.data.preferences)
+                            } else {
+                                controller.restart(preferences: store.data.preferences)
+                            }
                         case .second:
                             controller.restart(preferences: store.data.preferences)
                         }
@@ -336,31 +345,8 @@ private struct ActiveWorkoutView: View {
         .accessibilityIdentifier(identifier)
     }
 
-    private var pausedBadge: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "pause.fill")
-                .font(.title2)
-            Text("PAUSED")
-                .font(.headline)
-                .tracking(1.2)
-        }
-        .padding(.horizontal, 30)
-        .padding(.vertical, 20)
-        .foregroundStyle(.white)
-        .background(Color.black.opacity(0.86), in: RoundedRectangle(cornerRadius: 20))
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("session.paused")
-    }
-
     private var currentExerciseIndex: Int? {
         phase?.position?.exerciseIndex
-    }
-
-    private var exerciseProgressAccessibilityValue: String {
-        guard let currentExerciseIndex else {
-            return "Preparing \(controller.plan.exercises.count) exercises"
-        }
-        return "Exercise \(currentExerciseIndex) of \(controller.plan.exercises.count)"
     }
 
     private var timerAccessibilityLabel: String {

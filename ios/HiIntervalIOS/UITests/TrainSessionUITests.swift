@@ -75,18 +75,18 @@ final class TrainSessionUITests: HiIntervalUITestCase {
     }
 
     func testExerciseProgressNextUpAndRestartNavigation() {
-        launchAtRealtimeSpeed()
-        stretchQuickStartForDeterministicClockControl()
-
-        selectTab("train")
+        launchAtRealtimeSpeed(fixture: .glanceableSession)
         tap(element("train.start"))
         waitForExistence(element("session.screen"), timeout: 5)
+
+        waitForLabel("High Knees", on: element("session.exercise"))
+        waitForLabel("WORK", on: element("session.phase-kind"))
+        waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
+        waitForLabel("Next up, Reverse Lunges · Left", on: element("session.next"))
+        capture("01-running-eight-exercise-work")
+
         tap(element("session.pause"))
         waitForLabel("Resume workout", on: element("session.pause"))
-        seekPausedPhase(exercise: "High Knees", phase: "WORK")
-
-        waitForValue("Exercise 1 of 2", on: element("session.exercise-progress"))
-        waitForLabel("Next up, Reverse Lunges · Left", on: element("session.next"))
 
         // Let time elapse, then prove one restart press restores this phase's full duration.
         let remaining = element("session.remaining")
@@ -98,30 +98,41 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         XCTAssertLessThan(remainingSeconds(from: remaining), 105)
         tap(element("session.restart"))
         waitForRemainingSeconds(105, on: remaining)
-        capture("01-glanceable-work-state")
+        capture("02-single-reset-restored-time")
 
         // Recovery stays visually current for exercise one; next-up skips it entirely.
         skipPausedPhase(expectingExercise: "Recover")
-        waitForValue("Exercise 1 of 2", on: element("session.exercise-progress"))
+        waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
         waitForLabel("Next up, Reverse Lunges · Left", on: element("session.next"))
+        tap(element("session.pause"))
+        waitForLabel("Pause workout", on: element("session.pause"))
+        capture("03-running-recovery-background")
+        tap(element("session.pause"))
+        waitForLabel("Resume workout", on: element("session.pause"))
 
         // Two quick presses repair the accidental skip and restore the previous exercise.
         element("session.restart").doubleTap()
         waitForLabel("High Knees", on: element("session.exercise"))
         waitForLabel("WORK", on: element("session.phase-kind"))
         waitForRemainingSeconds(105, on: remaining)
-        waitForValue("Exercise 1 of 2", on: element("session.exercise-progress"))
-        capture("02-double-back-restored-exercise")
+        waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
+        capture("04-double-back-restored-exercise")
 
         skipPausedPhase(expectingExercise: "Recover")
         skipPausedPhase(expectingExercise: "Reverse Lunges")
-        waitForValue("Exercise 2 of 2", on: element("session.exercise-progress"))
+        waitForLabel("Exercise 2 of 8", on: element("session.exercise-progress"))
         waitForLabel("Next up, Reverse Lunges · Right", on: element("session.next"))
-        capture("03-second-exercise-selected")
+        capture("05-second-exercise-selected")
+
+        seekPausedPhase(exercise: "Cool down", phase: "COOL DOWN", attempts: 24)
+        waitForDisappearance(element("session.next"))
+        tap(element("session.pause"))
+        waitForLabel("Pause workout", on: element("session.pause"))
+        capture("06-running-cool-down-background")
     }
 
-    private func launchAtRealtimeSpeed() {
-        app = configuredApplication(resetFixture: .standard)
+    private func launchAtRealtimeSpeed(fixture: Fixture = .standard) {
+        app = configuredApplication(resetFixture: fixture)
         app.launchEnvironment["HIINTERVAL_UI_TEST_SPEED"] = "1"
         app.launch()
         waitForExistence(element("train.screen"), timeout: 8)
@@ -169,11 +180,11 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         )
     }
 
-    private func seekPausedPhase(exercise: String, phase: String) {
+    private func seekPausedPhase(exercise: String, phase: String, attempts: Int = 12) {
         let exerciseElement = element("session.exercise")
         let phaseElement = element("session.phase-kind")
 
-        for _ in 0..<12 {
+        for _ in 0..<attempts {
             if exerciseElement.label == exercise, phaseElement.label == phase {
                 return
             }

@@ -127,18 +127,25 @@ final class IntervalTimerEngineTests: XCTestCase {
         let work = WorkoutPhase(kind: .work, title: "Squat", durationSeconds: 10)
         let recovery = WorkoutPhase(kind: .recovery, title: "Recover", durationSeconds: 5)
         let transition = WorkoutPhase(kind: .sideSwitch, title: "Switch", durationSeconds: 3)
+        let roundRecovery = WorkoutPhase(
+            kind: .roundRecovery,
+            title: "Round recovery",
+            durationSeconds: 8
+        )
         let nextWork = WorkoutPhase(kind: .work, title: "Lunge", durationSeconds: 10)
         let coolDown = WorkoutPhase(kind: .coolDown, title: "Cool down", durationSeconds: 5)
         var engine = IntervalTimerEngine(
             timeline: WorkoutTimeline(
                 planID: UUID(),
                 planName: "Test",
-                phases: [work, recovery, transition, nextWork, coolDown]
+                phases: [work, recovery, transition, roundRecovery, nextWork, coolDown]
             )
         )
 
         XCTAssertEqual(engine.nextExercisePhase, nextWork)
         _ = engine.start(at: start)
+        _ = engine.skip(at: start)
+        XCTAssertEqual(engine.nextExercisePhase, nextWork)
         _ = engine.skip(at: start)
         XCTAssertEqual(engine.nextExercisePhase, nextWork)
         _ = engine.skip(at: start)
@@ -217,7 +224,9 @@ final class IntervalTimerEngineTests: XCTestCase {
             )
         )
         _ = engine.start(at: start)
+        XCTAssertFalse(engine.canReturnToPreviousExercise)
         _ = engine.skip(at: start)
+        XCTAssertTrue(engine.canReturnToPreviousExercise)
         _ = engine.skip(at: start)
         _ = engine.skip(at: start)
 
@@ -228,6 +237,32 @@ final class IntervalTimerEngineTests: XCTestCase {
         XCTAssertEqual(engine.currentPhaseIndex, 0)
         XCTAssertEqual(engine.remainingSeconds, 10)
         _ = engine.tick(at: start.addingTimeInterval(1))
+        XCTAssertEqual(engine.remainingSeconds, 9)
+    }
+
+    func testReturnToPreviousExerciseResolvesClockBoundaryBeforeRewinding() {
+        let firstWork = WorkoutPhase(kind: .work, title: "Squat", durationSeconds: 10)
+        let recovery = WorkoutPhase(kind: .recovery, title: "Recover", durationSeconds: 5)
+        let secondWork = WorkoutPhase(kind: .work, title: "Lunge", durationSeconds: 12)
+        var engine = IntervalTimerEngine(
+            timeline: WorkoutTimeline(
+                planID: UUID(),
+                planName: "Test",
+                phases: [firstWork, recovery, secondWork]
+            )
+        )
+        _ = engine.start(at: start)
+
+        let events = engine.returnToPreviousExercise(at: start.addingTimeInterval(16))
+
+        XCTAssertEqual(
+            events,
+            [.phaseStarted(recovery), .phaseStarted(secondWork), .phaseStarted(firstWork)]
+        )
+        XCTAssertEqual(engine.currentPhaseIndex, 0)
+        XCTAssertEqual(engine.remainingSeconds, 10)
+        XCTAssertEqual(engine.state, .running)
+        _ = engine.tick(at: start.addingTimeInterval(17))
         XCTAssertEqual(engine.remainingSeconds, 9)
     }
 

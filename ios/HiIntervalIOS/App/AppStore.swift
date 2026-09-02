@@ -37,9 +37,14 @@ final class AppStore: ObservableObject {
         let launchMode = UITestLaunchMode(arguments: arguments, environment: environment)
         if launchMode.isEnabled {
             defaults.removeObject(forKey: persistenceKey)
-            data = launchMode.isEmpty
-                ? AppData()
-                : AppData.uiTestFixture(now: now())
+            switch launchMode.fixture {
+            case .standard:
+                data = AppData.uiTestFixture(now: now())
+            case .empty:
+                data = AppData()
+            case .glanceableSession:
+                data = AppData.uiTestGlanceableSessionFixture(now: now())
+            }
             lastErrorMessage = nil
             persist()
             return
@@ -250,19 +255,32 @@ final class AppStore: ObservableObject {
     }
 }
 
+private enum UITestFixtureMode {
+    case standard
+    case empty
+    case glanceableSession
+}
+
 private struct UITestLaunchMode {
     let isEnabled: Bool
-    let isEmpty: Bool
+    let fixture: UITestFixtureMode
 
     init(arguments: [String], environment: [String: String]) {
         let values = Set(arguments.map { $0.lowercased() })
-        isEmpty = values.contains("--ui-testing-empty")
+        let isEmpty = values.contains("--ui-testing-empty")
             || values.contains("-ui-testing-empty")
             || environment["HIINTERVAL_UI_TEST_FIXTURE"] == "empty"
+        if isEmpty {
+            fixture = .empty
+        } else if environment["HIINTERVAL_UI_TEST_FIXTURE"] == "glanceable-session" {
+            fixture = .glanceableSession
+        } else {
+            fixture = .standard
+        }
         isEnabled = values.contains("--ui-testing")
             || values.contains("-ui-testing")
             || environment["HIINTERVAL_UI_TESTING"] == "1"
-            || isEmpty
+            || fixture != .standard
     }
 }
 
@@ -325,6 +343,36 @@ private extension AppData {
             usage: UsageRecord(completedWorkoutDates: [completion.completedAt]),
             selectedPlanID: primary.id
         )
+    }
+
+    static func uiTestGlanceableSessionFixture(now: Date) -> AppData {
+        let plan = WorkoutPlan(
+            id: fixtureUUID(41),
+            name: "Eight Move Session",
+            warmUpSeconds: 0,
+            defaultWorkSeconds: 105,
+            defaultRecoverySeconds: 20,
+            roundRecoverySeconds: 0,
+            coolDownSeconds: 30,
+            roundCount: 1,
+            exercises: [
+                ExerciseStep(id: fixtureUUID(42), name: "High Knees"),
+                ExerciseStep(
+                    id: fixtureUUID(43),
+                    name: "Reverse Lunges",
+                    sideConfiguration: .leftRight(switchSeconds: 1)
+                ),
+                ExerciseStep(id: fixtureUUID(44), name: "Floor Press"),
+                ExerciseStep(id: fixtureUUID(45), name: "Renegade Rows"),
+                ExerciseStep(id: fixtureUUID(46), name: "Shadow Boxing"),
+                ExerciseStep(id: fixtureUUID(47), name: "Mountain Climbers"),
+                ExerciseStep(id: fixtureUUID(48), name: "Side Heel Touch Crunches"),
+                ExerciseStep(id: fixtureUUID(49), name: "Seated Russian Twist"),
+            ],
+            createdAt: now,
+            updatedAt: now
+        )
+        return AppData(plans: [plan], selectedPlanID: plan.id)
     }
 
     static func fixtureUUID(_ finalByte: UInt8) -> UUID {

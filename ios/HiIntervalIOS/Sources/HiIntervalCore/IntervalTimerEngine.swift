@@ -38,6 +38,11 @@ public struct IntervalTimerEngine: Equatable, Sendable {
         }
     }
 
+    public var canReturnToPreviousExercise: Bool {
+        guard state == .running || state == .paused, currentPhaseIndex > 0 else { return false }
+        return timeline.phases[..<currentPhaseIndex].contains { $0.kind == .work }
+    }
+
     public var displayedRemainingSeconds: Int {
         max(0, Int(ceil(remainingSeconds - 0.000_001)))
     }

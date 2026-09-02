@@ -5,6 +5,7 @@ class HiIntervalUITestCase: XCTestCase {
     enum Fixture {
         case standard
         case empty
+        case glanceableSession
     }
 
     enum FixtureID {
@@ -45,8 +46,13 @@ class HiIntervalUITestCase: XCTestCase {
         ]
         if let resetFixture {
             application.launchArguments.insert("--ui-testing", at: 0)
-            if resetFixture == .empty {
+            switch resetFixture {
+            case .standard:
+                break
+            case .empty:
                 application.launchArguments.insert("--ui-testing-empty", at: 1)
+            case .glanceableSession:
+                application.launchEnvironment["HIINTERVAL_UI_TEST_FIXTURE"] = "glanceable-session"
             }
         }
         application.launchEnvironment["HIINTERVAL_UI_TEST_SPEED"] = "60"
