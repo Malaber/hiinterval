@@ -13,6 +13,6 @@ https://hiinterval.malaber.de/
 
 ## Access model
 - Early access: unlimited and free.
-- Release free start: 30 days or 10 completed workouts, whichever comes first.
-- Ongoing free use: 3 completed workouts per calendar month.
+- Future free start: 30 days or 10 completed workouts, whichever comes first.
+- Future ongoing free use: 3 completed workouts per calendar month.
 - Planned unlimited options: EUR 1/year or EUR 5 lifetime, with local App Store equivalents potentially varying.
