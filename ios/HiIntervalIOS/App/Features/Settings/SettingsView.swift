@@ -13,26 +13,16 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                Form {
-                    accessSection
-                    cuesSection
-                    behaviorSection
-                    remindersSection
-                    appearanceSection
-                    aboutSection
-                }
-                .hiStableScrollContrast(hidingBottomEffect: true)
-
-                if #available(iOS 26.0, *) {
-                    // Keep Form rows above the floating tab bar and land the viewport boundary
-                    // in section spacing instead of through an accessibility element.
-                    HITheme.canvas
-                        .frame(height: 96)
-                        .accessibilityHidden(true)
-                }
+            Form {
+                accessSection
+                cuesSection
+                behaviorSection
+                remindersSection
+                appearanceSection
+                aboutSection
             }
-            .background(HITheme.canvas)
+            .hiStableScrollContrast(hidingBottomEffect: true)
+            .accessibilityIdentifier("settings.form")
             .navigationTitle("Settings")
         }
         .accessibilityIdentifier("settings.screen")
