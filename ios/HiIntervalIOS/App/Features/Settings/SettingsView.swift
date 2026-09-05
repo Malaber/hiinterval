@@ -83,7 +83,7 @@ struct SettingsView: View {
             Toggle("Final three-second countdown", isOn: preferenceBinding(\.countdownEnabled))
                 .accessibilityIdentifier("settings.countdown")
 
-            settingsNote("Spoken cues can follow device language or use English or German.")
+            settingsNote("Audio cues play in Silent Mode. Spoken cues can follow device language or use English or German.")
                 .accessibilityIdentifier("settings.cues-note")
         } header: {
             settingsHeader("Cues")

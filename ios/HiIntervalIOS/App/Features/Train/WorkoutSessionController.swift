@@ -1,4 +1,3 @@
-import AudioToolbox
 import AVFoundation
 import HiIntervalCore
 import SwiftUI
@@ -210,6 +209,7 @@ final class WorkoutSessionController: ObservableObject {
 @MainActor
 private final class SessionCuePlayer {
     private let speech = AVSpeechSynthesizer()
+    private var tonePlayer: AVAudioPlayer?
     private var audioDeactivationTask: Task<Void, Never>?
 
     func setMuted(_ muted: Bool) {
@@ -217,6 +217,7 @@ private final class SessionCuePlayer {
             speech.stopSpeaking(at: .immediate)
         }
         if muted {
+            tonePlayer?.stop()
             audioDeactivationTask?.cancel()
             try? AVAudioSession.sharedInstance().setActive(
                 false,
@@ -231,7 +232,7 @@ private final class SessionCuePlayer {
         prepareAudio(preferences)
         switch preferences.cueStyle {
         case .tones:
-            AudioServicesPlaySystemSound(phase.kind == .work ? 1_057 : 1_054)
+            playTone(phase.kind == .work ? .work : .transition)
         case .spoken:
             let german = usesGerman(preferences)
             var words = localizedTitle(for: phase, german: german)
@@ -259,7 +260,7 @@ private final class SessionCuePlayer {
         prepareAudio(preferences)
         switch preferences.cueStyle {
         case .tones:
-            AudioServicesPlaySystemSound(1_103)
+            playTone(.countdown)
         case .spoken:
             let german = usesGerman(preferences)
             let utterance = AVSpeechUtterance(string: String(second))
@@ -279,7 +280,7 @@ private final class SessionCuePlayer {
         prepareAudio(preferences)
         switch preferences.cueStyle {
         case .tones:
-            AudioServicesPlaySystemSound(1_054)
+            playTone(.pause)
         case .spoken:
             let german = usesGerman(preferences)
             let utterance = AVSpeechUtterance(string: german ? "Pausiert" : "Paused")
@@ -298,7 +299,7 @@ private final class SessionCuePlayer {
         prepareAudio(preferences)
         switch preferences.cueStyle {
         case .tones:
-            AudioServicesPlaySystemSound(1_057)
+            playTone(.resume)
         case .spoken:
             let german = usesGerman(preferences)
             let utterance = AVSpeechUtterance(string: german ? "Weiter" : "Resume")
@@ -315,7 +316,7 @@ private final class SessionCuePlayer {
         }
         guard !muted, preferences.cueStyle != .silent else { return }
         prepareAudio(preferences)
-        if preferences.cueStyle == .tones { AudioServicesPlaySystemSound(1_025) }
+        if preferences.cueStyle == .tones { playTone(.completion) }
         if preferences.cueStyle == .spoken {
             let german = usesGerman(preferences)
             let utterance = AVSpeechUtterance(
@@ -333,10 +334,17 @@ private final class SessionCuePlayer {
 
     private func prepareAudio(_ preferences: UserPreferences) {
         let session = AVAudioSession.sharedInstance()
-        let options: AVAudioSession.CategoryOptions = preferences.duckOtherAudio
-            ? [.duckOthers]
-            : [.mixWithOthers]
-        try? session.setCategory(.playback, mode: .default, options: options)
+        let policy = CueAudioPolicy()
+        let category: AVAudioSession.Category = switch policy.category {
+        case .playback: .playback
+        }
+        let options: AVAudioSession.CategoryOptions = switch policy.mixingStrategy(
+            duckOtherAudio: preferences.duckOtherAudio
+        ) {
+        case .duckOthers: [.duckOthers]
+        case .mixWithOthers: [.mixWithOthers]
+        }
+        try? session.setCategory(category, mode: .default, options: options)
         try? session.setActive(true)
 
         audioDeactivationTask?.cancel()
@@ -349,6 +357,14 @@ private final class SessionCuePlayer {
             }
             try? session.setActive(false, options: .notifyOthersOnDeactivation)
         }
+    }
+
+    private func playTone(_ event: CueToneEvent) {
+        let signal = CueToneSignal.signal(for: event)
+        guard let player = try? AVAudioPlayer(data: signal.pcmWAVData()) else { return }
+        tonePlayer = player
+        player.prepareToPlay()
+        player.play()
     }
 
     private func usesGerman(_ preferences: UserPreferences) -> Bool {

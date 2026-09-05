@@ -9,6 +9,10 @@ final class SettingsUITests: HiIntervalUITestCase {
         let screen = element("settings.screen")
         let form = element("settings.form")
         waitForExistence(form)
+        waitForLabel(
+            "Audio cues play in Silent Mode. Spoken cues can follow device language or use English or German.",
+            on: element("settings.cues-note")
+        )
 
         XCTAssertLessThanOrEqual(
             screen.frame.maxY - form.frame.maxY,
