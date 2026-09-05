@@ -209,6 +209,7 @@ final class WorkoutSessionController: ObservableObject {
 @MainActor
 private final class SessionCuePlayer {
     private let speech = AVSpeechSynthesizer()
+    private let haptics = SessionHapticPlayer()
     private var tonePlayer: AVAudioPlayer?
     private var audioDeactivationTask: Task<Void, Never>?
 
@@ -227,7 +228,7 @@ private final class SessionCuePlayer {
     }
 
     func phase(_ phase: WorkoutPhase, preferences: UserPreferences, muted: Bool) {
-        haptic(preferences)
+        haptics.play(.phase, enabled: preferences.hapticsEnabled)
         guard !muted, preferences.cueStyle != .silent else { return }
         prepareAudio(preferences)
         switch preferences.cueStyle {
@@ -253,9 +254,7 @@ private final class SessionCuePlayer {
     }
 
     func countdown(_ second: Int, preferences: UserPreferences, muted: Bool) {
-        if preferences.hapticsEnabled {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        }
+        haptics.play(.countdown, enabled: preferences.hapticsEnabled)
         guard !muted, preferences.cueStyle != .silent else { return }
         prepareAudio(preferences)
         switch preferences.cueStyle {
@@ -273,9 +272,7 @@ private final class SessionCuePlayer {
     }
 
     func pause(preferences: UserPreferences, muted: Bool) {
-        if preferences.hapticsEnabled {
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-        }
+        haptics.play(.pause, enabled: preferences.hapticsEnabled)
         guard !muted, preferences.cueStyle != .silent else { return }
         prepareAudio(preferences)
         switch preferences.cueStyle {
@@ -292,9 +289,7 @@ private final class SessionCuePlayer {
     }
 
     func resume(preferences: UserPreferences, muted: Bool) {
-        if preferences.hapticsEnabled {
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-        }
+        haptics.play(.resume, enabled: preferences.hapticsEnabled)
         guard !muted, preferences.cueStyle != .silent else { return }
         prepareAudio(preferences)
         switch preferences.cueStyle {
@@ -311,9 +306,7 @@ private final class SessionCuePlayer {
     }
 
     func complete(preferences: UserPreferences, muted: Bool) {
-        if preferences.hapticsEnabled {
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-        }
+        haptics.play(.completion, enabled: preferences.hapticsEnabled)
         guard !muted, preferences.cueStyle != .silent else { return }
         prepareAudio(preferences)
         if preferences.cueStyle == .tones { playTone(.completion) }
@@ -325,11 +318,6 @@ private final class SessionCuePlayer {
             utterance.voice = AVSpeechSynthesisVoice(language: german ? "de-DE" : "en-US")
             speech.speak(utterance)
         }
-    }
-
-    private func haptic(_ preferences: UserPreferences) {
-        guard preferences.hapticsEnabled else { return }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 
     private func prepareAudio(_ preferences: UserPreferences) {
@@ -384,6 +372,27 @@ private final class SessionCuePlayer {
         case .roundRecovery: return "Rundenpause"
         case .coolDown: return "Abkühlen"
         case .work: return phase.title
+        }
+    }
+}
+
+@MainActor
+private final class SessionHapticPlayer {
+    func play(_ event: HapticCueEvent, enabled: Bool) {
+        guard let feedback = HapticCuePolicy.feedback(
+            for: event,
+            hapticsEnabled: enabled
+        ) else { return }
+
+        switch feedback {
+        case .lightImpact:
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        case .softImpact:
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        case .mediumImpact:
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        case .success:
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
         }
     }
 }

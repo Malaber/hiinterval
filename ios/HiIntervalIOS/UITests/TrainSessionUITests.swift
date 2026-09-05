@@ -2,6 +2,18 @@ import XCTest
 
 @MainActor
 final class TrainSessionUITests: HiIntervalUITestCase {
+    func testDisabledHapticsApplyToEntireSession() {
+        launchAtRealtimeSpeed(fixture: .glanceableSession)
+        selectTab("settings")
+        setSwitch("settings.haptics", to: false)
+        selectTab("train")
+
+        tap(element("train.start"))
+        let session = element("session.screen")
+        waitForExistence(session, timeout: 5)
+        waitForValue("Haptics disabled", on: session)
+    }
+
     func testFreshFixtureStartsSelectedWorkout() {
         launch()
 

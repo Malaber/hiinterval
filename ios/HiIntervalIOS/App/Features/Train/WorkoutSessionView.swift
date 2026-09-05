@@ -74,6 +74,9 @@ private struct ActiveWorkoutView: View {
         }
         .foregroundStyle(sessionForeground)
         .preferredColorScheme(.light)
+        .accessibilityValue(
+            store.data.preferences.hapticsEnabled ? "Haptics enabled" : "Haptics disabled"
+        )
         .onAppear {
             timer = Timer.publish(every: controller.tickInterval, on: .main, in: .common).autoconnect()
             controller.start(preferences: store.data.preferences)
