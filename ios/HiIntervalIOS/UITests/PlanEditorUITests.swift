@@ -2,6 +2,31 @@ import XCTest
 
 @MainActor
 final class PlanEditorUITests: HiIntervalUITestCase {
+    func testAddingExerciseFocusesNameField() {
+        launch()
+        selectTab("plans")
+        tap(
+            planActionButton(
+                planID: FixtureID.quickStartPlan,
+                identifier: "plan.edit.\(FixtureID.quickStartPlan)",
+                fallbackLabel: "Edit"
+            ),
+            scrolls: true
+        )
+        waitForExistence(element("plan.editor.screen"))
+
+        tap(element("plan.editor.exercise.add"), scrolls: true)
+        waitForExistence(element("exercise.editor.screen"))
+
+        let name = element("exercise.editor.name")
+        waitForExistence(name)
+        XCTAssertTrue(name.hasFocus, "New exercise name should receive keyboard focus")
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
+        name.typeText("Burpees")
+        XCTAssertEqual(name.value as? String, "Burpees")
+        capture("01-new-exercise-name-focused")
+    }
+
     func testCreatesCustomSplitPlanSavesSelectsAndPersists() {
         launch()
         selectTab("plans")
