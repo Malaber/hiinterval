@@ -5,6 +5,10 @@ final class AppDataTests: XCTestCase {
     func testAppDataRoundTripsThroughJSON() throws {
         let now = Date(timeIntervalSince1970: 1_700_000_000)
         var data = AppData.starter(now: now)
+        data.plans[0].warmUpNotes = "Mobilize at 60%"
+        data.plans[0].recoveryNotes = "Breathe"
+        data.plans[0].roundRecoveryNotes = "Hydrate"
+        data.plans[0].coolDownNotes = "Stretch"
         data.preferences.cueStyle = .spoken
         data.preferences.reminders = ReminderSettings(
             enabled: true,

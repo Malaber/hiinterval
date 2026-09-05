@@ -149,6 +149,12 @@ struct PlanEditorView: View {
                 seconds: $plan.warmUpSeconds,
                 accessibilityID: "plan.editor.warmup"
             )
+            planNotesField(
+                "Warm-up notes",
+                prompt: "e.g. Sit-ups, crunches, shadow boxing at 60%",
+                text: optionalNotesBinding(\.warmUpNotes),
+                accessibilityID: "plan.editor.warmup.notes"
+            )
             PlanDurationStepper(
                 "Default work",
                 subtitle: "Can be changed per exercise or round",
@@ -161,6 +167,12 @@ struct PlanEditorView: View {
                 subtitle: "After each exercise",
                 seconds: $plan.defaultRecoverySeconds,
                 accessibilityID: "plan.editor.recovery"
+            )
+            planNotesField(
+                "Recovery notes",
+                prompt: "e.g. Breathe, hydrate, prepare the next move",
+                text: optionalNotesBinding(\.recoveryNotes),
+                accessibilityID: "plan.editor.recovery.notes"
             )
         } header: {
             Text("Core timing")
@@ -186,6 +198,12 @@ struct PlanEditorView: View {
                 "Between rounds",
                 seconds: $plan.roundRecoverySeconds,
                 accessibilityID: "plan.editor.roundRecovery"
+            )
+            planNotesField(
+                "Between-round notes",
+                prompt: "e.g. Walk around and reset your form",
+                text: optionalNotesBinding(\.roundRecoveryNotes),
+                accessibilityID: "plan.editor.roundRecovery.notes"
             )
 
             Button {
@@ -276,7 +294,36 @@ struct PlanEditorView: View {
                 seconds: $plan.coolDownSeconds,
                 accessibilityID: "plan.editor.cooldown"
             )
+            planNotesField(
+                "Cool-down notes",
+                prompt: "e.g. Stretch and slow your breathing",
+                text: optionalNotesBinding(\.coolDownNotes),
+                accessibilityID: "plan.editor.cooldown.notes"
+            )
         }
+    }
+
+    private func planNotesField(
+        _ label: String,
+        prompt: String,
+        text: Binding<String>,
+        accessibilityID: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            TextField(prompt, text: text, axis: .vertical)
+                .lineLimit(2...4)
+        }
+        .accessibilityIdentifier(accessibilityID)
+    }
+
+    private func optionalNotesBinding(_ keyPath: WritableKeyPath<WorkoutPlan, String?>) -> Binding<String> {
+        Binding(
+            get: { plan[keyPath: keyPath] ?? "" },
+            set: { plan[keyPath: keyPath] = $0.isEmpty ? nil : $0 }
+        )
     }
 
     private func saveExercise(_ exercise: ExerciseStep, at index: Int?) {
@@ -290,6 +337,10 @@ struct PlanEditorView: View {
     private func save() {
         guard validationMessage == nil else { return }
         plan.name = plan.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        plan.warmUpNotes = normalizedNotes(plan.warmUpNotes)
+        plan.recoveryNotes = normalizedNotes(plan.recoveryNotes)
+        plan.roundRecoveryNotes = normalizedNotes(plan.roundRecoveryNotes)
+        plan.coolDownNotes = normalizedNotes(plan.coolDownNotes)
         plan.exercises = plan.exercises.map { exercise in
             var copy = exercise
             copy.name = copy.name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -298,6 +349,12 @@ struct PlanEditorView: View {
         }
         plan.updatedAt = Date()
         onSave(plan)
+    }
+
+    private func normalizedNotes(_ notes: String?) -> String? {
+        guard let notes else { return nil }
+        let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 

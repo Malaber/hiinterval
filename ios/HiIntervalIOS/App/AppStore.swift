@@ -349,14 +349,21 @@ private extension AppData {
         let plan = WorkoutPlan(
             id: fixtureUUID(41),
             name: "Eight Move Session",
-            warmUpSeconds: 0,
+            warmUpSeconds: 105,
+            warmUpNotes: "Move at 60% effort",
             defaultWorkSeconds: 105,
             defaultRecoverySeconds: 20,
+            recoveryNotes: "Breathe and reset",
             roundRecoverySeconds: 0,
             coolDownSeconds: 30,
+            coolDownNotes: "Slow nasal breathing",
             roundCount: 1,
             exercises: [
-                ExerciseStep(id: fixtureUUID(42), name: "High Knees"),
+                ExerciseStep(
+                    id: fixtureUUID(42),
+                    name: "High Knees",
+                    notes: "Keep knees soft"
+                ),
                 ExerciseStep(
                     id: fixtureUUID(43),
                     name: "Reverse Lunges",

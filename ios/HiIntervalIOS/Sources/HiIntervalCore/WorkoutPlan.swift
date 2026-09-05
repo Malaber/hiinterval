@@ -4,10 +4,14 @@ public struct WorkoutPlan: Codable, Equatable, Identifiable, Sendable {
     public var id: UUID
     public var name: String
     public var warmUpSeconds: Int
+    public var warmUpNotes: String?
     public var defaultWorkSeconds: Int
     public var defaultRecoverySeconds: Int
+    public var recoveryNotes: String?
     public var roundRecoverySeconds: Int
+    public var roundRecoveryNotes: String?
     public var coolDownSeconds: Int
+    public var coolDownNotes: String?
     public var roundCount: Int
     public var exercises: [ExerciseStep]
     public var roundOverrides: [WorkoutRoundOverride]
@@ -18,10 +22,14 @@ public struct WorkoutPlan: Codable, Equatable, Identifiable, Sendable {
         id: UUID = UUID(),
         name: String,
         warmUpSeconds: Int = 10,
+        warmUpNotes: String? = nil,
         defaultWorkSeconds: Int = 40,
         defaultRecoverySeconds: Int = 20,
+        recoveryNotes: String? = nil,
         roundRecoverySeconds: Int = 60,
+        roundRecoveryNotes: String? = nil,
         coolDownSeconds: Int = 30,
+        coolDownNotes: String? = nil,
         roundCount: Int = 3,
         exercises: [ExerciseStep],
         roundOverrides: [WorkoutRoundOverride] = [],
@@ -31,10 +39,14 @@ public struct WorkoutPlan: Codable, Equatable, Identifiable, Sendable {
         self.id = id
         self.name = name
         self.warmUpSeconds = warmUpSeconds
+        self.warmUpNotes = warmUpNotes
         self.defaultWorkSeconds = defaultWorkSeconds
         self.defaultRecoverySeconds = defaultRecoverySeconds
+        self.recoveryNotes = recoveryNotes
         self.roundRecoverySeconds = roundRecoverySeconds
+        self.roundRecoveryNotes = roundRecoveryNotes
         self.coolDownSeconds = coolDownSeconds
+        self.coolDownNotes = coolDownNotes
         self.roundCount = roundCount
         self.exercises = exercises
         self.roundOverrides = roundOverrides

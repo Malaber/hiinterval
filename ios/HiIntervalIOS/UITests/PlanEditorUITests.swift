@@ -9,6 +9,10 @@ final class PlanEditorUITests: HiIntervalUITestCase {
         waitForExistence(element("plan.editor.screen"))
 
         replaceText(in: element("plan.editor.name"), with: "Bilateral Builder")
+        replaceText(
+            in: element("plan.editor.warmup.notes"),
+            with: "Mobilize at 60%"
+        )
         tap(element("plan.editor.exercise.0"), scrolls: true)
         waitForExistence(element("exercise.editor.screen"))
 

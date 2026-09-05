@@ -192,6 +192,23 @@ private struct ActiveWorkoutView: View {
                     .accessibilityIdentifier("session.side")
             }
 
+            if let notes = phase?.notes {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "lightbulb.fill")
+                        .accessibilityHidden(true)
+                    Text(notes)
+                        .font(.body.weight(.semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(controlSurface, in: RoundedRectangle(cornerRadius: 14))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Notes, \(notes)")
+                .accessibilityIdentifier("session.notes")
+            }
+
             Text(SessionFormat.duration(controller.engine.displayedRemainingSeconds))
                 .font(.system(size: 92, weight: .semibold, design: .rounded))
                 .monospacedDigit()

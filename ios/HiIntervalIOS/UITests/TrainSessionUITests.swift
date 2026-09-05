@@ -81,7 +81,13 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         tap(element("train.start"))
         waitForExistence(element("session.screen"), timeout: 5)
 
+        waitForLabel("Get ready", on: element("session.exercise"))
+        waitForLabel("Notes, Move at 60% effort", on: element("session.notes"))
+        tap(element("session.pause"))
+        waitForLabel("Resume workout", on: element("session.pause"))
+        skipPausedPhase(expectingExercise: "High Knees")
         waitForLabel("High Knees", on: element("session.exercise"))
+        waitForLabel("Notes, Keep knees soft", on: element("session.notes"))
         waitForLabel("WORK", on: element("session.phase-kind"))
         waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
         waitForLabel("Next up, Reverse Lunges · Left", on: element("session.next"))
@@ -104,6 +110,7 @@ final class TrainSessionUITests: HiIntervalUITestCase {
 
         // Recovery stays visually current for exercise one; next-up skips it entirely.
         skipPausedPhase(expectingExercise: "Recover")
+        waitForLabel("Notes, Breathe and reset", on: element("session.notes"))
         waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
         waitForLabel("Next up, Reverse Lunges · Left", on: element("session.next"))
         tap(element("session.pause"))
@@ -127,6 +134,7 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         capture("05-second-exercise-selected")
 
         seekPausedPhase(exercise: "Cool down", phase: "COOL DOWN", attempts: 24)
+        waitForLabel("Notes, Slow nasal breathing", on: element("session.notes"))
         waitForDisappearance(element("session.next"))
         tap(element("session.pause"))
         waitForLabel("Pause workout", on: element("session.pause"))
