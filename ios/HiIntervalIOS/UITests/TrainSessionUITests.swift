@@ -91,6 +91,8 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         waitForLabel("WORK", on: element("session.phase-kind"))
         waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
         waitForLabel("Next up, Reverse Lunges · Left", on: element("session.next"))
+        waitForValue("Primary focus", on: element("session.exercise"))
+        waitForValue("Secondary preview", on: element("session.next"))
         capture("01-running-eight-exercise-work")
 
         tap(element("session.pause"))

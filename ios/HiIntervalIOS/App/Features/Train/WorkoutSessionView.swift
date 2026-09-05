@@ -45,6 +45,7 @@ private struct ActiveWorkoutView: View {
     private var sessionForeground: Color { Color.black.opacity(0.88) }
     private var sessionSecondary: Color { Color.black.opacity(0.75) }
     private var controlSurface: Color { Color.black.opacity(0.12) }
+    private let headingHierarchy = SessionHeadingHierarchy()
 
     var body: some View {
         ZStack {
@@ -176,11 +177,18 @@ private struct ActiveWorkoutView: View {
             }
 
             Text(phase?.title ?? "Complete")
-                .font(.system(.title, design: .rounded, weight: .bold))
+                .font(
+                    .system(
+                        size: CGFloat(headingHierarchy.currentNamePointSize),
+                        weight: .heavy,
+                        design: .rounded
+                    )
+                )
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.62)
                 .accessibilityIdentifier("session.exercise")
+                .accessibilityValue("Primary focus")
 
             if let side = phase?.side {
                 Text(side == .left ? "LEFT SIDE" : "RIGHT SIDE")
@@ -257,25 +265,39 @@ private struct ActiveWorkoutView: View {
             if let next = controller.engine.nextExercisePhase {
                 VStack(spacing: 6) {
                     Label("NEXT UP", systemImage: "forward.fill")
-                        .font(.subheadline.weight(.black))
-                        .tracking(1.4)
+                        .font(.caption.weight(.bold))
+                        .tracking(1.1)
+                        .foregroundStyle(sessionSecondary)
                     Text(next.title + sideSuffix(next.side))
-                        .font(.system(.title2, design: .rounded, weight: .bold))
+                        .font(
+                            .system(
+                                size: CGFloat(headingHierarchy.nextNamePointSize),
+                                weight: .semibold,
+                                design: .rounded
+                            )
+                        )
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                         .minimumScaleFactor(0.75)
                 }
-                .foregroundStyle(phaseColor)
+                .foregroundStyle(sessionForeground)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-                .background(sessionForeground, in: RoundedRectangle(cornerRadius: 18))
+                .padding(.vertical, 12)
+                .background(
+                    Color.black.opacity(headingHierarchy.nextSurfaceOpacity),
+                    in: RoundedRectangle(cornerRadius: 16)
+                )
                 .overlay {
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(Color.black.opacity(0.18))
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(
+                            sessionForeground.opacity(headingHierarchy.nextStrokeOpacity),
+                            lineWidth: 1
+                        )
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Next up, \(next.title + sideSuffix(next.side))")
+                .accessibilityValue("Secondary preview")
                 .accessibilityIdentifier("session.next")
             }
         }
