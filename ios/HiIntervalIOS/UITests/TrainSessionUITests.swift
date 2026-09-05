@@ -13,6 +13,8 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         // Required 60x clock finishes the 36-second fixture in about 0.6 real seconds.
         // Completion proves the selected plan started without racing transient phase UI.
         waitForExistence(element("completion.screen"), timeout: 5)
+        waitForExistence(element("completion.fireworks.foreground"), timeout: 1)
+        waitForExistence(element("completion.fireworks.background"), timeout: 3)
         capture("02-fixture-started-and-complete")
     }
 

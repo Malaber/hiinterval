@@ -412,50 +412,76 @@ private enum PhaseStyle {
 private struct WorkoutCompletionView: View {
     let entry: WorkoutHistoryEntry
     let done: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var celebrationStage: CompletionCelebrationStage = .foreground
+
+    private let celebrationTimeline = CompletionCelebrationTimeline()
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 28) {
-                Spacer(minLength: 36)
-                Image(systemName: "checkmark")
-                    .font(.system(size: 42, weight: .bold))
-                    .foregroundStyle(Color(uiColor: .systemBackground))
-                    .frame(width: 104, height: 104)
-                    .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 30))
-                    .accessibilityHidden(true)
-
-                VStack(spacing: 8) {
-                    Text("Session complete")
-                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                    Text(entry.planName)
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack(spacing: 12) {
-                    completionMetric("Duration", SessionFormat.duration(entry.elapsedDurationSeconds), "stopwatch")
-                    completionMetric("Rounds", "\(entry.roundCount)", "repeat")
-                    completionMetric("Moves", "\(entry.exerciseCount)", "figure.run")
-                }
-
-                Text("Workout saved to History.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                Button(action: done) {
-                    Text("Done")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .accessibilityIdentifier("completion.done")
+        ZStack {
+            if celebrationStage == .background {
+                CompletionFireworksView(prominence: .background)
+                    .transition(.opacity)
             }
-            .padding(24)
+
+            ScrollView {
+                VStack(spacing: 28) {
+                    Spacer(minLength: 36)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 42, weight: .bold))
+                        .foregroundStyle(Color(uiColor: .systemBackground))
+                        .frame(width: 104, height: 104)
+                        .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 30))
+                        .accessibilityHidden(true)
+
+                    VStack(spacing: 8) {
+                        Text("Session complete")
+                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                        Text(entry.planName)
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack(spacing: 12) {
+                        completionMetric("Duration", SessionFormat.duration(entry.elapsedDurationSeconds), "stopwatch")
+                        completionMetric("Rounds", "\(entry.roundCount)", "repeat")
+                        completionMetric("Moves", "\(entry.exerciseCount)", "figure.run")
+                    }
+
+                    Text("Workout saved to History.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    Button(action: done) {
+                        Text("Done")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .accessibilityIdentifier("completion.done")
+                }
+                .padding(24)
+            }
+
+            if celebrationStage == .foreground {
+                CompletionFireworksView(prominence: .foreground)
+                    .transition(.opacity)
+            }
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .accessibilityIdentifier("completion.screen")
+        .task {
+            guard celebrationStage == .foreground else { return }
+            try? await Task.sleep(for: .seconds(celebrationTimeline.foregroundDurationSeconds))
+            guard !Task.isCancelled else { return }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.35)) {
+                celebrationStage = celebrationTimeline.stage(
+                    atElapsedSeconds: celebrationTimeline.foregroundDurationSeconds
+                )
+            }
+        }
     }
 
     private func completionMetric(_ label: String, _ value: String, _ icon: String) -> some View {
@@ -472,5 +498,95 @@ private struct WorkoutCompletionView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 18)
         .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18))
+    }
+}
+
+private struct CompletionFireworksView: View {
+    enum Prominence {
+        case foreground
+        case background
+    }
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let prominence: Prominence
+
+    private let colors: [Color] = [.yellow, .orange, .pink, HITheme.accent, .blue]
+    private let centers: [UnitPoint] = [
+        UnitPoint(x: 0.18, y: 0.22),
+        UnitPoint(x: 0.78, y: 0.18),
+        UnitPoint(x: 0.52, y: 0.42),
+        UnitPoint(x: 0.24, y: 0.68),
+        UnitPoint(x: 0.82, y: 0.64),
+    ]
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { timeline in
+            Canvas { context, size in
+                for (burstIndex, center) in centers.enumerated() {
+                    drawBurst(
+                        in: &context,
+                        size: size,
+                        center: center,
+                        burstIndex: burstIndex,
+                        date: timeline.date
+                    )
+                }
+            }
+        }
+        .opacity(prominence == .foreground ? 0.95 : 0.32)
+        .scaleEffect(prominence == .foreground ? 1.08 : 0.82)
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            prominence == .foreground ? "Foreground fireworks" : "Background fireworks"
+        )
+        .accessibilityIdentifier(
+            prominence == .foreground
+                ? "completion.fireworks.foreground"
+                : "completion.fireworks.background"
+        )
+    }
+
+    private func drawBurst(
+        in context: inout GraphicsContext,
+        size: CGSize,
+        center: UnitPoint,
+        burstIndex: Int,
+        date: Date
+    ) {
+        let rawPhase: CGFloat = reduceMotion
+            ? 0.48
+            : CGFloat(
+                (date.timeIntervalSinceReferenceDate + Double(burstIndex) * 0.31)
+                    .truncatingRemainder(dividingBy: 1.25) / 1.25
+            )
+        let radiusScale: CGFloat = prominence == .foreground ? 1 : 0.7
+        let radius = (18 + rawPhase * 104) * radiusScale
+        let particleSize: CGFloat = prominence == .foreground ? 6 : 4
+        let origin = CGPoint(x: size.width * center.x, y: size.height * center.y)
+
+        for particleIndex in 0..<14 {
+            let angle = Double(particleIndex) / 14 * .pi * 2 + Double(burstIndex) * 0.4
+            let point = CGPoint(
+                x: origin.x + CGFloat(cos(angle)) * radius,
+                y: origin.y + CGFloat(sin(angle)) * radius
+            )
+            let particle = Path(
+                ellipseIn: CGRect(
+                    x: point.x - particleSize / 2,
+                    y: point.y - particleSize / 2,
+                    width: particleSize,
+                    height: particleSize
+                )
+            )
+            context.fill(
+                particle,
+                with: .color(
+                    colors[(particleIndex + burstIndex) % colors.count]
+                        .opacity(Double(1 - rawPhase))
+                )
+            )
+        }
     }
 }
