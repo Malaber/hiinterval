@@ -65,8 +65,8 @@ class HiIntervalUITestCase: XCTestCase {
     }
 
     func selectTab(_ name: String, file: StaticString = #filePath, line: UInt = #line) {
-        if tapHittableTab(name) {
-            waitForExistence(element("\(name).screen"), file: file, line: line)
+        let destination = element("\(name).screen")
+        if tapHittableTab(name), destination.waitForExistence(timeout: 8) {
             return
         }
 
@@ -74,14 +74,14 @@ class HiIntervalUITestCase: XCTestCase {
         // buttons absent from the automation tree. A fresh session restores that tree while
         // retaining the isolated fixture and any settings changed by the test.
         relaunchPreservingData()
-        if element("\(name).screen").exists {
+        let relaunchedDestination = element("\(name).screen")
+        if relaunchedDestination.exists {
             return
         }
-        if tapHittableTab(name) {
-            waitForExistence(element("\(name).screen"), file: file, line: line)
+        if tapHittableTab(name), relaunchedDestination.waitForExistence(timeout: 8) {
             return
         }
-        XCTFail("No hittable tab labeled '\(name.capitalized)'", file: file, line: line)
+        XCTFail("Could not open tab labeled '\(name.capitalized)'", file: file, line: line)
     }
 
     private func tapHittableTab(_ name: String) -> Bool {
@@ -178,7 +178,13 @@ class HiIntervalUITestCase: XCTestCase {
         line: UInt = #line
     ) -> Bool {
         wait(
-            for: NSPredicate(format: "exists == true AND value == %@", expected),
+            // Some hosted iOS 26 simulators bridge SwiftUI accessibility values through an
+            // Optional description. Treat that OS representation as the same semantic value.
+            for: NSPredicate(
+                format: "exists == true AND (value == %@ OR value == %@)",
+                expected,
+                "Optional(\(expected))"
+            ),
             on: target,
             timeout: timeout,
             message: "Expected value '\(expected)', got '\(String(describing: target.value))'",
@@ -321,6 +327,40 @@ class HiIntervalUITestCase: XCTestCase {
         )
     }
 
+    /// Scrolls semantic, noninteractive content into the viewport without asking XCTest for an
+    /// activation point. Hosted iPad simulators can fail `isHittable` for visible static text and
+    /// accessibility containers even though their frames are valid and displayed.
+    func scrollToVisible(
+        _ target: XCUIElement,
+        maxSwipes: Int = 20,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        if !target.exists {
+            _ = materialize(target, swipingUp: true, attempts: maxSwipes)
+        }
+
+        let viewport = app.frame
+        for _ in 0..<maxSwipes {
+            guard target.exists else {
+                app.swipeUp()
+                continue
+            }
+            let frame = target.frame
+            if isVisible(frame, in: viewport) {
+                return
+            }
+            dragScroll(up: frame.isNull || frame.isInfinite || frame.midY >= viewport.midY)
+        }
+
+        XCTAssertTrue(
+            target.exists && isVisible(target.frame, in: viewport),
+            "Could not scroll element into view: \(target)",
+            file: file,
+            line: line
+        )
+    }
+
     func scrollToTop(
         _ anchor: XCUIElement,
         maxSwipes: Int = 8,
@@ -363,11 +403,17 @@ class HiIntervalUITestCase: XCTestCase {
     }
 
     private func dragScroll(up: Bool) {
-        let startY: CGFloat = up ? 0.72 : 0.28
-        let endY: CGFloat = up ? 0.52 : 0.48
+        // Stay in the central content region. Starting at 72% lands inside the iPhone keyboard,
+        // so the gesture can be consumed without moving the underlying Form.
+        let startY: CGFloat = up ? 0.58 : 0.38
+        let endY: CGFloat = up ? 0.38 : 0.58
         let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
         let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
         start.press(forDuration: 0.01, thenDragTo: end)
+    }
+
+    private func isVisible(_ frame: CGRect, in viewport: CGRect) -> Bool {
+        !frame.isNull && !frame.isInfinite && !frame.isEmpty && frame.intersects(viewport)
     }
 
     func replaceText(
@@ -422,9 +468,8 @@ class HiIntervalUITestCase: XCTestCase {
         line: UInt = #line
     ) {
         let control = app.segmentedControls[identifier]
-        scrollToHittable(control, file: file, line: line)
         let optionButton = control.buttons[option]
-        tap(optionButton, file: file, line: line)
+        tap(optionButton, scrolls: true, file: file, line: line)
         XCTAssertTrue(optionButton.isSelected, "Segment was not selected: \(option)", file: file, line: line)
     }
 

@@ -108,8 +108,8 @@ struct SettingsView: View {
             .accessibilityIdentifier("settings.keep-awake")
 
             settingsNote("If background pause is off, elapsed time catches up when HiInterval returns; cues resume in the app.")
-                .accessibilityHidden(true)
                 .accessibilityIdentifier("settings.background-behavior-note")
+                .accessibilityHidden(true)
         } header: {
             settingsHeader("Workout behavior")
         }

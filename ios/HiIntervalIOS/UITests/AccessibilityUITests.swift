@@ -93,7 +93,7 @@ final class AccessibilityUITests: HiIntervalUITestCase {
         capture("dynamic-type-train")
 
         selectTab("plans")
-        scrollToHittable(app.staticTexts["Quick Start"])
+        scrollToVisible(app.staticTexts["Quick Start"])
         waitForExistence(element("plans.add"))
         capture("dynamic-type-plans")
 
@@ -112,7 +112,7 @@ final class AccessibilityUITests: HiIntervalUITestCase {
         scrollToHittable(element("session.pause"))
         tap(element("session.pause"))
         waitForLabel("Resume workout", on: element("session.pause"))
-        scrollToHittable(element("session.next"))
+        scrollToVisible(element("session.next"))
         capture("dynamic-type-session")
     }
 
