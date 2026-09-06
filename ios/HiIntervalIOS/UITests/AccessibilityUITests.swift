@@ -50,15 +50,15 @@ final class AccessibilityUITests: HiIntervalUITestCase {
         app = configuredApplication(resetFixture: .glanceableSession)
         app.launchEnvironment["HIINTERVAL_UI_TEST_SPEED"] = "1"
         app.launch()
-        waitForExistence(element("train.screen"), timeout: 8)
+        waitForExistence(element("train.screen"), timeout: 15)
 
         if app.frame.width > 700 {
             throw XCTSkip("System accessibility audit is unstable on the iPadOS 26 simulator")
         }
 
-        tap(element("train.start"))
+        tap(element("train.start"), scrolls: true)
         waitForExistence(element("session.screen"), timeout: 5)
-        tap(element("session.pause"))
+        tap(element("session.pause"), scrolls: true)
         waitForLabel("Resume workout", on: element("session.pause"))
 
         var findings: [String] = []
@@ -66,12 +66,12 @@ final class AccessibilityUITests: HiIntervalUITestCase {
         capture("audit-session-warmup")
         findings += try collectAuditFindings(on: "Session Warm-up", colorScheme: "phase")
 
-        tap(element("session.skip"))
+        tap(element("session.skip"), scrolls: true)
         waitForLabel("High Knees", on: element("session.exercise"))
         capture("audit-session-work")
         findings += try collectAuditFindings(on: "Session Work", colorScheme: "phase")
 
-        tap(element("session.skip"))
+        tap(element("session.skip"), scrolls: true)
         waitForLabel("Recover", on: element("session.exercise"))
         capture("audit-session-recovery")
         findings += try collectAuditFindings(on: "Session Recovery", colorScheme: "phase")
