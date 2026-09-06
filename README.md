@@ -50,7 +50,15 @@ Generated project uses scheme `HiInterval` and defaults to bundle ID `de.malaber
 
 # Same complete gate used before manual TestFlight uploads
 .venv/bin/inv check
+
+# Local Xcode archive, automatic signing, and TestFlight upload
+.venv/bin/inv upload-testflight --marketing-version=0.2.1 --build-number=2
 ```
+
+Local upload requires configured Xcode Apple account with access to team `VWKG94374J`. Use a new
+build number for every later upload of same marketing version. Signed archive stays in printed
+temporary path. Helper forces macOS system `rsync`; Homebrew `rsync` is incompatible with Xcode's
+extended-attribute packaging flags.
 
 CI runs Swift package coverage in Linux Swift 6.2 plus full XCUITest on named iPhone and iPad simulators. Test execution is serial, starts from reset app data and clean derived data, retries only failed XCTest cases when they can be identified (with a full-run fallback), and always uploads diagnostic evidence. Pull requests run once through the PR event; pushes run automatically on `main`.
 

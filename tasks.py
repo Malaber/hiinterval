@@ -122,6 +122,24 @@ def check_ios_ci(c) -> None:
     )
 
 
+@task(
+    help={
+        "marketing_version": "Three-part App Store version, for example 0.2.1.",
+        "build_number": "Positive App Store build number.",
+    }
+)
+def upload_testflight(c, marketing_version, build_number) -> None:
+    """Archive, sign, and upload through the configured local Xcode account."""
+    command = " ".join(
+        [
+            shlex.quote(str(IOS_DIR / "Scripts" / "upload_testflight.sh")),
+            shlex.quote(marketing_version),
+            shlex.quote(str(build_number)),
+        ]
+    )
+    c.run(command, env=_ios_env(), pty=False, shell="/bin/bash")
+
+
 @task(default=True)
 def check(c) -> None:
     """Alias for complete native CI gate."""

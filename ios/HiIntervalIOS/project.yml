@@ -22,7 +22,7 @@ targets:
         PRODUCT_NAME: HiInterval
         PRODUCT_BUNDLE_IDENTIFIER: de.malaber.hiinterval
         DEVELOPMENT_TEAM: VWKG94374J
-        MARKETING_VERSION: 0.1.0
+        MARKETING_VERSION: 0.2.1
         CURRENT_PROJECT_VERSION: 1
         SWIFT_VERSION: 6.0
         TARGETED_DEVICE_FAMILY: "1,2"

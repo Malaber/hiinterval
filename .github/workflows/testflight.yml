@@ -54,7 +54,7 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
       APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID || 'VWKG94374J' }}
       IOS_BUNDLE_IDENTIFIER: ${{ vars.IOS_BUNDLE_IDENTIFIER || 'de.malaber.hiinterval' }}
-      IOS_MARKETING_VERSION: ${{ vars.IOS_MARKETING_VERSION || '0.1.0' }}
+      IOS_MARKETING_VERSION: ${{ vars.IOS_MARKETING_VERSION || '0.2.1' }}
       IOS_BUILD_NUMBER: ${{ github.run_number }}
       APP_STORE_CONNECT_APP_ID: ${{ vars.APP_STORE_CONNECT_APP_ID }}
     steps:
@@ -177,7 +177,7 @@ jobs:
       - name: Archive signed app
         working-directory: ios/HiIntervalIOS
         run: |
-          xcodebuild \
+          env PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/xcodebuild \
             -project HiIntervalApp.xcodeproj \
             -scheme HiInterval \
             -configuration Release \
@@ -217,7 +217,7 @@ jobs:
           </plist>
           PLIST
           export_dir="$RUNNER_TEMP/app-store-export"
-          xcodebuild \
+          env PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/xcodebuild \
             -exportArchive \
             -archivePath "${{ steps.artifact.outputs.archive_path }}" \
             -exportPath "$export_dir" \
