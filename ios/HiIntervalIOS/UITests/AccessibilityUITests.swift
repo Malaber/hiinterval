@@ -49,8 +49,7 @@ final class AccessibilityUITests: HiIntervalUITestCase {
     func testActiveWorkoutPassesSystemAccessibilityAudit() throws {
         app = configuredApplication(resetFixture: .glanceableSession)
         app.launchEnvironment["HIINTERVAL_UI_TEST_SPEED"] = "1"
-        app.launch()
-        waitForExistence(element("train.screen"), timeout: 15)
+        launchConfiguredApplication()
 
         if app.frame.width > 700 {
             throw XCTSkip("System accessibility audit is unstable on the iPadOS 26 simulator")
@@ -86,9 +85,7 @@ final class AccessibilityUITests: HiIntervalUITestCase {
         app = configuredApplication(resetFixture: .standard)
         app.launchEnvironment["HIINTERVAL_UI_TEST_DYNAMIC_TYPE"] = "accessibility5"
         app.launchEnvironment["HIINTERVAL_UI_TEST_SPEED"] = "1"
-        app.launch()
-
-        waitForExistence(element("train.screen"), timeout: 8)
+        launchConfiguredApplication()
         scrollToHittable(element("train.start"))
         capture("dynamic-type-train")
 
@@ -109,8 +106,7 @@ final class AccessibilityUITests: HiIntervalUITestCase {
         scrollToHittable(element("train.start"))
         tap(element("train.start"))
         waitForExistence(element("session.screen"), timeout: 5)
-        scrollToHittable(element("session.pause"))
-        tap(element("session.pause"))
+        tap(element("session.pause"), scrolls: true)
         waitForLabel("Resume workout", on: element("session.pause"))
         scrollToVisible(element("session.next"))
         capture("dynamic-type-session")

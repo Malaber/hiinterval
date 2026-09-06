@@ -67,7 +67,7 @@ def ios_ui_e2e(
     artifact_dir="e2e-artifacts/ios-iphone",
     only_testing="HiIntervalUITests",
 ) -> None:
-    """Run serial, isolated XCUITest with one full-run retry."""
+    """Run serial, isolated XCUITest with configurable failed-test retries."""
     command = " ".join(
         [
             shlex.quote(str(IOS_DIR / "Scripts" / "run_ui_e2e.sh")),

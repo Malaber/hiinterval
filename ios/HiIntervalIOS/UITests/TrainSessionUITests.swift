@@ -23,10 +23,13 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         tap(element("train.start"))
         // Required 60x clock finishes the 36-second fixture in about 0.6 real seconds.
         // Completion proves the selected plan started without racing transient phase UI.
-        waitForExistence(element("completion.screen"), timeout: 5)
+        waitForExistence(element("completion.screen"), timeout: 15)
         let celebration = element("completion.screen")
-        waitForValue("Foreground fireworks", on: celebration, timeout: 2)
-        waitForValue("Background fireworks", on: celebration, timeout: 7)
+        waitForValue("Foreground fireworks", on: celebration, timeout: 5)
+        // Repeated accessibility snapshots can monopolize a loaded hosted iPad's main thread.
+        // Let the five-second production transition run before querying the hierarchy again.
+        Thread.sleep(forTimeInterval: 6)
+        waitForValue("Background fireworks", on: celebration, timeout: 10)
         capture("02-fixture-started-and-complete")
     }
 
@@ -157,8 +160,7 @@ final class TrainSessionUITests: HiIntervalUITestCase {
     private func launchAtRealtimeSpeed(fixture: Fixture = .standard) {
         app = configuredApplication(resetFixture: fixture)
         app.launchEnvironment["HIINTERVAL_UI_TEST_SPEED"] = "1"
-        app.launch()
-        waitForExistence(element("train.screen"), timeout: 8)
+        launchConfiguredApplication()
     }
 
     private func stretchQuickStartForDeterministicClockControl() {

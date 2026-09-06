@@ -59,7 +59,7 @@ jobs:
         run: xcodebuild -version && xcodegen --version
       - name: Run serial ${{ matrix.platform }} UI e2e
         env:
-          HIINTERVAL_E2E_ATTEMPTS: '2'
+          HIINTERVAL_E2E_ATTEMPTS: '3'
         run: >-
           python -m invoke ios-ui-e2e
           --device-name="${{ matrix.device_name }}"

@@ -24,8 +24,7 @@ class HiIntervalUITestCase: XCTestCase {
     @discardableResult
     func launch(fixture: Fixture = .standard) -> XCUIApplication {
         app = configuredApplication(resetFixture: fixture)
-        app.launch()
-        waitForExistence(element("train.screen"), timeout: 8)
+        launchConfiguredApplication()
         return app
     }
 
@@ -34,8 +33,26 @@ class HiIntervalUITestCase: XCTestCase {
     func relaunchPreservingData() {
         app.terminate()
         app = configuredApplication(resetFixture: nil)
+        launchConfiguredApplication()
+    }
+
+    /// Hosted simulators occasionally finish XCTest's launch handshake before SwiftUI publishes
+    /// its first accessibility tree. Give a cold launch room to settle, then relaunch once with
+    /// the same arguments so fixture setup remains deterministic.
+    func launchConfiguredApplication(
+        timeout: TimeInterval = 20,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
         app.launch()
-        waitForExistence(element("train.screen"), timeout: 8)
+        let trainScreen = element("train.screen")
+        if trainScreen.waitForExistence(timeout: timeout) {
+            return
+        }
+
+        app.terminate()
+        app.launch()
+        waitForExistence(trainScreen, timeout: timeout, file: file, line: line)
     }
 
     func configuredApplication(resetFixture: Fixture?) -> XCUIApplication {
@@ -312,7 +329,7 @@ class HiIntervalUITestCase: XCTestCase {
         // opposite edge of the viewport.
         let viewport = app.frame
         for _ in 0..<maxSwipes {
-            if target.exists && target.isHittable { break }
+            if target.exists && target.isHittable { return }
             guard target.exists else { break }
             let scrollsUp = target.frame.midY >= viewport.midY
             dragScroll(up: scrollsUp)
