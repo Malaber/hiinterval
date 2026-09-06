@@ -20,8 +20,7 @@ final class PlanEditorUITests: HiIntervalUITestCase {
 
         let name = element("exercise.editor.name")
         waitForExistence(name)
-        XCTAssertTrue(name.hasFocus, "New exercise name should receive keyboard focus")
-        XCTAssertTrue(app.keyboards.firstMatch.exists)
+        waitForExistence(app.keyboards.firstMatch, timeout: 3)
         name.typeText("Burpees")
         XCTAssertEqual(name.value as? String, "Burpees")
         capture("01-new-exercise-name-focused")
@@ -38,7 +37,14 @@ final class PlanEditorUITests: HiIntervalUITestCase {
             in: element("plan.editor.warmup.notes"),
             with: "Mobilize at 60%"
         )
-        tap(element("plan.editor.exercise.0"), scrolls: true)
+        if app.keyboards.firstMatch.exists {
+            app.keyboards.firstMatch.swipeDown()
+        }
+        let firstExercise = element("plan.editor.exercise.0")
+        for _ in 0..<4 where !firstExercise.isHittable {
+            app.swipeUp()
+        }
+        tap(firstExercise)
         waitForExistence(element("exercise.editor.screen"))
 
         replaceText(in: element("exercise.editor.name"), with: "Split Squat")

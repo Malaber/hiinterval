@@ -65,7 +65,8 @@ struct ExerciseEditorView: View {
         .scrollDismissesKeyboard(.interactively)
         .task {
             guard ExerciseEditorPresentation.initialFocus(isNew: isNew) == .name else { return }
-            await Task.yield()
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
             focusedField = .name
         }
         .toolbar {

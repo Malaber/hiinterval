@@ -9,9 +9,8 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         selectTab("train")
 
         tap(element("train.start"))
-        let session = element("session.screen")
-        waitForExistence(session, timeout: 5)
-        waitForValue("Haptics disabled", on: session)
+        waitForExistence(element("session.screen"), timeout: 5)
+        waitForValue("Haptics disabled", on: element("session.phase-kind"))
     }
 
     func testFreshFixtureStartsSelectedWorkout() {
@@ -25,8 +24,9 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         // Required 60x clock finishes the 36-second fixture in about 0.6 real seconds.
         // Completion proves the selected plan started without racing transient phase UI.
         waitForExistence(element("completion.screen"), timeout: 5)
-        waitForExistence(element("completion.fireworks.foreground"), timeout: 1)
-        waitForExistence(element("completion.fireworks.background"), timeout: 3)
+        let celebration = element("completion.screen")
+        waitForValue("Foreground fireworks", on: celebration, timeout: 2)
+        waitForValue("Background fireworks", on: celebration, timeout: 7)
         capture("02-fixture-started-and-complete")
     }
 
@@ -107,7 +107,6 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         waitForValue("Secondary preview", on: element("session.next"))
         capture("01-running-eight-exercise-work")
 
-        tap(element("session.pause"))
         waitForLabel("Resume workout", on: element("session.pause"))
 
         // Let time elapse, then prove one restart press restores this phase's full duration.

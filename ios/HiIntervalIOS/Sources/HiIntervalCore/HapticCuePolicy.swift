@@ -19,7 +19,7 @@ public enum HapticCuePolicy {
         hapticsEnabled: Bool
     ) -> HapticFeedback? {
         guard hapticsEnabled else { return nil }
-        switch event {
+        return switch event {
         case .phase:
             .mediumImpact
         case .countdown:

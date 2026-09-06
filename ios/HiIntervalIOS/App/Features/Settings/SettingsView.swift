@@ -97,6 +97,9 @@ struct SettingsView: View {
                     .foregroundStyle(settingsTextColor)
             }
             .accessibilityIdentifier("settings.pause-background")
+            .accessibilityHint(
+                "When off, elapsed time catches up after returning to HiInterval and cues resume in the app."
+            )
             Toggle(isOn: preferenceBinding(\.keepScreenAwake)) {
                 Text("Keep screen awake during workouts")
                     .fontWeight(.semibold)
@@ -105,6 +108,7 @@ struct SettingsView: View {
             .accessibilityIdentifier("settings.keep-awake")
 
             settingsNote("If background pause is off, elapsed time catches up when HiInterval returns; cues resume in the app.")
+                .accessibilityHidden(true)
                 .accessibilityIdentifier("settings.background-behavior-note")
         } header: {
             settingsHeader("Workout behavior")

@@ -315,8 +315,8 @@ struct PlanEditorView: View {
                 .foregroundStyle(.secondary)
             TextField(prompt, text: text, axis: .vertical)
                 .lineLimit(2...4)
+                .accessibilityIdentifier(accessibilityID)
         }
-        .accessibilityIdentifier(accessibilityID)
     }
 
     private func optionalNotesBinding(_ keyPath: WritableKeyPath<WorkoutPlan, String?>) -> Binding<String> {

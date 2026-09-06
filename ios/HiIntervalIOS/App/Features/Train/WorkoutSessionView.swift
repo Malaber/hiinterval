@@ -74,9 +74,6 @@ private struct ActiveWorkoutView: View {
         }
         .foregroundStyle(sessionForeground)
         .preferredColorScheme(.light)
-        .accessibilityValue(
-            store.data.preferences.hapticsEnabled ? "Haptics enabled" : "Haptics disabled"
-        )
         .onAppear {
             timer = Timer.publish(every: controller.tickInterval, on: .main, in: .common).autoconnect()
             controller.start(preferences: store.data.preferences)
@@ -166,6 +163,9 @@ private struct ActiveWorkoutView: View {
                 .font(.caption.weight(.bold))
                 .tracking(1.4)
                 .foregroundStyle(sessionForeground)
+                .accessibilityValue(
+                    store.data.preferences.hapticsEnabled ? "Haptics enabled" : "Haptics disabled"
+                )
                 .accessibilityIdentifier("session.phase-kind")
 
             if controller.engine.state == .paused {
@@ -211,6 +211,7 @@ private struct ActiveWorkoutView: View {
                         .font(.body.weight(.semibold))
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                .foregroundStyle(Color.black)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -270,7 +271,7 @@ private struct ActiveWorkoutView: View {
                     Label("NEXT UP", systemImage: "forward.fill")
                         .font(.caption.weight(.bold))
                         .tracking(1.1)
-                        .foregroundStyle(sessionSecondary)
+                        .foregroundStyle(Color.black)
                     Text(next.title + sideSuffix(next.side))
                         .font(
                             .system(
@@ -479,6 +480,12 @@ private struct WorkoutCompletionView: View {
                     VStack(spacing: 8) {
                         Text("Session complete")
                             .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                            .accessibilityValue(
+                                celebrationStage == .foreground
+                                    ? "Foreground fireworks"
+                                    : "Background fireworks"
+                            )
+                            .accessibilityIdentifier("completion.screen")
                         Text(entry.planName)
                             .font(.title3)
                             .foregroundStyle(.secondary)
@@ -513,7 +520,6 @@ private struct WorkoutCompletionView: View {
             }
         }
         .background(Color(uiColor: .systemGroupedBackground))
-        .accessibilityIdentifier("completion.screen")
         .task {
             guard celebrationStage == .foreground else { return }
             try? await Task.sleep(for: .seconds(celebrationTimeline.foregroundDurationSeconds))
@@ -579,15 +585,7 @@ private struct CompletionFireworksView: View {
         .scaleEffect(prominence == .foreground ? 1.08 : 0.82)
         .ignoresSafeArea()
         .allowsHitTesting(false)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            prominence == .foreground ? "Foreground fireworks" : "Background fireworks"
-        )
-        .accessibilityIdentifier(
-            prominence == .foreground
-                ? "completion.fireworks.foreground"
-                : "completion.fireworks.background"
-        )
+        .accessibilityHidden(true)
     }
 
     private func drawBurst(

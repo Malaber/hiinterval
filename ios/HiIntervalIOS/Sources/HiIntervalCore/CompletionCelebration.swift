@@ -8,7 +8,7 @@ public enum CompletionCelebrationStage: String, Equatable, Sendable {
 public struct CompletionCelebrationTimeline: Equatable, Sendable {
     public let foregroundDurationSeconds: TimeInterval
 
-    public init(foregroundDurationSeconds: TimeInterval = 1.2) {
+    public init(foregroundDurationSeconds: TimeInterval = 5) {
         self.foregroundDurationSeconds = max(0, foregroundDurationSeconds)
     }
 

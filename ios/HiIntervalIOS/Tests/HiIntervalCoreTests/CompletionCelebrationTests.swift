@@ -2,6 +2,14 @@ import XCTest
 @testable import HiIntervalCore
 
 final class CompletionCelebrationTests: XCTestCase {
+    func testDefaultCelebrationKeepsFireworksInForegroundForFiveSeconds() {
+        let timeline = CompletionCelebrationTimeline()
+
+        XCTAssertEqual(timeline.foregroundDurationSeconds, 5)
+        XCTAssertEqual(timeline.stage(atElapsedSeconds: 4.99), .foreground)
+        XCTAssertEqual(timeline.stage(atElapsedSeconds: 5), .background)
+    }
+
     func testCelebrationMovesFromForegroundToBackgroundAtBoundary() {
         let timeline = CompletionCelebrationTimeline(foregroundDurationSeconds: 1.2)
 

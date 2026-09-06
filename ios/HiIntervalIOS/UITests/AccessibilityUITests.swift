@@ -62,6 +62,12 @@ final class AccessibilityUITests: HiIntervalUITestCase {
         waitForLabel("Resume workout", on: element("session.pause"))
 
         var findings: [String] = []
+        waitForLabel("Get ready", on: element("session.exercise"))
+        capture("audit-session-warmup")
+        findings += try collectAuditFindings(on: "Session Warm-up", colorScheme: "phase")
+
+        tap(element("session.skip"))
+        waitForLabel("High Knees", on: element("session.exercise"))
         capture("audit-session-work")
         findings += try collectAuditFindings(on: "Session Work", colorScheme: "phase")
 
