@@ -20,7 +20,8 @@ public struct WorkoutTimeline: Codable, Equatable, Sendable {
                 WorkoutPhase(
                     kind: .warmUp,
                     title: "Get ready",
-                    durationSeconds: plan.warmUpSeconds
+                    durationSeconds: plan.warmUpSeconds,
+                    notes: visibleNotes(plan.warmUpNotes)
                 )
             )
         }
@@ -47,6 +48,7 @@ public struct WorkoutTimeline: Codable, Equatable, Sendable {
                             kind: .work,
                             title: exercise.name,
                             durationSeconds: workSeconds,
+                            notes: visibleNotes(exercise.notes),
                             position: common
                         )
                     )
@@ -60,6 +62,7 @@ public struct WorkoutTimeline: Codable, Equatable, Sendable {
                             title: exercise.name,
                             durationSeconds: firstDuration,
                             side: first,
+                            notes: visibleNotes(exercise.notes),
                             position: common
                         )
                     )
@@ -70,6 +73,7 @@ public struct WorkoutTimeline: Codable, Equatable, Sendable {
                                 title: "Switch sides",
                                 durationSeconds: sideConfiguration.switchSeconds,
                                 side: first.opposite,
+                                notes: visibleNotes(exercise.notes),
                                 position: common
                             )
                         )
@@ -80,6 +84,7 @@ public struct WorkoutTimeline: Codable, Equatable, Sendable {
                             title: exercise.name,
                             durationSeconds: secondDuration,
                             side: first.opposite,
+                            notes: visibleNotes(exercise.notes),
                             position: common
                         )
                     )
@@ -97,6 +102,7 @@ public struct WorkoutTimeline: Codable, Equatable, Sendable {
                             kind: .recovery,
                             title: "Recover",
                             durationSeconds: recoverySeconds,
+                            notes: visibleNotes(plan.recoveryNotes),
                             position: common
                         )
                     )
@@ -109,6 +115,7 @@ public struct WorkoutTimeline: Codable, Equatable, Sendable {
                         kind: .roundRecovery,
                         title: "Round recovery",
                         durationSeconds: plan.roundRecoverySeconds,
+                        notes: visibleNotes(plan.roundRecoveryNotes),
                         position: PhasePosition(
                             roundIndex: roundIndex,
                             roundCount: plan.roundCount,
@@ -126,6 +133,7 @@ public struct WorkoutTimeline: Codable, Equatable, Sendable {
                     kind: .coolDown,
                     title: "Cool down",
                     durationSeconds: plan.coolDownSeconds,
+                    notes: visibleNotes(plan.coolDownNotes),
                     position: PhasePosition(
                         roundIndex: plan.roundCount,
                         roundCount: plan.roundCount,
@@ -150,6 +158,7 @@ public struct WorkoutPhase: Codable, Equatable, Identifiable, Sendable {
     public var title: String
     public var durationSeconds: Int
     public var side: WorkoutSide?
+    public var notes: String?
     public var position: PhasePosition?
 
     public init(
@@ -158,6 +167,7 @@ public struct WorkoutPhase: Codable, Equatable, Identifiable, Sendable {
         title: String,
         durationSeconds: Int,
         side: WorkoutSide? = nil,
+        notes: String? = nil,
         position: PhasePosition? = nil
     ) {
         self.id = id
@@ -165,8 +175,15 @@ public struct WorkoutPhase: Codable, Equatable, Identifiable, Sendable {
         self.title = title
         self.durationSeconds = durationSeconds
         self.side = side
+        self.notes = notes
         self.position = position
     }
+}
+
+private func visibleNotes(_ value: String?) -> String? {
+    guard let value else { return nil }
+    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    return trimmed.isEmpty ? nil : trimmed
 }
 
 public enum WorkoutPhaseKind: String, Codable, CaseIterable, Equatable, Sendable {

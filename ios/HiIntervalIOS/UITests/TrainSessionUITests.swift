@@ -2,6 +2,17 @@ import XCTest
 
 @MainActor
 final class TrainSessionUITests: HiIntervalUITestCase {
+    func testDisabledHapticsApplyToEntireSession() {
+        launchAtRealtimeSpeed(fixture: .glanceableSession)
+        selectTab("settings")
+        setSwitch("settings.haptics", to: false)
+        selectTab("train")
+
+        tap(element("train.start"))
+        waitForExistence(element("session.screen"), timeout: 5)
+        waitForValue("Haptics disabled", on: element("session.phase-kind"))
+    }
+
     func testFreshFixtureStartsSelectedWorkout() {
         launch()
 
@@ -12,7 +23,13 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         tap(element("train.start"))
         // Required 60x clock finishes the 36-second fixture in about 0.6 real seconds.
         // Completion proves the selected plan started without racing transient phase UI.
-        waitForExistence(element("completion.screen"), timeout: 5)
+        waitForExistence(element("completion.screen"), timeout: 15)
+        let celebration = element("completion.screen")
+        waitForValue("Foreground fireworks", on: celebration, timeout: 5)
+        // Repeated accessibility snapshots can monopolize a loaded hosted iPad's main thread.
+        // Let the five-second production transition run before querying the hierarchy again.
+        Thread.sleep(forTimeInterval: 6)
+        waitForValue("Background fireworks", on: celebration, timeout: 10)
         capture("02-fixture-started-and-complete")
     }
 
@@ -79,13 +96,20 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         tap(element("train.start"))
         waitForExistence(element("session.screen"), timeout: 5)
 
+        waitForLabel("Get ready", on: element("session.exercise"))
+        waitForLabel("Notes, Move at 60% effort", on: element("session.notes"))
+        tap(element("session.pause"))
+        waitForLabel("Resume workout", on: element("session.pause"))
+        skipPausedPhase(expectingExercise: "High Knees")
         waitForLabel("High Knees", on: element("session.exercise"))
+        waitForLabel("Notes, Keep knees soft", on: element("session.notes"))
         waitForLabel("WORK", on: element("session.phase-kind"))
         waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
         waitForLabel("Next up, Reverse Lunges · Left", on: element("session.next"))
+        waitForValue("Primary focus", on: element("session.exercise"))
+        waitForValue("Secondary preview", on: element("session.next"))
         capture("01-running-eight-exercise-work")
 
-        tap(element("session.pause"))
         waitForLabel("Resume workout", on: element("session.pause"))
 
         // Let time elapse, then prove one restart press restores this phase's full duration.
@@ -102,6 +126,7 @@ final class TrainSessionUITests: HiIntervalUITestCase {
 
         // Recovery stays visually current for exercise one; next-up skips it entirely.
         skipPausedPhase(expectingExercise: "Recover")
+        waitForLabel("Notes, Breathe and reset", on: element("session.notes"))
         waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
         waitForLabel("Next up, Reverse Lunges · Left", on: element("session.next"))
         tap(element("session.pause"))
@@ -125,6 +150,7 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         capture("05-second-exercise-selected")
 
         seekPausedPhase(exercise: "Cool down", phase: "COOL DOWN", attempts: 24)
+        waitForLabel("Notes, Slow nasal breathing", on: element("session.notes"))
         waitForDisappearance(element("session.next"))
         tap(element("session.pause"))
         waitForLabel("Pause workout", on: element("session.pause"))
@@ -134,8 +160,7 @@ final class TrainSessionUITests: HiIntervalUITestCase {
     private func launchAtRealtimeSpeed(fixture: Fixture = .standard) {
         app = configuredApplication(resetFixture: fixture)
         app.launchEnvironment["HIINTERVAL_UI_TEST_SPEED"] = "1"
-        app.launch()
-        waitForExistence(element("train.screen"), timeout: 8)
+        launchConfiguredApplication()
     }
 
     private func stretchQuickStartForDeterministicClockControl() {

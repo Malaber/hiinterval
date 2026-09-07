@@ -83,6 +83,11 @@ for ((attempt = 1; attempt <= attempts; attempt++)); do
   used_attempts=$attempt
   rm -rf "$result_bundle"
   xcrun simctl shutdown "$device_udid" >/dev/null 2>&1 || true
+  if [[ "${CI:-}" == "true" ]]; then
+    # Hosted simulator services can survive shutdown in a wedged state. Runner devices contain
+    # no user data, so erase before each attempt to reset accessibility and launch services.
+    xcrun simctl erase "$device_udid"
+  fi
   xcrun simctl boot "$device_udid" >/dev/null 2>&1 || true
   xcrun simctl bootstatus "$device_udid" -b
   xcrun simctl ui "$device_udid" appearance light

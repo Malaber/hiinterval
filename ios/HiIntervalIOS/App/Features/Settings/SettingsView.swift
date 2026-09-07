@@ -13,26 +13,16 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                Form {
-                    accessSection
-                    cuesSection
-                    behaviorSection
-                    remindersSection
-                    appearanceSection
-                    aboutSection
-                }
-                .hiStableScrollContrast(hidingBottomEffect: true)
-
-                if #available(iOS 26.0, *) {
-                    // Keep Form rows above the floating tab bar and land the viewport boundary
-                    // in section spacing instead of through an accessibility element.
-                    HITheme.canvas
-                        .frame(height: 96)
-                        .accessibilityHidden(true)
-                }
+            Form {
+                accessSection
+                cuesSection
+                behaviorSection
+                remindersSection
+                appearanceSection
+                aboutSection
             }
-            .background(HITheme.canvas)
+            .hiStableScrollContrast(hidingBottomEffect: true)
+            .accessibilityIdentifier("settings.form")
             .navigationTitle("Settings")
         }
         .accessibilityIdentifier("settings.screen")
@@ -93,7 +83,7 @@ struct SettingsView: View {
             Toggle("Final three-second countdown", isOn: preferenceBinding(\.countdownEnabled))
                 .accessibilityIdentifier("settings.countdown")
 
-            settingsNote("Spoken cues can follow device language or use English or German.")
+            settingsNote("Audio cues play in Silent Mode. Spoken cues can follow device language or use English or German.")
                 .accessibilityIdentifier("settings.cues-note")
         } header: {
             settingsHeader("Cues")
@@ -107,6 +97,9 @@ struct SettingsView: View {
                     .foregroundStyle(settingsTextColor)
             }
             .accessibilityIdentifier("settings.pause-background")
+            .accessibilityHint(
+                "When off, elapsed time catches up after returning to HiInterval and cues resume in the app."
+            )
             Toggle(isOn: preferenceBinding(\.keepScreenAwake)) {
                 Text("Keep screen awake during workouts")
                     .fontWeight(.semibold)
@@ -116,6 +109,7 @@ struct SettingsView: View {
 
             settingsNote("If background pause is off, elapsed time catches up when HiInterval returns; cues resume in the app.")
                 .accessibilityIdentifier("settings.background-behavior-note")
+                .accessibilityHidden(true)
         } header: {
             settingsHeader("Workout behavior")
         }

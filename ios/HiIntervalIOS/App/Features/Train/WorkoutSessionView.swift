@@ -45,6 +45,7 @@ private struct ActiveWorkoutView: View {
     private var sessionForeground: Color { Color.black.opacity(0.88) }
     private var sessionSecondary: Color { Color.black.opacity(0.75) }
     private var controlSurface: Color { Color.black.opacity(0.12) }
+    private let headingHierarchy = SessionHeadingHierarchy()
 
     var body: some View {
         ZStack {
@@ -162,6 +163,9 @@ private struct ActiveWorkoutView: View {
                 .font(.caption.weight(.bold))
                 .tracking(1.4)
                 .foregroundStyle(sessionForeground)
+                .accessibilityValue(
+                    store.data.preferences.hapticsEnabled ? "Haptics enabled" : "Haptics disabled"
+                )
                 .accessibilityIdentifier("session.phase-kind")
 
             if controller.engine.state == .paused {
@@ -176,11 +180,18 @@ private struct ActiveWorkoutView: View {
             }
 
             Text(phase?.title ?? "Complete")
-                .font(.system(.title, design: .rounded, weight: .bold))
+                .font(
+                    .system(
+                        size: CGFloat(headingHierarchy.currentNamePointSize),
+                        weight: .heavy,
+                        design: .rounded
+                    )
+                )
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.62)
                 .accessibilityIdentifier("session.exercise")
+                .accessibilityValue("Primary focus")
 
             if let side = phase?.side {
                 Text(side == .left ? "LEFT SIDE" : "RIGHT SIDE")
@@ -190,6 +201,24 @@ private struct ActiveWorkoutView: View {
                     .padding(.vertical, 7)
                     .background(controlSurface, in: Capsule())
                     .accessibilityIdentifier("session.side")
+            }
+
+            if let notes = phase?.notes {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "lightbulb.fill")
+                        .accessibilityHidden(true)
+                    Text(notes)
+                        .font(.body.weight(.semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .foregroundStyle(Color.black)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(controlSurface, in: RoundedRectangle(cornerRadius: 14))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Notes, \(notes)")
+                .accessibilityIdentifier("session.notes")
             }
 
             Text(SessionFormat.duration(controller.engine.displayedRemainingSeconds))
@@ -240,25 +269,39 @@ private struct ActiveWorkoutView: View {
             if let next = controller.engine.nextExercisePhase {
                 VStack(spacing: 6) {
                     Label("NEXT UP", systemImage: "forward.fill")
-                        .font(.subheadline.weight(.black))
-                        .tracking(1.4)
+                        .font(.caption.weight(.bold))
+                        .tracking(1.1)
+                        .foregroundStyle(Color.black)
                     Text(next.title + sideSuffix(next.side))
-                        .font(.system(.title2, design: .rounded, weight: .bold))
+                        .font(
+                            .system(
+                                size: CGFloat(headingHierarchy.nextNamePointSize),
+                                weight: .semibold,
+                                design: .rounded
+                            )
+                        )
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                         .minimumScaleFactor(0.75)
                 }
-                .foregroundStyle(phaseColor)
+                .foregroundStyle(sessionForeground)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-                .background(sessionForeground, in: RoundedRectangle(cornerRadius: 18))
+                .padding(.vertical, 12)
+                .background(
+                    Color.black.opacity(headingHierarchy.nextSurfaceOpacity),
+                    in: RoundedRectangle(cornerRadius: 16)
+                )
                 .overlay {
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(Color.black.opacity(0.18))
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(
+                            sessionForeground.opacity(headingHierarchy.nextStrokeOpacity),
+                            lineWidth: 1
+                        )
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Next up, \(next.title + sideSuffix(next.side))")
+                .accessibilityValue("Secondary preview")
                 .accessibilityIdentifier("session.next")
             }
         }
@@ -412,50 +455,81 @@ private enum PhaseStyle {
 private struct WorkoutCompletionView: View {
     let entry: WorkoutHistoryEntry
     let done: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var celebrationStage: CompletionCelebrationStage = .foreground
+
+    private let celebrationTimeline = CompletionCelebrationTimeline()
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 28) {
-                Spacer(minLength: 36)
-                Image(systemName: "checkmark")
-                    .font(.system(size: 42, weight: .bold))
-                    .foregroundStyle(Color(uiColor: .systemBackground))
-                    .frame(width: 104, height: 104)
-                    .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 30))
-                    .accessibilityHidden(true)
-
-                VStack(spacing: 8) {
-                    Text("Session complete")
-                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                    Text(entry.planName)
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack(spacing: 12) {
-                    completionMetric("Duration", SessionFormat.duration(entry.elapsedDurationSeconds), "stopwatch")
-                    completionMetric("Rounds", "\(entry.roundCount)", "repeat")
-                    completionMetric("Moves", "\(entry.exerciseCount)", "figure.run")
-                }
-
-                Text("Workout saved to History.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                Button(action: done) {
-                    Text("Done")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .accessibilityIdentifier("completion.done")
+        ZStack {
+            if celebrationStage == .background {
+                CompletionFireworksView(prominence: .background)
+                    .transition(.opacity)
             }
-            .padding(24)
+
+            ScrollView {
+                VStack(spacing: 28) {
+                    Spacer(minLength: 36)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 42, weight: .bold))
+                        .foregroundStyle(Color(uiColor: .systemBackground))
+                        .frame(width: 104, height: 104)
+                        .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 30))
+                        .accessibilityHidden(true)
+
+                    VStack(spacing: 8) {
+                        Text("Session complete")
+                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                            .accessibilityValue(
+                                celebrationStage == .foreground
+                                    ? "Foreground fireworks"
+                                    : "Background fireworks"
+                            )
+                            .accessibilityIdentifier("completion.screen")
+                        Text(entry.planName)
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack(spacing: 12) {
+                        completionMetric("Duration", SessionFormat.duration(entry.elapsedDurationSeconds), "stopwatch")
+                        completionMetric("Rounds", "\(entry.roundCount)", "repeat")
+                        completionMetric("Moves", "\(entry.exerciseCount)", "figure.run")
+                    }
+
+                    Text("Workout saved to History.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    Button(action: done) {
+                        Text("Done")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .accessibilityIdentifier("completion.done")
+                }
+                .padding(24)
+            }
+
+            if celebrationStage == .foreground {
+                CompletionFireworksView(prominence: .foreground)
+                    .transition(.opacity)
+            }
         }
         .background(Color(uiColor: .systemGroupedBackground))
-        .accessibilityIdentifier("completion.screen")
+        .task {
+            guard celebrationStage == .foreground else { return }
+            try? await Task.sleep(for: .seconds(celebrationTimeline.foregroundDurationSeconds))
+            guard !Task.isCancelled else { return }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.35)) {
+                celebrationStage = celebrationTimeline.stage(
+                    atElapsedSeconds: celebrationTimeline.foregroundDurationSeconds
+                )
+            }
+        }
     }
 
     private func completionMetric(_ label: String, _ value: String, _ icon: String) -> some View {
@@ -472,5 +546,87 @@ private struct WorkoutCompletionView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 18)
         .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18))
+    }
+}
+
+private struct CompletionFireworksView: View {
+    enum Prominence {
+        case foreground
+        case background
+    }
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let prominence: Prominence
+
+    private let colors: [Color] = [.yellow, .orange, .pink, HITheme.accent, .blue]
+    private let centers: [UnitPoint] = [
+        UnitPoint(x: 0.18, y: 0.22),
+        UnitPoint(x: 0.78, y: 0.18),
+        UnitPoint(x: 0.52, y: 0.42),
+        UnitPoint(x: 0.24, y: 0.68),
+        UnitPoint(x: 0.82, y: 0.64),
+    ]
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { timeline in
+            Canvas { context, size in
+                for (burstIndex, center) in centers.enumerated() {
+                    drawBurst(
+                        in: &context,
+                        size: size,
+                        center: center,
+                        burstIndex: burstIndex,
+                        date: timeline.date
+                    )
+                }
+            }
+        }
+        .opacity(prominence == .foreground ? 0.95 : 0.32)
+        .scaleEffect(prominence == .foreground ? 1.08 : 0.82)
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func drawBurst(
+        in context: inout GraphicsContext,
+        size: CGSize,
+        center: UnitPoint,
+        burstIndex: Int,
+        date: Date
+    ) {
+        let rawPhase: CGFloat = reduceMotion
+            ? 0.48
+            : CGFloat(
+                (date.timeIntervalSinceReferenceDate + Double(burstIndex) * 0.31)
+                    .truncatingRemainder(dividingBy: 1.25) / 1.25
+            )
+        let radiusScale: CGFloat = prominence == .foreground ? 1 : 0.7
+        let radius = (18 + rawPhase * 104) * radiusScale
+        let particleSize: CGFloat = prominence == .foreground ? 6 : 4
+        let origin = CGPoint(x: size.width * center.x, y: size.height * center.y)
+
+        for particleIndex in 0..<14 {
+            let angle = Double(particleIndex) / 14 * .pi * 2 + Double(burstIndex) * 0.4
+            let point = CGPoint(
+                x: origin.x + CGFloat(cos(angle)) * radius,
+                y: origin.y + CGFloat(sin(angle)) * radius
+            )
+            let particle = Path(
+                ellipseIn: CGRect(
+                    x: point.x - particleSize / 2,
+                    y: point.y - particleSize / 2,
+                    width: particleSize,
+                    height: particleSize
+                )
+            )
+            context.fill(
+                particle,
+                with: .color(
+                    colors[(particleIndex + burstIndex) % colors.count]
+                        .opacity(Double(1 - rawPhase))
+                )
+            )
+        }
     }
 }

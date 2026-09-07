@@ -44,7 +44,7 @@ environment's secrets and optionally require deployment approval.
 Repository variables:
 
 - `APP_STORE_CONNECT_APP_ID`: the numeric Apple ID copied from App Store Connect.
-- `IOS_MARKETING_VERSION`: `0.1.0` initially.
+- `IOS_MARKETING_VERSION`: defaults to the current release, `0.2.1`.
 - `APPLE_TEAM_ID`: optional; defaults to `VWKG94374J`.
 - `IOS_BUNDLE_IDENTIFIER`: optional; defaults to `de.malaber.hiinterval`.
 - `TESTFLIGHT_UPLOAD_ENABLED`: leave unset for initial setup.

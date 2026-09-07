@@ -2,7 +2,12 @@ import SwiftUI
 import HiIntervalCore
 
 struct ExerciseEditorView: View {
+    private enum Field: Hashable {
+        case name
+    }
+
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var focusedField: Field?
 
     let defaultWorkSeconds: Int
     let defaultRecoverySeconds: Int
@@ -58,6 +63,12 @@ struct ExerciseEditorView: View {
         .navigationTitle(isNew ? "Add exercise" : "Edit exercise")
         .navigationBarTitleDisplayMode(.inline)
         .scrollDismissesKeyboard(.interactively)
+        .task {
+            guard ExerciseEditorPresentation.initialFocus(isNew: isNew) == .name else { return }
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
+            focusedField = .name
+        }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") { dismiss() }
@@ -116,6 +127,7 @@ struct ExerciseEditorView: View {
             TextField("Exercise name", text: $exercise.name)
                 .textInputAutocapitalization(.words)
                 .submitLabel(.done)
+                .focused($focusedField, equals: .name)
                 .accessibilityIdentifier("exercise.editor.name")
         }
     }

@@ -103,6 +103,38 @@ final class WorkoutTimelineTests: XCTestCase {
         XCTAssertEqual(phases.map(\.durationSeconds), [10, 8, 10])
     }
 
+    func testEveryTimedSectionCarriesOnlyVisibleNotes() throws {
+        var plan = makePlan(
+            warmUp: 5,
+            work: 10,
+            recovery: 3,
+            roundRecovery: 7,
+            coolDown: 4,
+            rounds: 2,
+            exercises: [
+                ExerciseStep(name: "Squat", notes: "  Knees over toes  "),
+                ExerciseStep(name: "Plank", notes: "  "),
+            ]
+        )
+        plan.warmUpNotes = "  Start at 60%  "
+        plan.recoveryNotes = " Breathe "
+        plan.roundRecoveryNotes = " Hydrate "
+        plan.coolDownNotes = " Stretch "
+
+        let phases = try WorkoutTimeline(plan: plan).phases
+
+        XCTAssertEqual(
+            phases.map(\.notes),
+            [
+                "Start at 60%",
+                "Knees over toes", "Breathe", nil,
+                "Hydrate",
+                "Knees over toes", "Breathe", nil,
+                "Stretch",
+            ]
+        )
+    }
+
     func testValidationRejectsInvalidRecipes() {
         assertValidationError(makePlan(name: " "), equals: .emptyName)
         assertValidationError(makePlan(exercises: []), equals: .emptyExercises)

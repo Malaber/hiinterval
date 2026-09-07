@@ -49,23 +49,28 @@ final class AccessibilityUITests: HiIntervalUITestCase {
     func testActiveWorkoutPassesSystemAccessibilityAudit() throws {
         app = configuredApplication(resetFixture: .glanceableSession)
         app.launchEnvironment["HIINTERVAL_UI_TEST_SPEED"] = "1"
-        app.launch()
-        waitForExistence(element("train.screen"), timeout: 8)
+        launchConfiguredApplication()
 
         if app.frame.width > 700 {
             throw XCTSkip("System accessibility audit is unstable on the iPadOS 26 simulator")
         }
 
-        tap(element("train.start"))
+        tap(element("train.start"), scrolls: true)
         waitForExistence(element("session.screen"), timeout: 5)
-        tap(element("session.pause"))
+        tap(element("session.pause"), scrolls: true)
         waitForLabel("Resume workout", on: element("session.pause"))
 
         var findings: [String] = []
+        waitForLabel("Get ready", on: element("session.exercise"))
+        capture("audit-session-warmup")
+        findings += try collectAuditFindings(on: "Session Warm-up", colorScheme: "phase")
+
+        tap(element("session.skip"), scrolls: true)
+        waitForLabel("High Knees", on: element("session.exercise"))
         capture("audit-session-work")
         findings += try collectAuditFindings(on: "Session Work", colorScheme: "phase")
 
-        tap(element("session.skip"))
+        tap(element("session.skip"), scrolls: true)
         waitForLabel("Recover", on: element("session.exercise"))
         capture("audit-session-recovery")
         findings += try collectAuditFindings(on: "Session Recovery", colorScheme: "phase")
@@ -80,14 +85,12 @@ final class AccessibilityUITests: HiIntervalUITestCase {
         app = configuredApplication(resetFixture: .standard)
         app.launchEnvironment["HIINTERVAL_UI_TEST_DYNAMIC_TYPE"] = "accessibility5"
         app.launchEnvironment["HIINTERVAL_UI_TEST_SPEED"] = "1"
-        app.launch()
-
-        waitForExistence(element("train.screen"), timeout: 8)
+        launchConfiguredApplication()
         scrollToHittable(element("train.start"))
         capture("dynamic-type-train")
 
         selectTab("plans")
-        scrollToHittable(app.staticTexts["Quick Start"])
+        scrollToVisible(app.staticTexts["Quick Start"])
         waitForExistence(element("plans.add"))
         capture("dynamic-type-plans")
 
@@ -103,10 +106,9 @@ final class AccessibilityUITests: HiIntervalUITestCase {
         scrollToHittable(element("train.start"))
         tap(element("train.start"))
         waitForExistence(element("session.screen"), timeout: 5)
-        scrollToHittable(element("session.pause"))
-        tap(element("session.pause"))
+        tap(element("session.pause"), scrolls: true)
         waitForLabel("Resume workout", on: element("session.pause"))
-        scrollToHittable(element("session.next"))
+        scrollToVisible(element("session.next"))
         capture("dynamic-type-session")
     }
 

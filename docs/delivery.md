@@ -17,6 +17,21 @@ Current test inventory is 36 portable core tests plus 10 XCUITest flows. Core co
 
 UI tests launch with deterministic `--ui-testing` fixture mode. Tests must query accessibility identifiers and wait for observable state, never sleep for animation timing.
 
+## Local Xcode upload
+
+With an Xcode Apple account configured for team `VWKG94374J`, upload a signed archive directly:
+
+```bash
+.venv/bin/inv upload-testflight --marketing-version=0.2.1 --build-number=2
+```
+
+Use a new build number for later uploads of the same marketing version. The task generates the
+Xcode project, archives with automatic signing, exports with
+`ExportOptions.TestFlight.plist`, and uploads to App Store Connect. It deliberately gives Xcode a
+system-only `PATH`: Homebrew `rsync` does not support Apple's extended-attribute option and causes
+an opaque `exportArchive Copy failed` error. The signed archive remains at the printed temporary
+path for Organizer inspection.
+
 ## GitHub Actions
 
 - `ci.yml`: `main` push, pull request, and manual CI entry point. PR branch pushes are covered only by the pull-request event, avoiding duplicate matrices.
@@ -33,7 +48,7 @@ TestFlight variables:
 - `TESTFLIGHT_UPLOAD_ENABLED`: `true` for automatic successful-`main` delivery.
 - `APPLE_TEAM_ID`: defaults to `VWKG94374J`.
 - `IOS_BUNDLE_IDENTIFIER`: defaults to `de.malaber.hiinterval`.
-- `IOS_MARKETING_VERSION`: defaults to `0.1.0`.
+- `IOS_MARKETING_VERSION`: defaults to `0.2.1`.
 - `APP_STORE_CONNECT_APP_ID`: numeric App Store Connect app ID.
 
 TestFlight secrets:

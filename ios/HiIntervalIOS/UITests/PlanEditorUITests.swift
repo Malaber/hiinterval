@@ -2,6 +2,30 @@ import XCTest
 
 @MainActor
 final class PlanEditorUITests: HiIntervalUITestCase {
+    func testAddingExerciseFocusesNameField() {
+        launch()
+        selectTab("plans")
+        tap(
+            planActionButton(
+                planID: FixtureID.quickStartPlan,
+                identifier: "plan.edit.\(FixtureID.quickStartPlan)",
+                fallbackLabel: "Edit"
+            ),
+            scrolls: true
+        )
+        waitForExistence(element("plan.editor.screen"))
+
+        tap(element("plan.editor.exercise.add"), scrolls: true)
+        waitForExistence(element("exercise.editor.screen"))
+
+        let name = element("exercise.editor.name")
+        waitForExistence(name)
+        waitForExistence(app.keyboards.firstMatch, timeout: 3)
+        name.typeText("Burpees")
+        XCTAssertEqual(name.value as? String, "Burpees")
+        capture("01-new-exercise-name-focused")
+    }
+
     func testCreatesCustomSplitPlanSavesSelectsAndPersists() {
         launch()
         selectTab("plans")
@@ -9,7 +33,18 @@ final class PlanEditorUITests: HiIntervalUITestCase {
         waitForExistence(element("plan.editor.screen"))
 
         replaceText(in: element("plan.editor.name"), with: "Bilateral Builder")
-        tap(element("plan.editor.exercise.0"), scrolls: true)
+        replaceText(
+            in: element("plan.editor.warmup.notes"),
+            with: "Mobilize at 60%"
+        )
+        if app.keyboards.firstMatch.exists {
+            app.keyboards.firstMatch.swipeDown()
+        }
+        let firstExercise = element("plan.editor.exercise.0")
+        for _ in 0..<4 where !firstExercise.isHittable {
+            app.swipeUp()
+        }
+        tap(firstExercise)
         waitForExistence(element("exercise.editor.screen"))
 
         replaceText(in: element("exercise.editor.name"), with: "Split Squat")
@@ -22,6 +57,7 @@ final class PlanEditorUITests: HiIntervalUITestCase {
         waitForExistence(element("exercise.editor.side.preview"))
         capture("01-custom-split-exercise")
         tapToolbarButton("exercise.editor.save", label: "Done")
+        waitForDisappearance(element("exercise.editor.screen"), timeout: 8)
         waitForExistence(element("plan.editor.screen"))
 
         tap(element("plan.editor.roundOverrides"), scrolls: true)
@@ -31,6 +67,7 @@ final class PlanEditorUITests: HiIntervalUITestCase {
         selectSegment(control: "roundOverride.side.mode.2", option: "Left + right")
         capture("02-round-two-split-override")
         tapToolbarButton("roundOverrides.save", label: "Done")
+        waitForDisappearance(element("roundOverrides.screen"), timeout: 8)
         waitForExistence(element("plan.editor.screen"))
 
         tapToolbarButton("plan.editor.save", label: "Save")

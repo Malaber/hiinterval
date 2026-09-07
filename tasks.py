@@ -67,7 +67,7 @@ def ios_ui_e2e(
     artifact_dir="e2e-artifacts/ios-iphone",
     only_testing="HiIntervalUITests",
 ) -> None:
-    """Run serial, isolated XCUITest with one full-run retry."""
+    """Run serial, isolated XCUITest with configurable failed-test retries."""
     command = " ".join(
         [
             shlex.quote(str(IOS_DIR / "Scripts" / "run_ui_e2e.sh")),
@@ -120,6 +120,24 @@ def check_ios_ci(c) -> None:
         device_name=DEFAULT_IPAD,
         artifact_dir="e2e-artifacts/ios-ipad",
     )
+
+
+@task(
+    help={
+        "marketing_version": "Three-part App Store version, for example 0.2.1.",
+        "build_number": "Positive App Store build number.",
+    }
+)
+def upload_testflight(c, marketing_version, build_number) -> None:
+    """Archive, sign, and upload through the configured local Xcode account."""
+    command = " ".join(
+        [
+            shlex.quote(str(IOS_DIR / "Scripts" / "upload_testflight.sh")),
+            shlex.quote(marketing_version),
+            shlex.quote(str(build_number)),
+        ]
+    )
+    c.run(command, env=_ios_env(), pty=False, shell="/bin/bash")
 
 
 @task(default=True)

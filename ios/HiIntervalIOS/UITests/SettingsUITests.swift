@@ -2,6 +2,26 @@ import XCTest
 
 @MainActor
 final class SettingsUITests: HiIntervalUITestCase {
+    func testSettingsFormUsesFullAvailableHeight() {
+        launch()
+        selectTab("settings")
+
+        let screen = element("settings.screen")
+        let form = element("settings.form")
+        waitForExistence(form)
+        waitForLabel(
+            "Audio cues play in Silent Mode. Spoken cues can follow device language or use English or German.",
+            on: element("settings.cues-note")
+        )
+
+        XCTAssertLessThanOrEqual(
+            screen.frame.maxY - form.frame.maxY,
+            80,
+            "Settings should not reserve an oversized bar below the form"
+        )
+        capture("01-settings-full-height")
+    }
+
     func testPreferencesPersistAcrossNavigationAndRelaunch() {
         launch()
         selectTab("settings")
