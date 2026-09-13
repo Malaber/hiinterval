@@ -24,6 +24,8 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         // Required 60x clock finishes the 36-second fixture in about 0.6 real seconds.
         // Completion proves the selected plan started without racing transient phase UI.
         waitForExistence(element("completion.screen"), timeout: 15)
+        waitForExistence(element("completion.extra-nudge"))
+        XCTAssertTrue(element("completion.one-more-round").exists)
         let celebration = element("completion.screen")
         waitForValue("Foreground fireworks", on: celebration, timeout: 5)
         // Repeated accessibility snapshots can monopolize a loaded hosted iPad's main thread.
@@ -31,6 +33,20 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         Thread.sleep(forTimeInterval: 6)
         waitForValue("Background fireworks", on: celebration, timeout: 10)
         capture("02-fixture-started-and-complete")
+    }
+
+    func testOneMoreRoundCompletesAndCongratulatesExtraEffort() {
+        launch()
+        tap(element("train.start"))
+        waitForExistence(element("completion.screen"), timeout: 15)
+
+        tap(element("completion.one-more-round"), scrolls: true)
+        waitForExistence(element("completion.extra-congratulation"), timeout: 15)
+        waitForLabel(
+            "You did more than planned. Extra round complete!",
+            on: element("completion.extra-congratulation")
+        )
+        capture("01-extra-round-complete")
     }
 
     func testPauseResumeSplitTransitionsSkipCompletionAndHistory() {

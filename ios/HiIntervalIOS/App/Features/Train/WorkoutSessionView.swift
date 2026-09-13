@@ -7,7 +7,6 @@ struct WorkoutSessionFlow: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @StateObject private var controller: WorkoutSessionController
-    @State private var didPersistCompletion = false
 
     init(plan: WorkoutPlan) {
         _controller = StateObject(wrappedValue: WorkoutSessionController(plan: plan))
@@ -16,17 +15,21 @@ struct WorkoutSessionFlow: View {
     var body: some View {
         Group {
             if let completion = controller.completion {
-                WorkoutCompletionView(entry: completion) {
-                    dismiss()
-                }
+                WorkoutCompletionView(
+                    entry: completion,
+                    didExceedPlan: controller.didExceedPlan,
+                    oneMoreRound: {
+                        controller.startOneMoreRound(preferences: store.data.preferences)
+                    },
+                    done: { dismiss() }
+                )
             } else {
                 ActiveWorkoutView(controller: controller)
             }
         }
         .environmentObject(store)
         .onChange(of: controller.completion) { _, completion in
-            guard let completion, !didPersistCompletion else { return }
-            didPersistCompletion = true
+            guard let completion else { return }
             store.addHistory(completion)
         }
     }
@@ -454,6 +457,8 @@ private enum PhaseStyle {
 
 private struct WorkoutCompletionView: View {
     let entry: WorkoutHistoryEntry
+    let didExceedPlan: Bool
+    let oneMoreRound: () -> Void
     let done: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var celebrationStage: CompletionCelebrationStage = .foreground
@@ -478,7 +483,7 @@ private struct WorkoutCompletionView: View {
                         .accessibilityHidden(true)
 
                     VStack(spacing: 8) {
-                        Text("Session complete")
+                        Text(didExceedPlan ? "Above and beyond" : "Session complete")
                             .font(.system(.largeTitle, design: .rounded, weight: .bold))
                             .accessibilityValue(
                                 celebrationStage == .foreground
@@ -500,6 +505,30 @@ private struct WorkoutCompletionView: View {
                     Text("Workout saved to History.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+
+                    VStack(spacing: 10) {
+                        Text(
+                            didExceedPlan
+                                ? "You did more than planned. Extra round complete!"
+                                : "Still feeling strong? Your round recovery is already ticking."
+                        )
+                        .font(.headline)
+                        .multilineTextAlignment(.center)
+                        .accessibilityIdentifier(
+                            didExceedPlan ? "completion.extra-congratulation" : "completion.extra-nudge"
+                        )
+
+                        Button(action: oneMoreRound) {
+                            Label("One More Round", systemImage: "repeat.circle.fill")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .accessibilityHint("Starts with at least 10 seconds of round recovery")
+                        .accessibilityIdentifier("completion.one-more-round")
+                    }
 
                     Button(action: done) {
                         Text("Done")

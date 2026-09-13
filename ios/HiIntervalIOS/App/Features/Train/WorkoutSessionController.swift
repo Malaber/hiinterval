@@ -7,23 +7,26 @@ import UIKit
 final class WorkoutSessionController: ObservableObject {
     @Published private(set) var engine: IntervalTimerEngine
     @Published private(set) var completion: WorkoutHistoryEntry?
+    @Published private(set) var extraRoundCount = 0
     @Published var isMuted = false
 
     let plan: WorkoutPlan
-    private let timeline: WorkoutTimeline
+    private let plannedTimeline: WorkoutTimeline
     private let cuePlayer = SessionCuePlayer()
+    private let historyEntryID = UUID()
     private let speedMultiplier: Double
     private let monotonicAnchor: ContinuousClock.Instant
     private let virtualAnchor: Date
     private var startedAt: Date?
     private var activeDuration = ActiveDurationTracker()
     private var lastCountdownSecond: Int?
+    private var recoveryStartedAt: Date?
 
     init(plan: WorkoutPlan) {
         self.plan = plan
-        timeline = (try? WorkoutTimeline(plan: plan))
+        plannedTimeline = (try? WorkoutTimeline(plan: plan))
             ?? WorkoutTimeline(planID: plan.id, planName: plan.name, phases: [])
-        engine = IntervalTimerEngine(timeline: timeline)
+        engine = IntervalTimerEngine(timeline: plannedTimeline)
         speedMultiplier = max(
             1,
             Double(ProcessInfo.processInfo.environment["HIINTERVAL_UI_TEST_SPEED"] ?? "1") ?? 1
@@ -33,6 +36,7 @@ final class WorkoutSessionController: ObservableObject {
     }
 
     var tickInterval: TimeInterval { speedMultiplier > 1 ? 0.05 : 0.2 }
+    var didExceedPlan: Bool { extraRoundCount > 0 }
 
     func start(preferences: UserPreferences) {
         guard engine.state == .ready else { return }
@@ -140,6 +144,35 @@ final class WorkoutSessionController: ObservableObject {
         cuePlayer.setMuted(isMuted)
     }
 
+    func startOneMoreRound(preferences: UserPreferences) {
+        guard completion != nil, let recoveryStartedAt else { return }
+        let recoverySeconds = OneMoreRoundRecovery().remainingSeconds(
+            configuredSeconds: plan.roundRecoverySeconds,
+            elapsedSeconds: Date().timeIntervalSince(recoveryStartedAt)
+        )
+        let roundNumber = plan.roundCount + extraRoundCount + 1
+        guard let extraTimeline = try? WorkoutTimeline.oneMoreRound(
+            for: plan,
+            recoverySeconds: recoverySeconds,
+            roundNumber: roundNumber
+        ) else { return }
+
+        completion = nil
+        self.recoveryStartedAt = nil
+        extraRoundCount += 1
+        engine = IntervalTimerEngine(timeline: extraTimeline)
+        lastCountdownSecond = nil
+
+        let wallDate = Date()
+        let clockDate = virtualNow()
+        handle(
+            engine.start(at: clockDate),
+            preferences: preferences,
+            clockDate: clockDate,
+            wallDate: wallDate
+        )
+    }
+
     private func virtualNow() -> Date {
         let duration = monotonicAnchor.duration(to: ContinuousClock().now)
         let components = duration.components
@@ -192,14 +225,16 @@ final class WorkoutSessionController: ObservableObject {
         guard completion == nil else { return }
         cuePlayer.complete(preferences: preferences, muted: isMuted)
         let started = startedAt ?? finishedAt
+        recoveryStartedAt = finishedAt
         completion = WorkoutHistoryEntry(
+            id: historyEntryID,
             planID: plan.id,
             planName: plan.name,
             startedAt: started,
             completedAt: finishedAt,
-            plannedDurationSeconds: timeline.totalDurationSeconds,
+            plannedDurationSeconds: plannedTimeline.totalDurationSeconds,
             elapsedDurationSeconds: max(0, Int(activeDuration.accumulatedSeconds)),
-            roundCount: plan.roundCount,
+            roundCount: plan.roundCount + extraRoundCount,
             exerciseCount: plan.exercises.count,
             planSnapshot: plan
         )
