@@ -2,6 +2,20 @@ import XCTest
 
 @MainActor
 final class PlanEditorUITests: HiIntervalUITestCase {
+    func testNaturalLanguageEditorStartsEmptyWithVisualPlaceholder() {
+        launch()
+        selectTab("plans")
+        tap(element("plans.add-intelligently"))
+        waitForExistence(element("plan.ai.screen"), timeout: 8)
+
+        let prompt = element("plan.ai.prompt")
+        waitForExistence(prompt)
+        waitForExistence(element("plan.ai.placeholder"))
+        XCTAssertEqual(prompt.value as? String, "")
+        XCTAssertFalse(element("plan.ai.generate").isEnabled)
+        capture("01-natural-language-placeholder")
+    }
+
     func testAddingExerciseFocusesNameField() {
         launch()
         selectTab("plans")
