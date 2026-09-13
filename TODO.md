@@ -8,3 +8,5 @@
 - [x] Play enabled app audio even when the device is in silent mode.
 - [x] Ensure disabling haptic cues disables every app-triggered vibration.
 - [x] Add unit and iPhone/iPad E2E coverage for the changes above.
+- [ ] Offer a post-completion “One More Round” action that schedules another full round after at least 10 seconds of round recovery and celebrates the extra effort.
+- [ ] Let people create or revise a workout from natural language with on-device Apple Intelligence, including example-only placeholder copy in the empty prompt field.
