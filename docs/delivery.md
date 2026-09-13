@@ -22,7 +22,7 @@ UI tests launch with deterministic `--ui-testing` fixture mode. Tests must query
 With an Xcode Apple account configured for team `VWKG94374J`, upload a signed archive directly:
 
 ```bash
-.venv/bin/inv upload-testflight --marketing-version=0.2.1 --build-number=2
+.venv/bin/inv upload-testflight --marketing-version=0.3.0 --build-number=1
 ```
 
 Use a new build number for later uploads of the same marketing version. The task generates the
@@ -48,7 +48,7 @@ TestFlight variables:
 - `TESTFLIGHT_UPLOAD_ENABLED`: `true` for automatic successful-`main` delivery.
 - `APPLE_TEAM_ID`: defaults to `VWKG94374J`.
 - `IOS_BUNDLE_IDENTIFIER`: defaults to `de.malaber.hiinterval`.
-- `IOS_MARKETING_VERSION`: defaults to `0.2.1`.
+- `IOS_MARKETING_VERSION`: defaults to `0.3.0`.
 - `APP_STORE_CONNECT_APP_ID`: numeric App Store Connect app ID.
 
 TestFlight secrets:

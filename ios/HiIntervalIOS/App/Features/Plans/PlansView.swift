@@ -20,6 +20,12 @@ struct PlansView: View {
             .navigationTitle("Plans")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: createPlanWithIntelligence) {
+                        Label("Create with Apple Intelligence", systemImage: "apple.intelligence")
+                    }
+                    .accessibilityIdentifier("plans.add-intelligently")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button(action: createPlan) {
                         Label("New plan", systemImage: "plus")
                     }
@@ -31,7 +37,11 @@ struct PlansView: View {
         .accessibilityIdentifier("plans.screen")
         .sheet(item: $editorDestination) { destination in
             NavigationStack {
-                PlanEditorView(plan: destination.plan, isNew: destination.isNew) { savedPlan in
+                PlanEditorView(
+                    plan: destination.plan,
+                    isNew: destination.isNew,
+                    presentsNaturalLanguageEditor: destination.presentsNaturalLanguageEditor
+                ) { savedPlan in
                     store.savePlan(savedPlan)
                     store.selectPlan(id: savedPlan.id)
                     editorDestination = nil
@@ -141,6 +151,12 @@ struct PlansView: View {
             }
             .buttonStyle(.borderedProminent)
             .accessibilityIdentifier("plans.empty.create")
+            Button(action: createPlanWithIntelligence) {
+                Label("Create with Apple Intelligence", systemImage: "apple.intelligence")
+                    .font(.headline)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier("plans.empty.create-intelligently")
         }
         .padding(28)
         .accessibilityElement(children: .contain)
@@ -158,11 +174,31 @@ struct PlansView: View {
             name: "New interval plan",
             exercises: [ExerciseStep(name: "First exercise")]
         )
-        editorDestination = PlanEditorDestination(plan: plan, isNew: true)
+        editorDestination = PlanEditorDestination(
+            plan: plan,
+            isNew: true,
+            presentsNaturalLanguageEditor: false
+        )
+    }
+
+    private func createPlanWithIntelligence() {
+        let plan = WorkoutPlan(
+            name: "New interval plan",
+            exercises: [ExerciseStep(name: "First exercise")]
+        )
+        editorDestination = PlanEditorDestination(
+            plan: plan,
+            isNew: true,
+            presentsNaturalLanguageEditor: true
+        )
     }
 
     private func edit(_ plan: WorkoutPlan) {
-        editorDestination = PlanEditorDestination(plan: plan, isNew: false)
+        editorDestination = PlanEditorDestination(
+            plan: plan,
+            isNew: false,
+            presentsNaturalLanguageEditor: false
+        )
     }
 }
 
@@ -170,6 +206,7 @@ private struct PlanEditorDestination: Identifiable {
     let id = UUID()
     let plan: WorkoutPlan
     let isNew: Bool
+    let presentsNaturalLanguageEditor: Bool
 }
 
 private struct PlanCard: View {

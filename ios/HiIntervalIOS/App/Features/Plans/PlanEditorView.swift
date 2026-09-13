@@ -10,10 +10,17 @@ struct PlanEditorView: View {
     @State private var plan: WorkoutPlan
     @State private var exerciseDestination: ExerciseEditorDestination?
     @State private var showsRoundOverrides = false
+    @State private var showsNaturalLanguageEditor: Bool
     @State private var exerciseEditMode: EditMode = .inactive
 
-    init(plan: WorkoutPlan, isNew: Bool, onSave: @escaping (WorkoutPlan) -> Void) {
+    init(
+        plan: WorkoutPlan,
+        isNew: Bool,
+        presentsNaturalLanguageEditor: Bool = false,
+        onSave: @escaping (WorkoutPlan) -> Void
+    ) {
         _plan = State(initialValue: plan)
+        _showsNaturalLanguageEditor = State(initialValue: presentsNaturalLanguageEditor)
         self.isNew = isNew
         self.onSave = onSave
     }
@@ -29,6 +36,7 @@ struct PlanEditorView: View {
     var body: some View {
         List {
             previewSection
+            intelligenceSection
             identitySection
             timingSection
             roundsSection
@@ -79,7 +87,32 @@ struct PlanEditorView: View {
             }
             .tint(PlanPalette.accent)
         }
+        .sheet(isPresented: $showsNaturalLanguageEditor) {
+            NavigationStack {
+                NaturalLanguagePlanEditorView(plan: plan, isNew: isNew) { updatedPlan in
+                    plan = updatedPlan
+                }
+            }
+            .tint(PlanPalette.accent)
+        }
         .accessibilityIdentifier("plan.editor.screen")
+    }
+
+    private var intelligenceSection: some View {
+        Section {
+            Button {
+                showsNaturalLanguageEditor = true
+            } label: {
+                Label(
+                    isNew ? "Create with Apple Intelligence" : "Edit with Apple Intelligence",
+                    systemImage: "apple.intelligence"
+                )
+                .fontWeight(.semibold)
+            }
+            .accessibilityIdentifier("plan.editor.intelligence")
+        } footer: {
+            Text("Describe a complete workout or changes in your own words. Processing stays on device.")
+        }
     }
 
     private var previewSection: some View {

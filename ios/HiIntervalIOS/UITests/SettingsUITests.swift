@@ -14,9 +14,17 @@ final class SettingsUITests: HiIntervalUITestCase {
             on: element("settings.cues-note")
         )
 
+        let maximumReservedHeight: CGFloat
+        if #available(iOS 26.0, *) {
+            // The floating tab bar needs its safe-area footprint plus a clear scroll boundary.
+            maximumReservedHeight = 160
+        } else {
+            maximumReservedHeight = 80
+        }
+
         XCTAssertLessThanOrEqual(
             screen.frame.maxY - form.frame.maxY,
-            80,
+            maximumReservedHeight,
             "Settings should not reserve an oversized bar below the form"
         )
         capture("01-settings-full-height")

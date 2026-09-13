@@ -7,7 +7,7 @@ build_number=${2:-}
 
 if [[ ! "$marketing_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Usage: $0 <marketing-version> <build-number>" >&2
-  echo "Example: $0 0.2.1 1" >&2
+  echo "Example: $0 0.3.0 1" >&2
   exit 2
 fi
 if [[ ! "$build_number" =~ ^[1-9][0-9]*$ ]]; then

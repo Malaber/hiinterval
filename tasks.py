@@ -124,7 +124,7 @@ def check_ios_ci(c) -> None:
 
 @task(
     help={
-        "marketing_version": "Three-part App Store version, for example 0.2.1.",
+        "marketing_version": "Three-part App Store version, for example 0.3.0.",
         "build_number": "Positive App Store build number.",
     }
 )

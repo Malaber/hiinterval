@@ -52,7 +52,7 @@ Generated project uses scheme `HiInterval` and defaults to bundle ID `de.malaber
 .venv/bin/inv check
 
 # Local Xcode archive, automatic signing, and TestFlight upload
-.venv/bin/inv upload-testflight --marketing-version=0.2.1 --build-number=2
+.venv/bin/inv upload-testflight --marketing-version=0.3.0 --build-number=1
 ```
 
 Local upload requires configured Xcode Apple account with access to team `VWKG94374J`. Use a new
