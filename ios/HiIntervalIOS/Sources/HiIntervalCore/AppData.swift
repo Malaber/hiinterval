@@ -6,19 +6,122 @@ public struct AppData: Codable, Equatable, Sendable {
     public var preferences: UserPreferences
     public var usage: UsageRecord
     public var selectedPlanID: UUID?
+    public var exerciseCatalogue: [CatalogueExercise]
 
     public init(
         plans: [WorkoutPlan] = [],
         history: [WorkoutHistoryEntry] = [],
         preferences: UserPreferences = UserPreferences(),
         usage: UsageRecord = UsageRecord(),
-        selectedPlanID: UUID? = nil
+        selectedPlanID: UUID? = nil,
+        exerciseCatalogue: [CatalogueExercise] = []
     ) {
         self.plans = plans
         self.history = history
         self.preferences = preferences
         self.usage = usage
         self.selectedPlanID = selectedPlanID
+        self.exerciseCatalogue = exerciseCatalogue
+        synchronizeExerciseCatalogue()
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case plans, history, preferences, usage, selectedPlanID, exerciseCatalogue
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        plans = try values.decode([WorkoutPlan].self, forKey: .plans)
+        history = try values.decode([WorkoutHistoryEntry].self, forKey: .history)
+        preferences = try values.decode(UserPreferences.self, forKey: .preferences)
+        usage = try values.decode(UsageRecord.self, forKey: .usage)
+        selectedPlanID = try values.decodeIfPresent(UUID.self, forKey: .selectedPlanID)
+        exerciseCatalogue = try values.decodeIfPresent([CatalogueExercise].self, forKey: .exerciseCatalogue) ?? []
+        synchronizeExerciseCatalogue()
+    }
+
+    /// Ensures every live plan step has a stable catalogue entry while leaving historical snapshots intact.
+    public mutating func synchronizeExerciseCatalogue() {
+        var entries: [UUID: CatalogueExercise] = [:]
+        for entry in exerciseCatalogue where entries[entry.id] == nil {
+            entries[entry.id] = entry.normalized()
+        }
+        for planIndex in plans.indices {
+            for stepIndex in plans[planIndex].exercises.indices {
+                var step = plans[planIndex].exercises[stepIndex]
+                if let catalogueID = step.catalogueExerciseID, let canonical = entries[catalogueID] {
+                    step.name = canonical.name
+                } else {
+                    var entry = CatalogueExercise(step: step)
+                    while entries[entry.id] != nil { entry.id = UUID() }
+                    entry = entry.normalized()
+                    entries[entry.id] = entry
+                    step.catalogueExerciseID = entry.id
+                    step.name = entry.name
+                }
+                plans[planIndex].exercises[stepIndex] = step
+            }
+        }
+        // Keep catalogue order stable for the UI and only append migrated entries in plan order.
+        var seen = Set<UUID>()
+        exerciseCatalogue = exerciseCatalogue.compactMap { original in
+            guard let entry = entries[original.id], seen.insert(entry.id).inserted else { return nil }
+            return entry
+        }
+        for plan in plans {
+            for step in plan.exercises {
+                if let id = step.catalogueExerciseID,
+                   let entry = entries[id],
+                   seen.insert(id).inserted {
+                    exerciseCatalogue.append(entry)
+                }
+            }
+        }
+    }
+
+    public mutating func saveCatalogueExercise(_ entry: CatalogueExercise) throws {
+        let normalized = entry.normalized()
+        guard !normalized.name.isEmpty else { throw ExerciseCatalogueError.emptyName }
+        do {
+            try WorkoutPlan(name: "Validation", exercises: [normalized.makeStep()]).validate()
+        } catch let error as LocalizedError {
+            throw ExerciseCatalogueError.invalidConfiguration(error.errorDescription ?? "Invalid exercise configuration.")
+        }
+        if let index = exerciseCatalogue.firstIndex(where: { $0.id == normalized.id }) {
+            exerciseCatalogue[index] = normalized
+        } else {
+            exerciseCatalogue.append(normalized)
+        }
+        for planIndex in plans.indices {
+            for stepIndex in plans[planIndex].exercises.indices
+            where plans[planIndex].exercises[stepIndex].catalogueExerciseID == normalized.id {
+                plans[planIndex].exercises[stepIndex].name = normalized.name
+            }
+        }
+    }
+
+    public mutating func mergeCatalogueExercises(sourceIDs: Set<UUID>, into targetID: UUID) throws {
+        guard var target = exerciseCatalogue.first(where: { $0.id == targetID }) else {
+            throw ExerciseCatalogueError.missingMergeTarget(targetID)
+        }
+        if let missingID = sourceIDs.first(where: { sourceID in
+            !exerciseCatalogue.contains(where: { $0.id == sourceID })
+        }) {
+            throw ExerciseCatalogueError.missingExercise(missingID)
+        }
+        let sources = exerciseCatalogue.filter { sourceIDs.contains($0.id) && $0.id != targetID }
+        target.bodyAreas = CatalogueExercise.normalizedTerms(target.bodyAreas + sources.flatMap(\.bodyAreas))
+        target.tags = CatalogueExercise.normalizedTerms(target.tags + sources.flatMap(\.tags))
+        try saveCatalogueExercise(target)
+        for planIndex in plans.indices {
+            for stepIndex in plans[planIndex].exercises.indices {
+                guard let sourceID = plans[planIndex].exercises[stepIndex].catalogueExerciseID,
+                      sourceIDs.contains(sourceID) else { continue }
+                plans[planIndex].exercises[stepIndex].catalogueExerciseID = targetID
+                plans[planIndex].exercises[stepIndex].name = target.name
+            }
+        }
+        exerciseCatalogue.removeAll { sourceIDs.contains($0.id) && $0.id != targetID }
     }
 
     public static func starter(now: Date = Date()) -> AppData {

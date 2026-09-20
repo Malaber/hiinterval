@@ -140,7 +140,8 @@ For small changes, use the shortest version of that flow that preserves correctn
 ## Product and repository map
 
 HiInterval is a native, local-first iPhone/iPad interval-training app. It includes workout planning,
-left/right splits, round overrides, optional notes, audio/haptic cues, history, reminders, completion
+a shared exercise catalogue, tag-filtered workout generation, left/right splits, round overrides,
+optional notes, audio/haptic cues, history, reminders, completion
 celebrations, and an optional extra round. Apple Intelligence can create or revise workout plans on
 supported devices. The separate `website/` directory is a static product/support/privacy site.
 
@@ -205,6 +206,10 @@ rules cover their standard locations.
   `UserDefaults` under `io.malaber.hiinterval.app-data.v1` (deliberately different from the bundle ID).
   Preserve backward decoding and missing-field defaults. Add codec regression tests when models
   change; retain corrupt bytes in the `.recovery` key and the existing user-facing recovery behavior.
+- Catalogue records provide shared identity, canonical names, planning labels, and defaults for new
+  uses. Saved steps keep their own timing, recovery, side configuration, and notes. Merge live-plan
+  references atomically; never rewrite history snapshots. Generation randomizes once into a normal
+  plan, so order stays fixed across rounds. Body areas and tags stay out of workout presentation.
 - History includes a plan snapshot so editing a saved plan does not rewrite completed workouts.
   Preserve selected-plan normalization, history ordering, and CSV escaping/formula protections.
 - Notes start empty and appear during relevant phases only when nonblank. New exercise entry should

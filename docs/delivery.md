@@ -4,7 +4,7 @@
 
 `ios/HiIntervalIOS/Scripts/check_coverage.sh` runs SwiftPM tests with LLVM coverage and enforces 99% `HiIntervalCore` line coverage. It writes JSON, LCOV, text report, and summary under ignored `ios/HiIntervalIOS/coverage`.
 
-Current test inventory is 36 portable core tests plus 10 XCUITest flows. Core coverage spans plan validation/timeline expansion, timer transitions and clock edge cases, persistence/history/safe export, active-duration accounting, and disabled future entitlement rules. UI coverage spans empty states, plan/library/history operations, preference persistence, workout execution, system accessibility audit, and largest Dynamic Type.
+The current inventory is defined by the XCTest sources. Core coverage includes catalogue migration/merging, generation filters and alternation, and plan validation/timeline expansion, timer transitions and clock edge cases, persistence/history/safe export, active-duration accounting, and disabled future entitlement rules. UI coverage spans empty states, plan/library/history operations, preference persistence, workout execution, system accessibility audit, and largest Dynamic Type.
 
 `ios/HiIntervalIOS/Scripts/run_ui_e2e.sh`:
 
@@ -22,7 +22,7 @@ UI tests launch with deterministic `--ui-testing` fixture mode. Tests must query
 With an Xcode Apple account configured for team `VWKG94374J`, upload a signed archive directly:
 
 ```bash
-.venv/bin/inv upload-testflight --marketing-version=0.3.0 --build-number=1
+.venv/bin/inv upload-testflight --marketing-version=0.4.0 --build-number=1
 ```
 
 Use a new build number for later uploads of the same marketing version. The task generates the
@@ -48,7 +48,7 @@ TestFlight variables:
 - `TESTFLIGHT_UPLOAD_ENABLED`: `true` for automatic successful-`main` delivery.
 - `APPLE_TEAM_ID`: defaults to `VWKG94374J`.
 - `IOS_BUNDLE_IDENTIFIER`: defaults to `de.malaber.hiinterval`.
-- `IOS_MARKETING_VERSION`: defaults to `0.3.0`.
+- `IOS_MARKETING_VERSION`: defaults to `0.4.0`.
 - `APP_STORE_CONNECT_APP_ID`: numeric App Store Connect app ID.
 
 TestFlight secrets:

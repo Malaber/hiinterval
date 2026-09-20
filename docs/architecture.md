@@ -5,6 +5,8 @@
 `ios/HiIntervalIOS/Sources/HiIntervalCore` contains platform-light domain code:
 
 - `WorkoutPlan`: plan, exercise, round override, duration/recovery, left/right configuration, validation.
+- `ExerciseCatalogue`: shared identity, plan-reference migration, normalized planning labels, and merges preserving per-plan configuration and history.
+- `WorkoutGenerator`: local filtered selection without replacement and optional body-area alternation with injectable randomness.
 - `WorkoutTimeline`: expands configuration into ordered warm-up/work/switch/recovery/round-recovery/cool-down phases.
 - `IntervalTimerEngine`: injected-time state machine for start, tick, pause, resume, skip, finish, and delayed ticks.
 - `AppData`: Codable plans, preferences, history, selected plan, usage, and stable JSON codec.
@@ -28,3 +30,20 @@ Future schema changes should decode old payloads into `AppData`, normalize selec
 ## Monetization boundary
 
 Current app constructs `EntitlementPolicy()` with `monetizationEnabled == false`; every workout is allowed. Future StoreKit work should map verified transaction state to `UsageRecord.purchasedUnlimited`, enable policy through explicit release configuration, and keep StoreKit outside `HiIntervalCore`.
+
+## Exercise catalogue (0.4.0)
+
+`AppData.exerciseCatalogue` owns exercise names, body areas, custom tags, and defaults.
+`ExerciseStep.catalogueExerciseID` links a saved-plan occurrence to shared identity while retaining
+its own timing, recovery, side configuration, and notes. Old saved plans migrate on decoding, one
+record per existing occurrence; missing links are repaired. Repeated decoding is idempotent. The
+store persists migration immediately. History snapshots are never migrated or rewritten.
+
+Catalogue edits propagate the canonical name to saved plans; merges union labels and redirect
+references while retaining occurrence IDs and configuration. Renaming an exercise inside a plan
+creates a separate catalogue entry. Mutations commit a complete `AppData` value through `AppStore`.
+
+Generation requires all included tags and excludes any forbidden tags. It samples unique entries
+and can prefer nonoverlapping known body areas at each step. Alternation is best effort for uneven
+or unlabelled pools. The result is an ordinary editable workout plan: randomness is used only at
+generation, never between rounds or in the timer. Planning labels are not part of session cues.
