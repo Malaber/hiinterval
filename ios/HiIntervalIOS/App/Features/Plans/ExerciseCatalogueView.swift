@@ -6,6 +6,7 @@ import HiIntervalCore
 struct ExerciseCatalogueView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var query = ""
     @State private var editor: CatalogueEditorDestination?
@@ -136,27 +137,35 @@ struct ExerciseCatalogueView: View {
             }
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: selectedIDs.contains(exercise.id) ? "checkmark.circle.fill" : "figure.strengthtraining.traditional")
-                    .foregroundStyle(selectedIDs.contains(exercise.id) ? PlanPalette.accent : PlanPalette.secondary)
-                    .font(.title3)
+                if selectionMode || !dynamicTypeSize.isAccessibilitySize {
+                    Image(systemName: selectedIDs.contains(exercise.id) ? "checkmark.circle.fill" : (selectionMode ? "circle" : "figure.strengthtraining.traditional"))
+                        .foregroundStyle(selectedIDs.contains(exercise.id) ? PlanPalette.accent : PlanPalette.secondary)
+                        .font(.title3)
+                        .accessibilityHidden(true)
+                }
                 VStack(alignment: .leading, spacing: 4) {
                     Text(exercise.name).font(.body.weight(.medium)).foregroundStyle(.primary)
                     if !exercise.bodyAreas.isEmpty || !exercise.tags.isEmpty {
                         Text((exercise.bodyAreas + exercise.tags).joined(separator: " · "))
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     let plans = linkedPlanNames(for: exercise.id)
                     if !plans.isEmpty {
                         Text("Used in \(plans.joined(separator: ", "))")
                             .font(.caption2)
                             .foregroundStyle(PlanPalette.secondary)
-                            .lineLimit(1)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Spacer()
-                if !selectionMode { Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) }
+                if !selectionMode && !dynamicTypeSize.isAccessibilitySize {
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
+                }
             }
             .contentShape(Rectangle())
         }
