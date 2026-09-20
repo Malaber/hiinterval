@@ -1,0 +1,209 @@
+# Working on HiInterval
+
+This file applies to the whole repository. Follow the user's current scope and release instructions;
+the commands below describe available workflows, not automatic permission to deploy.
+
+## Product and repository map
+
+HiInterval is a native, local-first iPhone/iPad interval-training app. It includes workout planning,
+left/right splits, round overrides, optional notes, audio/haptic cues, history, reminders, completion
+celebrations, and an optional extra round. Apple Intelligence can create or revise workout plans on
+supported devices. The separate `website/` directory is a static product/support/privacy site.
+
+There is no application backend, user account, analytics, or cloud sync. The app is currently free;
+`EntitlementPolicy` contains disabled future monetization logic. Do not enable purchases or infer
+that its existing trial rules are approved product requirements.
+
+| Path | Responsibility |
+| --- | --- |
+| `ios/HiIntervalIOS/Sources/HiIntervalCore/` | Portable Swift domain models, validation, timeline, timer, history, cue policies |
+| `ios/HiIntervalIOS/Tests/HiIntervalCoreTests/` | XCTest unit tests for the core package |
+| `ios/HiIntervalIOS/App/AppStore.swift` | Main-actor app state, mutations, persistence, deterministic UI fixtures |
+| `ios/HiIntervalIOS/App/Features/` | SwiftUI Train, Plans, History, and Settings screens |
+| `ios/HiIntervalIOS/App/DesignSystem/` | Shared `HITheme` tokens and `HIComponents` |
+| `ios/HiIntervalIOS/App/Services/` | Apple platform services such as reminders |
+| `ios/HiIntervalIOS/UITests/` | iPhone/iPad XCUITest flows and shared test helpers |
+| `ios/HiIntervalIOS/project.yml` | Source of truth for the generated Xcode project |
+| `ios/HiIntervalIOS/Scripts/` | Coverage gate, simulator runner, and local TestFlight upload |
+| `tasks.py`, `pyproject.toml` | Python Invoke development commands and dependencies |
+| `.github/workflows/` | CI, signed TestFlight delivery, and GitHub Pages |
+| `website/` | Plain HTML/CSS, screenshots, and public site metadata |
+| `docs/`, `TODO.md` | Architecture, delivery setup, and completed/requested product work |
+
+## Setup and build
+
+Run commands from the repository root unless stated otherwise. Native builds require macOS,
+Xcode 26 with its iOS SDK/simulator runtime, XcodeGen, and Python 3.11+. Swift language mode is 6;
+deployment target remains iOS 17. The core Swift package also runs on macOS and Linux.
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -e .
+.venv/bin/inv install-xcodegen
+.venv/bin/inv generate-ios-project
+open ios/HiIntervalIOS/HiIntervalApp.xcodeproj
+
+# Unsigned simulator build
+.venv/bin/inv build-ios-simulator --device-name="iPhone 17 Pro"
+```
+
+If Invoke is already installed in the active Python environment, `python3 -m invoke` is equivalent
+to `.venv/bin/inv`. Use `--list` or `--help TASK` to inspect available commands.
+
+The project is `HiIntervalApp.xcodeproj`; app target and scheme are `HiInterval`; UI test target is
+`HiIntervalUITests`. Bundle ID is `de.malaber.hiinterval`, Apple team is `VWKG94374J`. Preserve these
+identities unless the task explicitly changes them.
+
+Edit `project.yml`, then regenerate. Do not hand-edit or commit the ignored `.xcodeproj`. Keep build
+caches, coverage, `.xcresult`, archives, IPAs, and UI screenshots/logs out of commits. Existing ignore
+rules cover their standard locations.
+
+## Architecture and behavior to preserve
+
+- Keep interval arithmetic, validation, timeline expansion, and other deterministic policies in
+  `HiIntervalCore`. It must compile in Linux Swift CI; UIKit, SwiftUI, AVFoundation, UserNotifications,
+  FoundationModels, and other Apple-only integrations belong in `App/`.
+- `WorkoutTimeline` expands a validated plan; `IntervalTimerEngine` consumes explicit timestamps.
+  `WorkoutSessionController` connects this logic to real time and platform effects. Do not implement
+  an independent countdown in a view. Cover delayed ticks, pause/resume, skip/restart, and completion
+  without elapsed-time drift or duplicate history entries.
+- `AppStore` is the main-actor persistence boundary. The sorted-key JSON payload lives in
+  `UserDefaults` under `io.malaber.hiinterval.app-data.v1` (deliberately different from the bundle ID).
+  Preserve backward decoding and missing-field defaults. Add codec regression tests when models
+  change; retain corrupt bytes in the `.recovery` key and the existing user-facing recovery behavior.
+- History includes a plan snapshot so editing a saved plan does not rewrite completed workouts.
+  Preserve selected-plan normalization, history ordering, and CSV escaping/formula protections.
+- Notes start empty and appear during relevant phases only when nonblank. New exercise entry should
+  focus the name field. The current exercise heading must remain more prominent than the next one.
+- Enabled audio uses the playback session category so it works in Silent Mode. Preserve the app's
+  audio-off control and mix/duck preference. Every app-triggered vibration must honor
+  `hapticsEnabled` through the haptic policy/player, including pause, resume, countdown, and completion.
+- Completion fireworks transition from foreground to background. Respect accessibility settings
+  and keep completion actions usable. “One More Round” uses the core continuation builder, at least
+  ten seconds of recovery through `OneMoreRoundRecovery`, and a full extra exercise round without
+  repeating warm-up/cool-down.
+- `NaturalLanguagePlanEditorView.swift` contains the FoundationModels integration. Gate it on iOS 26
+  and actual model availability; explain unsupported/disabled/not-ready states. Validate generated
+  plans before applying them. Keep ordinary editing available on iOS 17 and devices without the
+  model; do not add a network AI fallback by default.
+- Reuse the design system, accessibility identifiers, and semantic labels. Check light/dark mode,
+  large Dynamic Type, VoiceOver, iPhone portrait, and iPad rotations/multitasking widths. Settings
+  scrolling and the iOS 26 floating tab bar have prior layout/contrast regressions: verify visible
+  rows, content insets, and shared scroll-edge treatment on both device families.
+- `App/PrivacyInfo.xcprivacy` declares no tracking/collected data and the app-only UserDefaults
+  required-reason API use. Keep the manifest and public privacy page consistent with actual behavior.
+
+## Verification and UI test stability
+
+```bash
+# Unit tests and the 99% HiIntervalCore line-coverage gate
+.venv/bin/inv check-ios-package
+
+# Full UI suites, serial within each device
+.venv/bin/inv ios-ui-e2e --device-name="iPhone 17 Pro"
+.venv/bin/inv ios-ui-e2e --device-name="iPad Pro 13-inch (M5)" \
+  --artifact-dir=e2e-artifacts/ios-ipad
+
+# Focused UI class while iterating
+.venv/bin/inv ios-ui-e2e --device-name="iPhone 17 Pro" \
+  --artifact-dir=e2e-artifacts/ios-focused \
+  --only-testing=HiIntervalUITests/TrainSessionUITests
+
+# Complete native gate: core coverage, iPhone, then iPad
+.venv/bin/inv check
+
+# Fast unit iteration; this alone does not enforce coverage
+swift test --package-path ios/HiIntervalIOS --filter OneMoreRoundTests
+```
+
+For behavior changes, add meaningful core tests and UI regression coverage where applicable.
+Run affected tests while iterating and the complete native gate for app changes before delivery.
+For documentation-only work, verify referenced paths/commands and `git diff --check`; a native
+rebuild is unnecessary. Report exactly what ran and any unverified physical-device behavior.
+Do not lower `HIINTERVAL_COVERAGE_MINIMUM` or remove assertions to make a change pass.
+
+Use `HiIntervalUITestCase` helpers and stable identifiers instead of coordinates or localized text
+where possible. Initial `--ui-testing` launches reset app data to fixtures; use
+`relaunchPreservingData()` specifically for persistence checks. Default tests use English,
+`en_US_POSIX`, UTC, and a 60x timer. Use the existing real-time/glanceable fixture approach for
+transient phase assertions rather than racing the accelerated short workout. AI tests must not
+require live nondeterministic model generation on a simulator.
+
+Wait for observable state and reuse the existing launch/hittability helpers. Avoid arbitrary sleeps
+and aggressive accessibility polling. The completion test has a documented delay because repeated
+snapshots can starve the hosted iPad main thread; preserve its reason when changing that test.
+Retries are infrastructure recovery, not proof that a failing assertion is harmless.
+
+`run_ui_e2e.sh` builds once without signing, uses one simulator at a time, uninstalls the app before
+each attempt, and retries identified failed tests (the whole selection when none can be identified).
+`HIINTERVAL_E2E_ATTEMPTS` defaults to 2 locally and is set to 3 in CI. With `CI=true`, it also erases
+the selected simulator: do not set this on a simulator containing data you need. Do not run two
+suites against the same simulator or derived-data/artifact directory concurrently.
+
+Artifacts must be in a child of `e2e-artifacts/`; the runner replaces that selected directory on
+each invocation. Inspect `build-for-testing.log`, `test-attempt-*.log`, `summary.md`, screenshots,
+and `TestResults*.xcresult` to distinguish app assertions from simulator/launch failures. Coverage
+reports live in `ios/HiIntervalIOS/coverage/`. Read current test sources/results rather than relying
+on fixed test counts in older documentation. Simulator tests cannot prove actual vibration,
+hardware Silent Mode audio, or on-device Apple Intelligence availability; those need device checks.
+
+## CI and releases
+
+- `ci.yml` runs on PRs, `main` pushes, and manual dispatch. `ios-checks.yml` runs core coverage in
+  Linux `swift:6.2` and UI suites on macOS 26 with `iPhone 17 Pro` and `iPad Pro 13-inch (M5)`.
+  Coverage/UI artifacts are retained for 14 days. Use actual job logs when diagnosing failures.
+- App versions belong in `project.yml`; keep the TestFlight workflow fallback and release examples
+  consistent when bumping versions. The Python package version in `pyproject.toml` is separate.
+  Choose a fresh build number for an existing marketing version; do not blindly reuse examples.
+- For a requested local TestFlight release, run the following with the chosen values and an Xcode
+  account configured for the team. This command **uploads**, not merely archives:
+
+  ```bash
+  .venv/bin/inv upload-testflight --marketing-version=VERSION --build-number=BUILD
+  ```
+
+  It regenerates the project, archives with automatic signing, and uses
+  `ios/HiIntervalIOS/ExportOptions.TestFlight.plist` to upload and manage the build number. It does
+  not run tests or restrict the checkout to `main`; verify the intended source and checks first.
+  Archive remains in the printed temporary directory. To open an archive in Organizer, use
+  `open -a Xcode /absolute/path/to/HiInterval.xcarchive`.
+- Preserve `env PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/xcodebuild` in release commands. Homebrew
+  `rsync` can be selected by Apple's packaging subprocess and reject its extended-attribute flags,
+  producing `exportArchive Copy failed`. System-only PATH fixed the real upload failure.
+- GitHub TestFlight delivery is separate: automatic upload requires successful `main` push CI and
+  `TESTFLIGHT_UPLOAD_ENABLED=true`. Manual dispatch with `upload_to_testflight=true` reruns all CI
+  checks. Both refuse a checkout that is not current `origin/main`, including a second check after
+  export. Keep those guards and temporary credential cleanup intact.
+- GitHub uses environment `testflight` and App Store Connect/signing configuration documented in
+  `docs/app-store-connect-setup.md`. Check actual configuration before relying on it; a workflow
+  file does not mean its secrets are provisioned. Never commit certificates, API keys, passwords,
+  provisioning profiles, or distribution logs containing account data.
+- Distinguish upload acceptance from Apple processing and tester availability. Report only the
+  state actually verified; retain the requested version, build number, and source commit in handoff.
+
+## Website
+
+`website/` is deployed directly with no build step or package manager. Preview from the repository
+root with `python3 -m http.server 8080 --directory website`. Keep shared styling in
+`website/assets/site.css`; check responsive layouts and local links/assets after edits. Preserve
+the static, dependency-free approach unless the task calls for a change.
+
+Production domain is `hiinterval.malaber.de`, recorded in `website/CNAME`. Product, capabilities,
+support, and privacy pages must agree with current app behavior. Keep canonical URLs, `sitemap.xml`,
+`robots.txt`, `llms.txt`, and support contact `hiinterval@schaedler.rocks` consistent when relevant.
+`.github/workflows/pages.yml` publishes `website/` when website/workflow changes reach `main`, or
+on manual dispatch. See `website/README.md` for DNS and Pages setup.
+
+## Git and handoff
+
+Inspect status and worktrees before switching branches; preserve unrelated edits and stage only
+task files. Fetch before building on remote changes; use fast-forward pulls instead of resetting
+user work. Use `codex/` feature branches and PRs by default, following explicit user instructions
+when they request a direct push to `main`. If `main` is checked out in another worktree, a detached
+`origin/main` checkout can be committed and pushed with `git push origin HEAD:main` without moving
+that other worktree. Never force-push to resolve a stale main push; fetch and integrate first.
+
+Use focused conventional commits. Summarize the change, verification, remaining limitations, and
+commit/PR or upload result. Keep this file current when architecture or commands change. For more
+context, read `README.md`, `docs/architecture.md`, `docs/delivery.md`, and
+`docs/app-store-connect-setup.md`, checking implementation when older prose disagrees.
