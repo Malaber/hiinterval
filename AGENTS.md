@@ -3,6 +3,140 @@
 This file applies to the whole repository. Follow the user's current scope and release instructions;
 the commands below describe available workflows, not automatic permission to deploy.
 
+## Agent workflow
+
+Use the main agent as the orchestrator for non-trivial tasks. Its responsibility is to understand the
+request and repository, make the important architectural and product decisions, divide the work into
+well-defined units, review the implementation, and own the final result.
+
+Use worker subagents for implementation work when delegation is useful. Workers should execute a
+defined part of the plan rather than independently redesigning the solution.
+
+### Planning and delegation
+
+For non-trivial changes:
+
+1. Inspect the relevant existing implementation, tests, documentation, Git state, and repository
+   instructions before deciding on an approach.
+2. Form a concrete implementation plan before making broad changes.
+3. Identify work that can be delegated with a clear scope and acceptance criteria.
+4. Delegate implementation, focused investigation, test additions, or mechanical refactors to worker
+   subagents where this reduces main-agent work without sacrificing correctness.
+5. Review all worker results before considering the task complete.
+6. Resolve integration problems, architectural questions, conflicting changes, and ambiguous
+   requirements in the main agent.
+7. Run or delegate the required verification described elsewhere in this file and report the actual
+   results.
+
+Do not delegate merely to create activity. Small or tightly coupled changes may be implemented
+directly by the main agent when delegation would add overhead.
+
+### Main-agent responsibilities
+
+The main agent owns:
+
+- understanding the user's actual request and defining scope;
+- repository and architecture discovery needed to make design decisions;
+- choosing the implementation approach and identifying affected components;
+- decisions that cross module, persistence, concurrency, UI, platform, security, release, or
+  compatibility boundaries;
+- decomposing work into independent worker assignments;
+- resolving ambiguities that could materially affect behavior;
+- reviewing worker diffs and test changes for correctness and consistency;
+- integrating overlapping work;
+- running or confirming the final required verification;
+- checking the final diff for unintended changes;
+- producing the final handoff, commit, PR, or release result.
+
+The main agent must not blindly accept worker output. Read the resulting changes and verify that they
+satisfy the plan, repository constraints, and user request.
+
+### Worker responsibilities
+
+Workers are implementation-focused. Give each worker a narrow, explicit task with enough context to
+execute it without redefining the overall solution.
+
+A worker assignment should normally specify:
+
+- the concrete goal;
+- the files or subsystem likely involved;
+- relevant architectural constraints from this file;
+- behavior that must remain unchanged;
+- expected tests or verification;
+- boundaries of the assignment.
+
+Workers should:
+
+- inspect existing code before editing it;
+- follow the architecture, testing, UI, persistence, release, and Git rules in this file;
+- prefer existing abstractions and patterns over introducing parallel mechanisms;
+- keep changes focused on the assigned scope;
+- add or update meaningful tests when behavior changes;
+- report what changed, what was verified, and any unresolved issue.
+
+Workers should not:
+
+- make unrelated cleanup changes;
+- change product behavior outside their assignment;
+- invent new architecture when the assigned plan already defines one;
+- weaken tests, coverage, validation, compatibility, or safety constraints;
+- perform releases, uploads, pushes, destructive Git operations, or other externally consequential
+  actions unless the main task explicitly requires them and the assignment explicitly delegates them;
+- silently work around a design problem that invalidates the plan.
+
+If a worker discovers that the planned approach is incorrect, unsafe, conflicts with existing
+architecture, or requires a significant design decision, it should stop expanding scope and return
+the finding to the main agent.
+
+### Parallel work
+
+Use parallel workers only for work that is genuinely independent, for example:
+
+- implementation in separate modules with stable interfaces;
+- implementation and independent test investigation;
+- focused repository research in different subsystems;
+- separate documentation or website work accompanying an app change.
+
+Avoid assigning multiple workers overlapping ownership of the same files or tightly coupled code.
+When overlap is unavoidable, sequence the work or let the main agent perform the integration.
+
+Workers share responsibility for preserving unrelated user changes. Before editing, inspect the
+relevant state and do not overwrite modifications made outside the assignment.
+
+### Investigation workers
+
+Workers may also be used for bounded investigation before implementation, such as:
+
+- locating the implementation responsible for a behavior;
+- tracing a persistence or state flow;
+- finding existing tests and fixtures;
+- investigating a reproducible test or build failure;
+- comparing several existing repository patterns.
+
+Investigation workers should return evidence and concrete findings, not make broad speculative
+recommendations. Architectural decisions remain with the main agent.
+
+### Verification and review
+
+Delegating implementation does not delegate final responsibility.
+
+Before handoff, the main agent should:
+
+1. inspect the combined diff;
+2. confirm that worker changes follow the agreed architecture;
+3. check for duplicated logic, accidental scope expansion, and inconsistent assumptions between
+   workers;
+4. run the appropriate verification described in this file;
+5. fix or delegate any failures caused by the change;
+6. distinguish verified behavior from anything that still requires physical-device, external-service,
+   App Store, or other environment-specific validation.
+
+For substantial changes, prefer this flow:
+
+**understand → plan → delegate → implement → verify → review → integrate → final verification → handoff**
+
+For small changes, use the shortest version of that flow that preserves correctness.
+
 ## Product and repository map
 
 HiInterval is a native, local-first iPhone/iPad interval-training app. It includes workout planning,
