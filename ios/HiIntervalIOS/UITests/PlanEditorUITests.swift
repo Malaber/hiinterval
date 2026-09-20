@@ -54,11 +54,7 @@ final class PlanEditorUITests: HiIntervalUITestCase {
         if app.keyboards.firstMatch.exists {
             app.keyboards.firstMatch.swipeDown()
         }
-        let firstExercise = element("plan.editor.exercise.0")
-        for _ in 0..<4 where !firstExercise.isHittable {
-            app.swipeUp()
-        }
-        tap(firstExercise)
+        tap(element("plan.editor.exercise.0"), scrolls: true)
         waitForExistence(element("exercise.editor.screen"))
 
         replaceText(in: element("exercise.editor.name"), with: "Split Squat")
