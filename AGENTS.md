@@ -272,9 +272,12 @@ Wait for observable state and reuse the existing launch/hittability helpers. Avo
 and aggressive accessibility polling. Successful waits should not fetch extra snapshots just to
 format failure messages. Focus tests type without refocusing and complete any interrupted prefix.
 The foreground/background completion test uses `HIINTERVAL_UI_TEST_MANUAL_CELEBRATION=1` together
-with `--ui-testing` to advance the existing timeline boundary on demand: repeated snapshots can
-starve the hosted iPad main thread and miss the five-second foreground window. Automatic transition
+with `--ui-testing` to pause cosmetic fireworks animation and advance the existing timeline boundary
+on demand: continuous rendering can starve hosted iPad accessibility snapshots, and wall-clock waits
+can miss the five-second foreground window. Automatic transition
 uses a deterministic test duration while core tests retain and verify the five-second default.
+Switch helpers must reveal the entire row within its containing Form's visible bounds; requiring a
+fixed central band of the application window fails for short sheets with no remaining scroll range.
 Tests run once; any assertion or infrastructure failure fails the suite. Do not add automatic reruns
 or accept a later pass as evidence of correctness.
 

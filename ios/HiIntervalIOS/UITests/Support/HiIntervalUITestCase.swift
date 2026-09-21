@@ -510,7 +510,7 @@ class HiIntervalUITestCase: XCTestCase {
         }
         let expected = enabled ? "1" : "0"
         if String(describing: toggle.value ?? "") != expected {
-            centerForInteraction(toggle, file: file, line: line)
+            revealSwitch(toggle, identifier: identifier, file: file, line: line)
             // SwiftUI exposes the full Form row as the switch element. Its center can land on
             // the label without toggling. Use a fixed trailing inset: a percentage misses the
             // actual switch by roughly 100 points on a full-width iPad Form row.
@@ -521,26 +521,53 @@ class HiIntervalUITestCase: XCTestCase {
         waitForValue(expected, on: toggle, file: file, line: line)
     }
 
-    private func centerForInteraction(
+    private func revealSwitch(
         _ target: XCUIElement,
+        identifier: String,
         maxSwipes: Int = 8,
         file: StaticString,
         line: UInt
     ) {
-        let viewport = app.frame
-        let safeTop = viewport.minY + viewport.height * 0.25
-        let safeBottom = viewport.minY + viewport.height * 0.65
+        // `isHittable` can be true for a Form row whose trailing switch is clipped. Use the
+        // containing scroll view's bounds, not an arbitrary band of the application window:
+        // a short sheet may have no scroll range with which to reach that band.
+        let collection = app.collectionViews.containing(.switch, identifier: identifier).firstMatch
+        let scrollView = collection.exists
+            ? collection
+            : app.scrollViews.containing(.switch, identifier: identifier).firstMatch
+        guard waitForExistence(scrollView, file: file, line: line) else { return }
+
+        let applicationFrame = app.frame
+        var viewport = scrollView.frame.intersection(applicationFrame)
+        for bar in app.navigationBars.allElementsBoundByIndex where bar.isHittable {
+            let overlap = viewport.intersection(bar.frame)
+            if !overlap.isNull && overlap.maxY < viewport.midY {
+                let bottom = viewport.maxY
+                viewport.origin.y = overlap.maxY
+                viewport.size.height = bottom - overlap.maxY
+            }
+        }
+        let keyboard = app.keyboards.firstMatch
+        if keyboard.exists, keyboard.frame.intersects(viewport) {
+            viewport.size.height = max(0, keyboard.frame.minY - viewport.minY)
+        }
+        viewport = viewport.insetBy(dx: 0, dy: 8)
+
         for _ in 0..<maxSwipes {
             let frame = target.frame
-            if frame.minY >= safeTop && frame.maxY <= safeBottom {
-                return
-            }
-            dragScroll(up: frame.midY > viewport.midY)
+            if viewport.contains(frame) { return }
+            let scrollsUp = frame.midY > viewport.midY
+            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+                dx: viewport.midX - applicationFrame.minX,
+                dy: viewport.minY - applicationFrame.minY + viewport.height * (scrollsUp ? 0.75 : 0.25)
+            ))
+            let end = start.withOffset(CGVector(dx: 0, dy: viewport.height * (scrollsUp ? -0.4 : 0.4)))
+            start.press(forDuration: 0.01, thenDragTo: end)
         }
         let frame = target.frame
         XCTAssertTrue(
-            frame.minY >= safeTop && frame.maxY <= safeBottom,
-            "Could not center element for interaction: \(target)",
+            viewport.contains(frame),
+            "Switch \(identifier) at \(frame) is clipped by its scroll viewport \(viewport)",
             file: file,
             line: line
         )

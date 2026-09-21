@@ -478,7 +478,10 @@ private struct WorkoutCompletionView: View {
     var body: some View {
         ZStack {
             if celebrationStage == .background {
-                CompletionFireworksView(prominence: .background)
+                CompletionFireworksView(
+                    prominence: .background,
+                    isAnimationPaused: usesManualCelebrationClock
+                )
                     .transition(.opacity)
             }
 
@@ -559,7 +562,10 @@ private struct WorkoutCompletionView: View {
             }
 
             if celebrationStage == .foreground {
-                CompletionFireworksView(prominence: .foreground)
+                CompletionFireworksView(
+                    prominence: .foreground,
+                    isAnimationPaused: usesManualCelebrationClock
+                )
                     .transition(.opacity)
             }
         }
@@ -606,6 +612,7 @@ private struct CompletionFireworksView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let prominence: Prominence
+    let isAnimationPaused: Bool
 
     private let colors: [Color] = [.yellow, .orange, .pink, HITheme.accent, .blue]
     private let centers: [UnitPoint] = [
@@ -617,7 +624,12 @@ private struct CompletionFireworksView: View {
     ]
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { timeline in
+        TimelineView(
+            .animation(
+                minimumInterval: 1.0 / 30.0,
+                paused: reduceMotion || isAnimationPaused
+            )
+        ) { timeline in
             Canvas { context, size in
                 for (burstIndex, center) in centers.enumerated() {
                     drawBurst(
