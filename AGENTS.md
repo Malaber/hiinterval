@@ -269,18 +269,23 @@ transient phase assertions rather than racing the accelerated short workout. AI 
 require live nondeterministic model generation on a simulator.
 
 Wait for observable state and reuse the existing launch/hittability helpers. Avoid arbitrary sleeps
-and aggressive accessibility polling. The completion test has a documented delay because repeated
-snapshots can starve the hosted iPad main thread; preserve its reason when changing that test.
-Retries are infrastructure recovery, not proof that a failing assertion is harmless.
+and aggressive accessibility polling. Successful waits should not fetch extra snapshots just to
+format failure messages. Focus tests type without refocusing and complete any interrupted prefix.
+The foreground/background completion test uses `HIINTERVAL_UI_TEST_MANUAL_CELEBRATION=1` together
+with `--ui-testing` to advance the existing timeline boundary on demand: repeated snapshots can
+starve the hosted iPad main thread and miss the five-second foreground window. Automatic transition
+uses a deterministic test duration while core tests retain and verify the five-second default.
+Tests run once; any assertion or infrastructure failure fails the suite. Do not add automatic reruns
+or accept a later pass as evidence of correctness.
 
-`run_ui_e2e.sh` builds once without signing, uses one simulator at a time, uninstalls the app before
-each attempt, and retries identified failed tests (the whole selection when none can be identified).
-`HIINTERVAL_E2E_ATTEMPTS` defaults to 2 locally and is set to 3 in CI. With `CI=true`, it also erases
-the selected simulator: do not set this on a simulator containing data you need. Do not run two
+`run_ui_e2e.sh` builds once without signing, uses one simulator at a time, disables slow verbose
+test-diagnostic collection, and uninstalls the app before its single test run. Logs, screenshots,
+and the result bundle remain available. With `CI=true`, it also erases the selected simulator: do
+not set this on a simulator containing data you need. Do not run two
 suites against the same simulator or derived-data/artifact directory concurrently.
 
 Artifacts must be in a child of `e2e-artifacts/`; the runner replaces that selected directory on
-each invocation. Inspect `build-for-testing.log`, `test-attempt-*.log`, `summary.md`, screenshots,
+each invocation. Inspect `build-for-testing.log`, `test.log`, `summary.md`, screenshots,
 and `TestResults*.xcresult` to distinguish app assertions from simulator/launch failures. Coverage
 reports live in `ios/HiIntervalIOS/coverage/`. Read current test sources/results rather than relying
 on fixed test counts in older documentation. Simulator tests cannot prove actual vibration,

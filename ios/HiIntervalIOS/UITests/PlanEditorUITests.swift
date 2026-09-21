@@ -35,7 +35,7 @@ final class PlanEditorUITests: HiIntervalUITestCase {
         let name = element("exercise.editor.name")
         waitForExistence(name)
         waitForExistence(app.keyboards.firstMatch, timeout: 3)
-        name.typeText("Burpees")
+        typeText("Burpees", intoFocusedField: name)
         XCTAssertEqual(name.value as? String, "Burpees")
         capture("01-new-exercise-name-focused")
     }

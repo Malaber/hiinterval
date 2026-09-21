@@ -36,23 +36,13 @@ class HiIntervalUITestCase: XCTestCase {
         launchConfiguredApplication()
     }
 
-    /// Hosted simulators occasionally finish XCTest's launch handshake before SwiftUI publishes
-    /// its first accessibility tree. Give a cold launch room to settle, then relaunch once with
-    /// the same arguments so fixture setup remains deterministic.
     func launchConfiguredApplication(
         timeout: TimeInterval = 20,
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
         app.launch()
-        let trainScreen = element("train.screen")
-        if trainScreen.waitForExistence(timeout: timeout) {
-            return
-        }
-
-        app.terminate()
-        app.launch()
-        waitForExistence(trainScreen, timeout: timeout, file: file, line: line)
+        waitForExistence(element("train.screen"), timeout: timeout, file: file, line: line)
     }
 
     func configuredApplication(resetFixture: Fixture?) -> XCUIApplication {
@@ -448,10 +438,25 @@ class HiIntervalUITestCase: XCTestCase {
         // SwiftUI TextField has just become first responder. Triple-tap uses the real touch
         // selection path and selects the complete value.
         field.tap(withNumberOfTaps: 3, numberOfTouches: 1)
+        typeText(text, intoFocusedField: field, file: file, line: line)
+        let keyboardDone = app.keyboards.buttons["Done"]
+        if keyboardDone.exists && keyboardDone.isHittable {
+            keyboardDone.tap()
+        }
+    }
+
+    /// Keeps the initial focus assertion meaningful: type without tapping or refocusing the
+    /// field, then finish any prefix interrupted by SwiftUI rebuilding the text input.
+    func typeText(
+        _ text: String,
+        intoFocusedField field: XCUIElement,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
         field.typeText(text)
 
-        // An axis-expanding SwiftUI TextField can be recreated after its first characters on
-        // iPad, which cuts the in-flight XCTest typing event short. Resume from the observed
+        // A SwiftUI TextField can be recreated after its first characters on hosted iPhone
+        // and iPad simulators, cutting the in-flight typing event short. Resume the observed
         // prefix until the complete value is present; normal fields finish on the first event.
         var observed = field.value as? String ?? ""
         var attempts = 0
@@ -472,10 +477,6 @@ class HiIntervalUITestCase: XCTestCase {
             file: file,
             line: line
         )
-        let keyboardDone = app.keyboards.buttons["Done"]
-        if keyboardDone.exists && keyboardDone.isHittable {
-            keyboardDone.tap()
-        }
     }
 
     func selectSegment(
@@ -585,13 +586,19 @@ class HiIntervalUITestCase: XCTestCase {
         for predicate: NSPredicate,
         on object: Any,
         timeout: TimeInterval,
-        message: String,
+        message: @autoclosure () -> String,
         file: StaticString,
         line: UInt
     ) -> Bool {
+        // A hosted accessibility snapshot can itself take longer than a short waiter timeout.
+        // Accept an already-satisfied predicate before starting the asynchronous waiter, and
+        // avoid fetching another snapshot solely to format a successful assertion's message.
+        if predicate.evaluate(with: object) { return true }
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: object)
         let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
-        XCTAssertEqual(result, .completed, message, file: file, line: line)
+        if result != .completed {
+            XCTFail(message(), file: file, line: line)
+        }
         return result == .completed
     }
 }

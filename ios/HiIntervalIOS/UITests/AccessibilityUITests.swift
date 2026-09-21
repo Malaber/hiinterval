@@ -56,12 +56,12 @@ final class AccessibilityUITests: HiIntervalUITestCase {
         }
 
         tap(element("train.start"), scrolls: true)
-        waitForExistence(element("session.screen"), timeout: 5)
+        waitForExistence(element("session.screen"), timeout: 20)
         tap(element("session.pause"), scrolls: true)
         waitForLabel("Resume workout", on: element("session.pause"))
 
         var findings: [String] = []
-        waitForLabel("Get ready", on: element("session.exercise"))
+        waitForLabel("Get ready", on: element("session.exercise"), timeout: 20)
         capture("audit-session-warmup")
         findings += try collectAuditFindings(on: "Session Warm-up", colorScheme: "phase")
 
@@ -102,7 +102,13 @@ final class AccessibilityUITests: HiIntervalUITestCase {
         scrollToHittable(element("settings.keep-awake"))
         capture("dynamic-type-settings")
 
-        selectTab("train")
+        // Accessibility snapshots at the largest size can outlast the entire short fixture.
+        // Primary screens above retain their standard plans/history; use the existing long
+        // session fixture for the workout layout so its pause controls stay available.
+        app = configuredApplication(resetFixture: .glanceableSession)
+        app.launchEnvironment["HIINTERVAL_UI_TEST_DYNAMIC_TYPE"] = "accessibility5"
+        app.launchEnvironment["HIINTERVAL_UI_TEST_SPEED"] = "1"
+        launchConfiguredApplication()
         scrollToHittable(element("train.start"))
         tap(element("train.start"))
         waitForExistence(element("session.screen"), timeout: 5)
@@ -114,18 +120,7 @@ final class AccessibilityUITests: HiIntervalUITestCase {
 
     private func auditFindings(on surface: String, colorScheme: String) throws -> [String] {
         capture("audit-\(colorScheme)-\(surface.lowercased())")
-        do {
-            return try collectAuditFindings(on: surface, colorScheme: colorScheme)
-        } catch {
-            // The simulator accessibility service can transiently time out before returning any
-            // findings. Start a fresh automation session before one retry; merely activating a
-            // wedged session can itself wait indefinitely. Reported audit issues never throw.
-            relaunchPreservingData()
-            if surface != "Train" {
-                selectTab(surface.lowercased())
-            }
-            return try collectAuditFindings(on: surface, colorScheme: colorScheme)
-        }
+        return try collectAuditFindings(on: surface, colorScheme: colorScheme)
     }
 
     private func collectAuditFindings(on surface: String, colorScheme: String) throws -> [String] {

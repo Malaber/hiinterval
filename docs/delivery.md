@@ -12,7 +12,7 @@ The current inventory is defined by the XCTest sources. Core coverage includes c
 2. Requires exact named simulator and generates project from `project.yml`.
 3. Builds once for testing with signing disabled and parallel testing off.
 4. Shuts down only the target simulator, boots it, uninstalls app, then runs tests serially.
-5. Retries only failed XCTest cases when the log identifies them; infrastructure failures without a test identity fall back to one complete isolated rerun.
+5. Runs each device suite once. Any assertion or infrastructure failure fails the job directly.
 6. Keeps logs, screenshots produced by tests, summary, and `TestResults.xcresult`; removes derived data.
 
 UI tests launch with deterministic `--ui-testing` fixture mode. Tests must query accessibility identifiers and wait for observable state, never sleep for animation timing.

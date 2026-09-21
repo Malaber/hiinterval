@@ -136,7 +136,12 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
 
         tapToolbarButton("plan.editor.save", label: "Save")
         waitForDisappearance(element("plan.editor.screen"), timeout: 8)
-        relaunchPreservingData()
+        // Inspect the active session at real time: the accelerated fixture can finish before
+        // a loaded simulator returns its accessibility tree. Keep the saved plan on disk.
+        app.terminate()
+        app = configuredApplication(resetFixture: nil)
+        app.launchEnvironment["HIINTERVAL_UI_TEST_SPEED"] = "1"
+        launchConfiguredApplication()
         selectTab("train")
         waitForLabel("Generated workout", on: element("train.selected-plan-name"))
         tap(element("train.start"))
@@ -155,7 +160,7 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         let name = element("catalogue.editor.name")
         waitForExistence(name)
         waitForExistence(app.keyboards.firstMatch, timeout: 3)
-        name.typeText("Heel Raises")
+        typeText("Heel Raises", intoFocusedField: name)
         XCTAssertEqual(name.value as? String, "Heel Raises")
         tapToolbarButton("catalogue.editor.save", label: "Save")
         waitForExistence(app.staticTexts["Heel Raises"])

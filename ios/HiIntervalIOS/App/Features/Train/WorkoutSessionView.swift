@@ -350,7 +350,7 @@ private struct ActiveWorkoutView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .simultaneousGesture(
+        .highPriorityGesture(
             TapGesture(count: 2)
                 .onEnded {
                     if controller.engine.canReturnToPreviousExercise {
@@ -463,7 +463,17 @@ private struct WorkoutCompletionView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var celebrationStage: CompletionCelebrationStage = .foreground
 
-    private let celebrationTimeline = CompletionCelebrationTimeline()
+    private var celebrationTimeline: CompletionCelebrationTimeline {
+        let process = ProcessInfo.processInfo
+        guard process.arguments.contains("--ui-testing"),
+              let rawDuration = process.environment["HIINTERVAL_UI_TEST_CELEBRATION_DURATION"],
+              let duration = TimeInterval(rawDuration) else {
+            return CompletionCelebrationTimeline()
+        }
+        return CompletionCelebrationTimeline(foregroundDurationSeconds: duration)
+    }
+    private let usesManualCelebrationClock = ProcessInfo.processInfo.arguments.contains("--ui-testing")
+        && ProcessInfo.processInfo.environment["HIINTERVAL_UI_TEST_MANUAL_CELEBRATION"] == "1"
 
     var body: some View {
         ZStack {
@@ -494,6 +504,11 @@ private struct WorkoutCompletionView: View {
                         Text(entry.planName)
                             .font(.title3)
                             .foregroundStyle(.secondary)
+                    }
+
+                    if usesManualCelebrationClock {
+                        Button("Advance fireworks", action: advanceCelebration)
+                            .accessibilityIdentifier("completion.advance-fireworks")
                     }
 
                     HStack(spacing: 12) {
@@ -551,14 +566,19 @@ private struct WorkoutCompletionView: View {
         .background(Color(uiColor: .systemGroupedBackground))
         .task {
             guard celebrationStage == .foreground else { return }
+            guard !usesManualCelebrationClock else { return }
             try? await Task.sleep(for: .seconds(celebrationTimeline.foregroundDurationSeconds))
             guard !Task.isCancelled else { return }
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.35)) {
-                celebrationStage = celebrationTimeline.stage(
-                    atElapsedSeconds: celebrationTimeline.foregroundDurationSeconds
-                )
+                advanceCelebration()
             }
         }
+    }
+
+    private func advanceCelebration() {
+        celebrationStage = celebrationTimeline.stage(
+            atElapsedSeconds: celebrationTimeline.foregroundDurationSeconds
+        )
     }
 
     private func completionMetric(_ label: String, _ value: String, _ icon: String) -> some View {

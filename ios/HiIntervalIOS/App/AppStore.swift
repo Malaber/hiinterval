@@ -404,9 +404,9 @@ private extension AppData {
         let plan = WorkoutPlan(
             id: fixtureUUID(41),
             name: "Eight Move Session",
-            warmUpSeconds: 105,
+            warmUpSeconds: 600,
             warmUpNotes: "Move at 60% effort",
-            defaultWorkSeconds: 105,
+            defaultWorkSeconds: 600,
             defaultRecoverySeconds: 20,
             recoveryNotes: "Breathe and reset",
             roundRecoverySeconds: 0,
