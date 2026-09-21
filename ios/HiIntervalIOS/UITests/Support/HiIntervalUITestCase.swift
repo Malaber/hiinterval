@@ -73,22 +73,11 @@ class HiIntervalUITestCase: XCTestCase {
 
     func selectTab(_ name: String, file: StaticString = #filePath, line: UInt = #line) {
         let destination = element("\(name).screen")
-        if tapHittableTab(name), destination.waitForExistence(timeout: 8) {
+        guard tapHittableTab(name) else {
+            XCTFail("Could not find hittable tab labeled '\(name.capitalized)'", file: file, line: line)
             return
         }
-
-        // A completed iOS 26 accessibility audit can transiently leave the app's native tab
-        // buttons absent from the automation tree. A fresh session restores that tree while
-        // retaining the isolated fixture and any settings changed by the test.
-        relaunchPreservingData()
-        let relaunchedDestination = element("\(name).screen")
-        if relaunchedDestination.exists {
-            return
-        }
-        if tapHittableTab(name), relaunchedDestination.waitForExistence(timeout: 8) {
-            return
-        }
-        XCTFail("Could not open tab labeled '\(name.capitalized)'", file: file, line: line)
+        waitForExistence(destination, timeout: 8, file: file, line: line)
     }
 
     private func tapHittableTab(_ name: String) -> Bool {
@@ -521,37 +510,40 @@ class HiIntervalUITestCase: XCTestCase {
         }
         let expected = enabled ? "1" : "0"
         if String(describing: toggle.value ?? "") != expected {
+            centerForInteraction(toggle, file: file, line: line)
             // SwiftUI exposes the full Form row as the switch element. Its center can land on
             // the label without toggling. Use a fixed trailing inset: a percentage misses the
             // actual switch by roughly 100 points on a full-width iPad Form row.
-            for attempt in 0..<3 {
-                toggle.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
-                    .withOffset(CGVector(dx: -28, dy: 0))
-                    .tap()
-                if valueMatches(expected, on: toggle, timeout: 2) {
-                    return
-                }
-                if attempt == 0 {
-                    // iOS 26 can call a row hittable while its switch is still inside a Form
-                    // boundary. Move it toward the viewport center before the bounded retry.
-                    dragScroll(up: toggle.frame.midY >= app.frame.midY)
-                    scrollToHittable(toggle, file: file, line: line)
-                }
-            }
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
+                .withOffset(CGVector(dx: -28, dy: 0))
+                .tap()
         }
         waitForValue(expected, on: toggle, file: file, line: line)
     }
 
-    private func valueMatches(
-        _ expected: String,
-        on target: XCUIElement,
-        timeout: TimeInterval
-    ) -> Bool {
-        let expectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == true AND value == %@", expected),
-            object: target
+    private func centerForInteraction(
+        _ target: XCUIElement,
+        maxSwipes: Int = 8,
+        file: StaticString,
+        line: UInt
+    ) {
+        let viewport = app.frame
+        let safeTop = viewport.minY + viewport.height * 0.25
+        let safeBottom = viewport.minY + viewport.height * 0.65
+        for _ in 0..<maxSwipes {
+            let frame = target.frame
+            if frame.minY >= safeTop && frame.maxY <= safeBottom {
+                return
+            }
+            dragScroll(up: frame.midY > viewport.midY)
+        }
+        let frame = target.frame
+        XCTAssertTrue(
+            frame.minY >= safeTop && frame.maxY <= safeBottom,
+            "Could not center element for interaction: \(target)",
+            file: file,
+            line: line
         )
-        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
     func capture(_ name: String) {

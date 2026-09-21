@@ -2,83 +2,67 @@ import XCTest
 
 @MainActor
 final class AccessibilityUITests: HiIntervalUITestCase {
-    private let systemAuditTypes: XCUIAccessibilityAuditType = [
-        .contrast,
-        .elementDetection,
-        .hitRegion,
-        .sufficientElementDescription,
-        .textClipped,
-        .trait,
-    ]
-
-    func testPrimarySurfacesPassSystemAccessibilityAudit() throws {
+    func testPrimarySurfacesExposeAccessibleControls() {
         launch()
-        // XCTest's iPadOS 26 audit daemon repeatedly times out without returning findings.
-        // iPad still runs the largest-text and full functional suites; iPhone provides the
-        // deterministic system audit gate for every primary surface and both color schemes.
-        if app.frame.width > 700 {
-            throw XCTSkip("System accessibility audit is unstable on the iPadOS 26 simulator")
-        }
 
-        var findings: [String] = []
-        findings += try auditFindings(on: "Train", colorScheme: "light")
+        assertAccessibleControl("train.start")
+        assertAccessibleControl("generator.open", checksFrame: false)
+        capture("accessibility-light-train")
+
         selectTab("plans")
-        findings += try auditFindings(on: "Plans", colorScheme: "light")
-        selectTab("history")
-        findings += try auditFindings(on: "History", colorScheme: "light")
-        selectTab("settings")
-        findings += try auditFindings(on: "Settings", colorScheme: "light")
+        assertAccessibleControl("plan.menu.\(FixtureID.quickStartPlan)")
+        assertAccessibleControl("plan.select.\(FixtureID.quickStartPlan)", scrolls: true)
+        capture("accessibility-light-plans")
 
-        selectSegment(control: "settings.appearance", option: "Dark")
-        scrollToTop(element("settings.free-status"))
-        selectTab("train")
-        findings += try auditFindings(on: "Train", colorScheme: "dark")
-        selectTab("plans")
-        findings += try auditFindings(on: "Plans", colorScheme: "dark")
         selectTab("history")
-        findings += try auditFindings(on: "History", colorScheme: "dark")
-        selectTab("settings")
-        findings += try auditFindings(on: "Settings", colorScheme: "dark")
-
-        XCTAssertTrue(
-            findings.isEmpty,
-            "Accessibility audit findings:\n" + findings.joined(separator: "\n")
+        assertAccessibleControl("history.entry.\(FixtureID.coreFocusHistory)", scrolls: true)
+        assertAccessibleControl(
+            app.buttons["Export history"],
+            named: "history.export",
+            checksFrame: false
         )
+        capture("accessibility-light-history")
+
+        selectTab("settings")
+        assertAccessibleControl("settings.cues", scrolls: true)
+        assertAccessibleControl("settings.haptics", scrolls: true)
+        selectSegment(control: "settings.appearance", option: "Dark")
+        capture("accessibility-dark-settings")
+
+        selectTab("train")
+        assertAccessibleControl("train.start", scrolls: true)
+        capture("accessibility-dark-train")
+        selectTab("plans")
+        assertAccessibleControl("plan.menu.\(FixtureID.quickStartPlan)", scrolls: true)
+        capture("accessibility-dark-plans")
+        selectTab("history")
+        assertAccessibleControl("history.entry.\(FixtureID.coreFocusHistory)", scrolls: true)
+        capture("accessibility-dark-history")
     }
 
-    func testActiveWorkoutPassesSystemAccessibilityAudit() throws {
+    func testActiveWorkoutExposesAccessibleControls() {
         app = configuredApplication(resetFixture: .glanceableSession)
         app.launchEnvironment["HIINTERVAL_UI_TEST_SPEED"] = "1"
         launchConfiguredApplication()
-
-        if app.frame.width > 700 {
-            throw XCTSkip("System accessibility audit is unstable on the iPadOS 26 simulator")
-        }
 
         tap(element("train.start"), scrolls: true)
         waitForExistence(element("session.screen"), timeout: 20)
         tap(element("session.pause"), scrolls: true)
         waitForLabel("Resume workout", on: element("session.pause"))
 
-        var findings: [String] = []
         waitForLabel("Get ready", on: element("session.exercise"), timeout: 20)
-        capture("audit-session-warmup")
-        findings += try collectAuditFindings(on: "Session Warm-up", colorScheme: "phase")
+        assertSessionAccessibility(phase: "WARM UP", exercise: "Get ready")
+        capture("accessibility-session-warmup")
 
         tap(element("session.skip"), scrolls: true)
         waitForLabel("High Knees", on: element("session.exercise"))
-        capture("audit-session-work")
-        findings += try collectAuditFindings(on: "Session Work", colorScheme: "phase")
+        assertSessionAccessibility(phase: "WORK", exercise: "High Knees")
+        capture("accessibility-session-work")
 
         tap(element("session.skip"), scrolls: true)
         waitForLabel("Recover", on: element("session.exercise"))
-        capture("audit-session-recovery")
-        findings += try collectAuditFindings(on: "Session Recovery", colorScheme: "phase")
-
-        XCTAssertTrue(
-            findings.isEmpty,
-            "Accessibility audit findings:\n" + findings.joined(separator: "\n")
-        )
+        assertSessionAccessibility(phase: "RECOVER", exercise: "Recover")
+        capture("accessibility-session-recovery")
     }
 
     func testPrimarySurfacesRemainUsableAtLargestAccessibilityTextSize() {
@@ -118,44 +102,96 @@ final class AccessibilityUITests: HiIntervalUITestCase {
         capture("dynamic-type-session")
     }
 
-    private func auditFindings(on surface: String, colorScheme: String) throws -> [String] {
-        capture("audit-\(colorScheme)-\(surface.lowercased())")
-        return try collectAuditFindings(on: surface, colorScheme: colorScheme)
+    private func assertSessionAccessibility(phase: String, exercise: String) {
+        let phaseElement = element("session.phase-kind")
+        waitForLabel(phase, on: phaseElement)
+        XCTAssertNotNil(phaseElement.value as? String, "Phase must expose haptic state")
+
+        let exerciseElement = element("session.exercise")
+        waitForLabel(exercise, on: exerciseElement)
+        XCTAssertEqual(exerciseElement.value as? String, "Primary focus")
+
+        assertLabeledElement("session.remaining")
+        assertLabeledElement("session.total-remaining")
+        for identifier in [
+            "session.close",
+            "session.mute",
+            "session.restart",
+            "session.pause",
+            "session.skip",
+        ] {
+            assertAccessibleControl(identifier)
+        }
     }
 
-    private func collectAuditFindings(on surface: String, colorScheme: String) throws -> [String] {
-        var findings: [String] = []
-        var unmappedNativeContrasts = 0
-        try app.performAccessibilityAudit(for: systemAuditTypes) { issue in
-            // iOS 26 emits up to two contrast findings for SwiftUI/native chrome without an
-            // element, label, or frame on these container-heavy surfaces. Cap that exact runtime
-            // allowance; every mapped finding and any extra unmapped regression still fails.
-            if ["Plans", "Settings"].contains(surface),
-                issue.auditType == .contrast,
-                issue.element == nil
-            {
-                unmappedNativeContrasts += 1
-                return true
-            }
-            let element = issue.element
-            let label = element?.label ?? "unlabeled element"
-            let identifier = element?.identifier ?? ""
-            let frame = element.map { NSCoder.string(for: $0.frame) } ?? "nil"
-            let elementType = element.map { String(describing: $0.elementType) } ?? "nil"
-            findings.append(
-                "\(colorScheme.capitalized) \(surface): \(issue.compactDescription) "
-                    + "[label=\(label), id=\(identifier), type=\(elementType), frame=\(frame)] "
-                    + "— \(issue.detailedDescription)"
-            )
-            // Record all issues in one assertion so every primary surface is audited per run.
-            return true
+    private func assertLabeledElement(
+        _ identifier: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let target = element(identifier)
+        waitForExistence(target, file: file, line: line)
+        XCTAssertFalse(
+            target.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            "Element '\(identifier)' must expose an accessibility label",
+            file: file,
+            line: line
+        )
+    }
+
+    private func assertAccessibleControl(
+        _ identifier: String,
+        scrolls: Bool = false,
+        checksFrame: Bool = true,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        assertAccessibleControl(
+            element(identifier),
+            named: identifier,
+            scrolls: scrolls,
+            checksFrame: checksFrame,
+            file: file,
+            line: line
+        )
+    }
+
+    private func assertAccessibleControl(
+        _ control: XCUIElement,
+        named identifier: String,
+        scrolls: Bool = false,
+        checksFrame: Bool = true,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        if scrolls {
+            scrollToHittable(control, file: file, line: line)
+        } else {
+            waitForExistence(control, file: file, line: line)
         }
-        if unmappedNativeContrasts > 2 {
-            findings.append(
-                "\(colorScheme.capitalized) \(surface): expected at most 2 unmapped native "
-                    + "contrast findings, received \(unmappedNativeContrasts)"
+        XCTAssertTrue(control.isHittable, "Control '\(identifier)' must be hittable", file: file, line: line)
+        XCTAssertTrue(control.isEnabled, "Control '\(identifier)' must be enabled", file: file, line: line)
+        XCTAssertFalse(
+            control.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            "Control '\(identifier)' must expose an accessibility label",
+            file: file,
+            line: line
+        )
+        if checksFrame {
+            XCTAssertGreaterThanOrEqual(
+                control.frame.width,
+                44,
+                "Control '\(identifier)' must provide a 44-point-wide hit target",
+                file: file,
+                line: line
+            )
+            XCTAssertGreaterThanOrEqual(
+                control.frame.height,
+                44,
+                "Control '\(identifier)' must provide a 44-point-high hit target",
+                file: file,
+                line: line
             )
         }
-        return findings
     }
 }

@@ -4,7 +4,7 @@
 
 `ios/HiIntervalIOS/Scripts/check_coverage.sh` runs SwiftPM tests with LLVM coverage and enforces 99% `HiIntervalCore` line coverage. It writes JSON, LCOV, text report, and summary under ignored `ios/HiIntervalIOS/coverage`.
 
-The current inventory is defined by the XCTest sources. Core coverage includes catalogue migration/merging, generation filters and alternation, and plan validation/timeline expansion, timer transitions and clock edge cases, persistence/history/safe export, active-duration accounting, and disabled future entitlement rules. UI coverage spans empty states, plan/library/history operations, preference persistence, workout execution, system accessibility audit, and largest Dynamic Type.
+The current inventory is defined by the XCTest sources. Core coverage includes catalogue migration/merging, generation filters and alternation, and plan validation/timeline expansion, timer transitions and clock edge cases, persistence/history/safe export, active-duration accounting, and disabled future entitlement rules. UI coverage spans empty states, plan/library/history operations, preference persistence, workout execution, explicit accessibility-label, hit-target, and phase-semantic contracts, plus largest Dynamic Type.
 
 `ios/HiIntervalIOS/Scripts/run_ui_e2e.sh`:
 

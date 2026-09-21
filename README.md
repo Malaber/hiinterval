@@ -62,9 +62,9 @@ build number for every later upload of same marketing version. Signed archive st
 temporary path. Helper forces macOS system `rsync`; Homebrew `rsync` is incompatible with Xcode's
 extended-attribute packaging flags.
 
-CI runs Swift package coverage in Linux Swift 6.2 plus full XCUITest on named iPhone and iPad simulators. Test execution is serial, starts from reset app data and clean derived data, retries only failed XCTest cases when they can be identified (with a full-run fallback), and always uploads diagnostic evidence. Pull requests run once through the PR event; pushes run automatically on `main`.
+CI runs Swift package coverage in Linux Swift 6.2 plus full XCUITest on named iPhone and iPad simulators. Test execution is serial, starts from reset app data and clean derived data, runs each device suite once, and always uploads diagnostic evidence. Any assertion or infrastructure failure fails its job. Pull requests run once through the PR event; pushes run automatically on `main`.
 
-Portable core tests and XCUITest flows cover exercise catalogue migration and merging, filtered workout generation, and existing app behavior. Core tests also cover plans/timeline expansion, drift-safe timer behavior, persistence/history/safe export, active duration, and future entitlement policy. UI flows cover empty states, plan/library/history management, settings persistence, full training transitions, accessibility audit, and largest Dynamic Type.
+Portable core tests and XCUITest flows cover exercise catalogue migration and merging, filtered workout generation, and existing app behavior. Core tests also cover plans/timeline expansion, drift-safe timer behavior, persistence/history/safe export, active duration, and future entitlement policy. UI flows cover empty states, plan/library/history management, settings persistence, full training transitions, deterministic accessibility contracts, and largest Dynamic Type.
 
 See [architecture](docs/architecture.md), [delivery/testing](docs/delivery.md), and the
 [App Store Connect/TestFlight setup](docs/app-store-connect-setup.md).
