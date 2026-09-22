@@ -8,6 +8,9 @@ public struct AppData: Codable, Equatable, Sendable {
     public var selectedPlanID: UUID?
     public var exerciseCatalogue: [CatalogueExercise]
     public var exerciseLabels: [ExerciseLabel]
+    /// IDs deliberately removed from the shared catalogue. Live plan steps keep these
+    /// links as detached snapshots, rather than recreating a global catalogue record.
+    public var deletedCatalogueExerciseIDs: Set<UUID>
 
     public init(
         plans: [WorkoutPlan] = [],
@@ -16,7 +19,8 @@ public struct AppData: Codable, Equatable, Sendable {
         usage: UsageRecord = UsageRecord(),
         selectedPlanID: UUID? = nil,
         exerciseCatalogue: [CatalogueExercise] = [],
-        exerciseLabels: [ExerciseLabel] = []
+        exerciseLabels: [ExerciseLabel] = [],
+        deletedCatalogueExerciseIDs: Set<UUID> = []
     ) {
         self.plans = plans
         self.history = history
@@ -25,11 +29,12 @@ public struct AppData: Codable, Equatable, Sendable {
         self.selectedPlanID = selectedPlanID
         self.exerciseCatalogue = exerciseCatalogue
         self.exerciseLabels = exerciseLabels
+        self.deletedCatalogueExerciseIDs = deletedCatalogueExerciseIDs
         synchronizeExerciseCatalogue()
     }
 
     private enum CodingKeys: String, CodingKey {
-        case plans, history, preferences, usage, selectedPlanID, exerciseCatalogue, exerciseLabels
+        case plans, history, preferences, usage, selectedPlanID, exerciseCatalogue, exerciseLabels, deletedCatalogueExerciseIDs
     }
 
     public init(from decoder: Decoder) throws {
@@ -41,6 +46,7 @@ public struct AppData: Codable, Equatable, Sendable {
         selectedPlanID = try values.decodeIfPresent(UUID.self, forKey: .selectedPlanID)
         exerciseCatalogue = try values.decodeIfPresent([CatalogueExercise].self, forKey: .exerciseCatalogue) ?? []
         exerciseLabels = try values.decodeIfPresent([ExerciseLabel].self, forKey: .exerciseLabels) ?? []
+        deletedCatalogueExerciseIDs = try values.decodeIfPresent(Set<UUID>.self, forKey: .deletedCatalogueExerciseIDs) ?? []
         synchronizeExerciseCatalogue()
     }
 
@@ -53,13 +59,18 @@ public struct AppData: Codable, Equatable, Sendable {
         try values.encodeIfPresent(selectedPlanID, forKey: .selectedPlanID)
         try values.encode(exerciseCatalogue, forKey: .exerciseCatalogue)
         try values.encode(exerciseLabels, forKey: .exerciseLabels)
+        try values.encode(deletedCatalogueExerciseIDs, forKey: .deletedCatalogueExerciseIDs)
     }
 
     /// Ensures every live plan step has a stable catalogue entry while leaving historical snapshots intact.
     public mutating func synchronizeExerciseCatalogue() {
         normalizeExerciseLabels()
+        // A persisted catalogue record is an explicit restoration, including in malformed
+        // payloads that contain both the record and its old deletion tombstone.
+        deletedCatalogueExerciseIDs.subtract(Set(exerciseCatalogue.map(\.id)))
         var entries: [UUID: CatalogueExercise] = [:]
-        for entry in exerciseCatalogue where entries[entry.id] == nil {
+        for entry in exerciseCatalogue
+        where !deletedCatalogueExerciseIDs.contains(entry.id) && entries[entry.id] == nil {
             var normalized = entry.normalized()
             migrateLegacyLabels(on: &normalized)
             normalized.labelIDs = normalized.labelIDs.filter { labelID in
@@ -72,6 +83,11 @@ public struct AppData: Codable, Equatable, Sendable {
                 var step = plans[planIndex].exercises[stepIndex]
                 if let catalogueID = step.catalogueExerciseID, let canonical = entries[catalogueID] {
                     step.name = canonical.name
+                } else if let catalogueID = step.catalogueExerciseID,
+                          deletedCatalogueExerciseIDs.contains(catalogueID) {
+                    // Keep the plan's last saved exercise payload and its original catalogue
+                    // identity. This explicit tombstoned link prevents a deleted record from
+                    // being recreated on a later persistence cycle.
                 } else {
                     var entry = CatalogueExercise(step: step)
                     while entries[entry.id] != nil { entry.id = UUID() }
@@ -86,6 +102,7 @@ public struct AppData: Codable, Equatable, Sendable {
         // Keep catalogue order stable for the UI and only append migrated entries in plan order.
         var seen = Set<UUID>()
         exerciseCatalogue = exerciseCatalogue.compactMap { original in
+            guard !deletedCatalogueExerciseIDs.contains(original.id) else { return nil }
             guard let entry = entries[original.id], seen.insert(entry.id).inserted else { return nil }
             return entry
         }
@@ -150,6 +167,7 @@ public struct AppData: Codable, Equatable, Sendable {
         } else {
             exerciseCatalogue.append(saved)
         }
+        deletedCatalogueExerciseIDs.remove(saved.id)
         exerciseLabels = nextLabels
         for planIndex in plans.indices {
             for stepIndex in plans[planIndex].exercises.indices
@@ -182,6 +200,16 @@ public struct AppData: Codable, Equatable, Sendable {
             }
         }
         exerciseCatalogue.removeAll { sourceIDs.contains($0.id) && $0.id != targetID }
+    }
+
+    /// Removes a shared catalogue record while preserving every live plan step as a detached
+    /// snapshot. Historical plan snapshots are intentionally never changed.
+    public mutating func deleteCatalogueExercise(id: UUID) throws {
+        guard exerciseCatalogue.contains(where: { $0.id == id }) else {
+            throw ExerciseCatalogueError.missingExercise(id)
+        }
+        exerciseCatalogue.removeAll { $0.id == id }
+        deletedCatalogueExerciseIDs.insert(id)
     }
 
     private mutating func normalizeExerciseLabels() {

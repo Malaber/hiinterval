@@ -20,7 +20,7 @@ validation runs after all features are implemented, before Git and TestFlight de
   Verify cancellation, insufficient matches, unique exercises, preserved settings, and one fixed
   order across all rounds. Reuse `WorkoutGenerator` rather than creating another selection engine.
 
-- [ ] **Allow catalogue deletion, warning when an exercise is used.**
+- [x] **Allow catalogue deletion, warning when an exercise is used.**
   Add a delete action and confirmation listing affected saved workouts. Proposed behavior:
   delete the catalogue record while retaining affected workout steps, names, and configuration as
   detached copies; completed history remains intact. Keep unused shared tags available.

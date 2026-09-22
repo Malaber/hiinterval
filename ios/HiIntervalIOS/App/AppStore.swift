@@ -154,6 +154,21 @@ final class AppStore: ObservableObject {
         }
     }
 
+    @discardableResult
+    func deleteCatalogueExercise(id: UUID) -> Bool {
+        do {
+            var updated = data
+            try updated.deleteCatalogueExercise(id: id)
+            stampChangedPlans(in: &updated)
+            data = updated
+            lastErrorMessage = nil
+            return true
+        } catch {
+            lastErrorMessage = error.localizedDescription
+            return false
+        }
+    }
+
     private func stampChangedPlans(in updated: inout AppData) {
         let timestamp = now()
         for index in updated.plans.indices {
