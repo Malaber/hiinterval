@@ -81,21 +81,31 @@ private struct ActiveWorkoutView: View {
                 .accessibilityHidden(true)
 
             GeometryReader { geometry in
-                ScrollView {
-                    VStack(spacing: 0) {
-                        header
-                        phaseRibbon
-                        Spacer(minLength: 24)
-                        timerBody
-                        Spacer(minLength: 24)
-                        controls
+                ViewThatFits(in: .vertical) {
+                    sessionContent(compact: false)
+                    sessionContent(compact: true)
+                    ScrollView {
+                        sessionContent(compact: true)
                     }
-                    .frame(minHeight: max(0, geometry.size.height - 32))
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 16)
+                    .scrollIndicators(.hidden)
+                    .accessibilityIdentifier("session.accessible-scroll")
                 }
-                .scrollIndicators(.hidden)
-                .scrollBounceBehavior(.basedOnSize)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .overlay(alignment: .top) {
+            if controller.engine.state == .paused {
+                Text("PAUSED")
+                    .font(.caption.weight(.black))
+                    .tracking(1.1)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .foregroundStyle(phaseColor)
+                    .background(sessionForeground, in: Capsule())
+                    .shadow(radius: 5, y: 2)
+                    .padding(.top, 66)
+                    .allowsHitTesting(false)
+                    .accessibilityIdentifier("session.paused")
             }
         }
         .foregroundStyle(sessionForeground)
@@ -125,6 +135,19 @@ private struct ActiveWorkoutView: View {
             Text("Current progress will not be added to history.")
         }
         .accessibilityIdentifier("session.screen")
+    }
+
+    private func sessionContent(compact: Bool) -> some View {
+        VStack(spacing: compact ? 10 : 18) {
+            header
+            phaseRibbon
+            timerBody(compact: compact)
+            controls
+        }
+        .padding(.horizontal, compact ? 18 : 24)
+        .padding(.vertical, compact ? 8 : 16)
+        .frame(maxWidth: .infinity)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private var header: some View {
@@ -179,7 +202,7 @@ private struct ActiveWorkoutView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 24)
+        .padding(.top, 6)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(PhaseStyle.label(for: phase?.kind))
         .accessibilityValue(store.data.preferences.hapticsEnabled ? "Haptics enabled" : "Haptics disabled")
@@ -195,23 +218,12 @@ private struct ActiveWorkoutView: View {
         return controller.plan.exercises[position.exerciseIndex - 1].name
     }
 
-    private var timerBody: some View {
-        VStack(spacing: 18) {
-            if controller.engine.state == .paused {
-                Label("PAUSED", systemImage: "pause.fill")
-                    .font(.caption.weight(.black))
-                    .tracking(1.1)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .foregroundStyle(phaseColor)
-                    .background(sessionForeground, in: Capsule())
-                    .accessibilityIdentifier("session.paused")
-            }
-
+    private func timerBody(compact: Bool) -> some View {
+        VStack(spacing: compact ? 8 : 18) {
             Text(currentHeading)
                 .font(
                     .system(
-                        size: CGFloat(headingHierarchy.currentNamePointSize),
+                        size: compact ? 34 : CGFloat(headingHierarchy.currentNamePointSize),
                         weight: .heavy,
                         design: .rounded
                     )
@@ -244,7 +256,7 @@ private struct ActiveWorkoutView: View {
                 .foregroundStyle(sessionForeground)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.vertical, compact ? 8 : 12)
                 .background(controlSurface, in: RoundedRectangle(cornerRadius: 14))
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Notes, \(notes)")
@@ -252,7 +264,7 @@ private struct ActiveWorkoutView: View {
             }
 
             Text(SessionFormat.duration(controller.engine.displayedRemainingSeconds))
-                .font(.system(size: 92, weight: .semibold, design: .rounded))
+                .font(.system(size: compact ? 70 : 92, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .contentTransition(.numericText(countsDown: true))
                 .minimumScaleFactor(0.55)
@@ -317,7 +329,7 @@ private struct ActiveWorkoutView: View {
                 .foregroundStyle(sessionForeground)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 18)
-                .padding(.vertical, 12)
+                .padding(.vertical, compact ? 6 : 12)
                 .background(
                     Color.black.opacity(headingHierarchy.nextSurfaceOpacity),
                     in: RoundedRectangle(cornerRadius: 16)

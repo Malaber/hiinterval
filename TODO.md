@@ -57,7 +57,7 @@ validation runs after all features are implemented, before Git and TestFlight de
   left/right sides. Verify that recovery remains understandable with custom themes and accessibility
   settings, without adding the removed labels back into the normal visual layout.
 
-- [ ] **Float “Paused” above the workout without shifting its layout.**
+- [x] **Float “Paused” above the workout without shifting its layout.**
   Move pause status into an overlay above session content; timer, headings, and controls retain
   their positions. Keep Resume and other essential controls reachable beneath the overlay.
   Prioritize a running-workout layout that fits the available screen without scrolling, including
