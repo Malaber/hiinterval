@@ -118,6 +118,10 @@ struct PlanDurationStepper: View {
     var step: Int = 5
     var accessibilityID: String
 
+    @State private var isPresentingDurationEntry = false
+    @State private var draftSeconds = ""
+    @FocusState private var isDurationFieldFocused: Bool
+
     init(
         _ title: String,
         subtitle: String? = nil,
@@ -146,12 +150,67 @@ struct PlanDurationStepper: View {
                     }
                 }
                 Spacer(minLength: 8)
-                Text(PlanFormatting.compactDuration(seconds))
-                    .font(.body.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(seconds == 0 ? Color.secondary : PlanPalette.accent)
+                Button {
+                    draftSeconds = String(seconds)
+                    isPresentingDurationEntry = true
+                } label: {
+                    Text(PlanFormatting.compactDuration(seconds))
+                        .font(.body.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(seconds == 0 ? Color.secondary : PlanPalette.accent)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Edit \(title) duration")
+                .accessibilityValue("\(seconds) seconds")
+                .accessibilityIdentifier("\(accessibilityID).value")
             }
         }
         .accessibilityIdentifier(accessibilityID)
+        .sheet(isPresented: $isPresentingDurationEntry) {
+            NavigationStack {
+                Form {
+                    Section {
+                        TextField("Seconds", text: $draftSeconds)
+                            .keyboardType(.numberPad)
+                            .focused($isDurationFieldFocused)
+                            .accessibilityIdentifier("\(accessibilityID).entry.seconds")
+                    } header: {
+                        Text("Duration")
+                    } footer: {
+                        Text("Enter \(range.lowerBound)–\(range.upperBound) seconds.")
+                    }
+                }
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            isPresentingDurationEntry = false
+                        }
+                        .accessibilityIdentifier("\(accessibilityID).entry.cancel")
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            guard let enteredSeconds else { return }
+                            seconds = enteredSeconds
+                            isPresentingDurationEntry = false
+                        }
+                        .fontWeight(.semibold)
+                        .disabled(enteredSeconds == nil)
+                        .accessibilityIdentifier("\(accessibilityID).entry.done")
+                    }
+                }
+                .task {
+                    isDurationFieldFocused = true
+                }
+            }
+            .tint(PlanPalette.accent)
+            .accessibilityIdentifier("\(accessibilityID).entry.screen")
+        }
+    }
+
+    private var enteredSeconds: Int? {
+        guard let value = Int(draftSeconds), range.contains(value) else { return nil }
+        return value
     }
 }
 

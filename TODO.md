@@ -65,7 +65,7 @@ validation runs after all features are implemented, before Git and TestFlight de
   define an accessible fallback where everything cannot fit instead of clipping it.
   Verify unchanged element positions across pause/resume, hit targets, rotations, and compact widths.
 
-- [ ] **Enter plan durations directly by tapping the displayed time.**
+- [x] **Enter plan durations directly by tapping the displayed time.**
   Extend `PlanDurationStepper` so tapping its value opens a focused time-entry field with clear
   units, Done, and Cancel. Retain plus/minus controls and use the same validation/ranges for both
   input methods. Reuse it for plan, exercise, and round-override duration controls where applicable.
