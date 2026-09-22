@@ -6,6 +6,8 @@ final class CatalogueDeletionTests: XCTestCase {
         let exerciseID = UUID()
         let label = ExerciseLabel(name: "Legs", kind: .bodyArea)
         let catalogue = CatalogueExercise(id: exerciseID, name: "Squat", labelIDs: [label.id])
+        let createdAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let updatedAt = Date(timeIntervalSince1970: 1_700_000_100)
         let liveStep = ExerciseStep(
             id: UUID(),
             name: "Old squat name",
@@ -15,8 +17,18 @@ final class CatalogueDeletionTests: XCTestCase {
             notes: "Keep knees aligned",
             catalogueExerciseID: exerciseID
         )
-        let plan = WorkoutPlan(name: "Leg day", exercises: [liveStep])
-        let historicalPlan = WorkoutPlan(name: "Completed", exercises: [ExerciseStep(name: "Historic squat", catalogueExerciseID: exerciseID)])
+        let plan = WorkoutPlan(
+            name: "Leg day",
+            exercises: [liveStep],
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
+        let historicalPlan = WorkoutPlan(
+            name: "Completed",
+            exercises: [ExerciseStep(name: "Historic squat", catalogueExerciseID: exerciseID)],
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
         let history = WorkoutHistoryEntry(
             planID: historicalPlan.id,
             planName: historicalPlan.name,

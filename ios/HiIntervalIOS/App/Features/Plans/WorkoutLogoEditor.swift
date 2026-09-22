@@ -19,7 +19,7 @@ struct WorkoutLogoEditor: View {
     }
 
     var body: some View {
-        Section("Workout logo") {
+        Section {
             HStack(spacing: 16) {
                 WorkoutLogoMark(logo: draft.logo, pendingPhotoData: draft.pendingPhotoData, imageStore: imageStore)
                     .frame(width: 76, height: 76)
@@ -73,6 +73,8 @@ struct WorkoutLogoEditor: View {
                     .font(.footnote)
                     .foregroundStyle(.red)
             }
+        } header: {
+            Text("Workout logo")
         } footer: {
             Text("Photos are selected through Apple's picker. HiInterval never asks for full photo-library access.")
         }

@@ -34,7 +34,7 @@ final class CatalogueDeletionUITests: HiIntervalUITestCase {
         selectTab("plans")
         let coreFocus = element("plan.card.\(FixtureID.coreFocusPlan)")
         scrollToVisible(coreFocus)
-        XCTAssertTrue(coreFocus.staticTexts[planExerciseLabel("Dead Bug")].exists)
+        XCTAssertTrue(coreFocus.staticTexts["Exercise: Dead Bug"].exists)
 
         // A completed snapshot must remain available even after its catalogue source was removed.
         selectTab("history")
@@ -48,8 +48,8 @@ final class CatalogueDeletionUITests: HiIntervalUITestCase {
         XCTAssertFalse(element("catalogue.row.\(CatalogueID.deadBug)").exists)
         closeCatalogue()
         selectTab("plans")
-        scrollToVisible(app.staticTexts[planExerciseLabel("Dead Bug")])
-        XCTAssertTrue(app.staticTexts[planExerciseLabel("Dead Bug")].exists)
+        scrollToVisible(app.staticTexts["Exercise: Dead Bug"])
+        XCTAssertTrue(app.staticTexts["Exercise: Dead Bug"].exists)
     }
 
     private func openCatalogue() {

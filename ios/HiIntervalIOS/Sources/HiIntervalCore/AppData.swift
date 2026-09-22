@@ -69,8 +69,7 @@ public struct AppData: Codable, Equatable, Sendable {
         // payloads that contain both the record and its old deletion tombstone.
         deletedCatalogueExerciseIDs.subtract(Set(exerciseCatalogue.map(\.id)))
         var entries: [UUID: CatalogueExercise] = [:]
-        for entry in exerciseCatalogue
-        where !deletedCatalogueExerciseIDs.contains(entry.id) && entries[entry.id] == nil {
+        for entry in exerciseCatalogue where entries[entry.id] == nil {
             var normalized = entry.normalized()
             migrateLegacyLabels(on: &normalized)
             normalized.labelIDs = normalized.labelIDs.filter { labelID in
@@ -102,7 +101,6 @@ public struct AppData: Codable, Equatable, Sendable {
         // Keep catalogue order stable for the UI and only append migrated entries in plan order.
         var seen = Set<UUID>()
         exerciseCatalogue = exerciseCatalogue.compactMap { original in
-            guard !deletedCatalogueExerciseIDs.contains(original.id) else { return nil }
             guard let entry = entries[original.id], seen.insert(entry.id).inserted else { return nil }
             return entry
         }

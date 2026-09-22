@@ -55,4 +55,15 @@ final class WorkoutLogoTests: XCTestCase {
 
         XCTAssertEqual(color, WorkoutLogoColor(red: 1, green: 0, blue: 0.25, opacity: 1))
     }
+
+    func testLogoResetAndNonFiniteColorsUseSafeDefaults() {
+        var logo = WorkoutLogo(symbolName: "flame.fill", photoFilename: "c0c1b6f4-4e67-4e62-90b4-cb80b7b81d29.jpg")
+        logo.reset()
+
+        XCTAssertEqual(logo, .default)
+        XCTAssertEqual(
+            WorkoutLogoColor(red: .nan, green: .infinity, blue: -Double.infinity, opacity: .nan),
+            WorkoutLogoColor(red: 0, green: 0, blue: 0, opacity: 0)
+        )
+    }
 }
