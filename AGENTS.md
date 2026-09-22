@@ -1,7 +1,8 @@
 # Working on HiInterval
 
-This file applies to the whole repository. Follow the user's current scope and release instructions;
-the commands below describe available workflows, not automatic permission to deploy.
+This file applies to the whole repository. Follow the user's current scope and release instructions.
+The user has authorized TestFlight delivery after Git pushes as described below; other delivery
+commands describe available workflows, not automatic permission to deploy elsewhere.
 
 ## Agent workflow
 
@@ -301,8 +302,14 @@ hardware Silent Mode audio, or on-device Apple Intelligence availability; those 
   Coverage/UI artifacts are retained for 14 days. Use actual job logs when diagnosing failures.
 - App versions belong in `project.yml`; keep the TestFlight workflow fallback and release examples
   consistent when bumping versions. The Python package version in `pyproject.toml` is separate.
-  Choose a fresh build number for an existing marketing version; do not blindly reuse examples.
-- For a requested local TestFlight release, run the following with the chosen values and an Xcode
+  Before each Git push, check the latest version actually uploaded to App Store Connect and ensure
+  the version for the next TestFlight upload is at least one SemVer patch higher. Never upload a
+  marketing version twice, even with a different build number; do not blindly reuse examples.
+- Every Git push of this app's changes should be followed by a TestFlight upload of that pushed
+  source once its required checks pass. If checks fail, fix them before uploading. Verify the source
+  commit, version, build number, and prior uploads first; report any release blocker rather than
+  silently skipping the upload. This is a standing user release instruction.
+- For a local TestFlight release, run the following with the chosen values and an Xcode
   account configured for the team. This command **uploads**, not merely archives:
 
   ```bash
