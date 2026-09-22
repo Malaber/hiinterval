@@ -28,7 +28,7 @@ validation runs after all features are implemented, before Git and TestFlight de
   deleted records on reload. Verify unused/in-use deletion, cancellation, reload, and generation
   after deletion. Do not silently remove steps from workouts.
 
-- [ ] **Choose workout logos: symbol and colors, or a selected photo.**
+- [x] **Choose workout logos: symbol and colors, or a selected photo.**
   Add a symbol picker plus separate symbol/background color pickers and a live logo preview.
   Offer Apple's system photo picker (`PhotosPicker`) for user-selected images, without requesting
   broad photo-library access. Support replacing/removing the image and restoring a default logo.

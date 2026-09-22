@@ -2,6 +2,39 @@ import XCTest
 
 @MainActor
 final class PlanEditorUITests: HiIntervalUITestCase {
+    func testLogoSymbolCancelSaveRelaunchAndReset() {
+        launch()
+        selectTab("plans")
+
+        openQuickStartEditor()
+        chooseLogoSymbol("flame.fill")
+        XCTAssertTrue(element("plan.editor.logo.reset").isEnabled)
+        tapToolbarButton("plan.editor.cancel", label: "Cancel")
+        waitForDisappearance(element("plan.editor.screen"), timeout: 8)
+
+        // Cancel never writes an edited symbol into plan JSON.
+        openQuickStartEditor()
+        XCTAssertFalse(element("plan.editor.logo.reset").isEnabled)
+        chooseLogoSymbol("flame.fill")
+        tapToolbarButton("plan.editor.save", label: "Save")
+        waitForDisappearance(element("plan.editor.screen"), timeout: 8)
+
+        relaunchPreservingData()
+        selectTab("plans")
+        openQuickStartEditor()
+        XCTAssertTrue(element("plan.editor.logo.reset").isEnabled)
+
+        tap(element("plan.editor.logo.reset"), scrolls: true)
+        XCTAssertFalse(element("plan.editor.logo.reset").isEnabled)
+        tapToolbarButton("plan.editor.save", label: "Save")
+        waitForDisappearance(element("plan.editor.screen"), timeout: 8)
+
+        relaunchPreservingData()
+        selectTab("plans")
+        openQuickStartEditor()
+        XCTAssertFalse(element("plan.editor.logo.reset").isEnabled)
+    }
+
     func testNaturalLanguageEditorStartsEmptyWithVisualPlaceholder() {
         launch()
         selectTab("plans")
@@ -92,5 +125,23 @@ final class PlanEditorUITests: HiIntervalUITestCase {
         relaunchPreservingData()
         waitForLabel("Bilateral Builder", on: element("train.selected-plan-name"))
         capture("04-plan-persists-after-relaunch")
+    }
+
+    private func openQuickStartEditor() {
+        tap(
+            planActionButton(
+                planID: FixtureID.quickStartPlan,
+                identifier: "plan.edit.\(FixtureID.quickStartPlan)",
+                fallbackLabel: "Edit"
+            ),
+            scrolls: true
+        )
+        waitForExistence(element("plan.editor.screen"))
+    }
+
+    private func chooseLogoSymbol(_ symbol: String) {
+        tap(element("plan.editor.logo.symbol"), scrolls: true)
+        tap(element("plan.editor.logo.symbol.option.\(symbol)"))
+        waitForExistence(element("plan.editor.logo"))
     }
 }

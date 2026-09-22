@@ -55,8 +55,8 @@ struct PlansView: View {
                     plan: destination.plan,
                     isNew: destination.isNew,
                     presentsNaturalLanguageEditor: destination.presentsNaturalLanguageEditor
-                ) { savedPlan in
-                    store.savePlan(savedPlan)
+                ) { savedPlan, logoDraft in
+                    guard store.savePlan(savedPlan, logoDraft: logoDraft) else { return }
                     store.selectPlan(id: savedPlan.id)
                     editorDestination = nil
                 }
@@ -251,13 +251,7 @@ private struct PlanCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(colorScheme == .dark ? Color.white : Color.black)
-                    Image(systemName: isSelected ? "waveform.path.ecg" : "figure.highintensity.intervaltraining")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
-                }
+                WorkoutLogoMark(logo: plan.logo)
                 .frame(width: 48, height: 48)
                 .overlay {
                     if isSelected {

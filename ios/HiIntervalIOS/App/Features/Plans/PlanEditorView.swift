@@ -2,11 +2,13 @@ import SwiftUI
 import HiIntervalCore
 
 struct PlanEditorView: View {
+    @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
 
     let isNew: Bool
-    let onSave: (WorkoutPlan) -> Void
+    let onSave: (WorkoutPlan, WorkoutLogoDraft) -> Void
 
+    @State private var logoDraft: WorkoutLogoDraft
     @State private var plan: WorkoutPlan
     @State private var exerciseDestination: ExerciseEditorDestination?
     @State private var showsRoundOverrides = false
@@ -18,9 +20,10 @@ struct PlanEditorView: View {
         plan: WorkoutPlan,
         isNew: Bool,
         presentsNaturalLanguageEditor: Bool = false,
-        onSave: @escaping (WorkoutPlan) -> Void
+        onSave: @escaping (WorkoutPlan, WorkoutLogoDraft) -> Void
     ) {
         _plan = State(initialValue: plan)
+        _logoDraft = State(initialValue: WorkoutLogoDraft(logo: plan.logo))
         _showsNaturalLanguageEditor = State(initialValue: presentsNaturalLanguageEditor)
         self.isNew = isNew
         self.onSave = onSave
@@ -39,6 +42,8 @@ struct PlanEditorView: View {
             previewSection
             intelligenceSection
             identitySection
+            WorkoutLogoEditor(draft: $logoDraft)
+            if let message = store.lastErrorMessage { ValidationBanner(message: message) }
             timingSection
             roundsSection
             exercisesSection
@@ -132,19 +137,7 @@ struct PlanEditorView: View {
         Section {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .center, spacing: 14) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [PlanPalette.secondary, PlanPalette.accent],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                        Image(systemName: "waveform.path.ecg")
-                            .font(.title2.weight(.semibold))
-                            .foregroundStyle(.white)
-                    }
+                    WorkoutLogoMark(logo: logoDraft.logo, pendingPhotoData: logoDraft.pendingPhotoData)
                     .frame(width: 60, height: 60)
 
                     VStack(alignment: .leading, spacing: 3) {
@@ -307,6 +300,7 @@ struct PlanEditorView: View {
                     .fontWeight(.semibold)
             }
             .accessibilityIdentifier("plan.editor.exercise.add")
+
         } header: {
             HStack {
                 Text("Exercises")
@@ -389,7 +383,8 @@ struct PlanEditorView: View {
             return copy
         }
         plan.updatedAt = Date()
-        onSave(plan)
+        plan.logo = logoDraft.logo
+        onSave(plan, logoDraft)
     }
 
     private func normalizedNotes(_ notes: String?) -> String? {

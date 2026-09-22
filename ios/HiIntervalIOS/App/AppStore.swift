@@ -83,7 +83,7 @@ final class AppStore: ObservableObject {
     }
 
     @discardableResult
-    func savePlan(_ plan: WorkoutPlan) -> Bool {
+    func savePlan(_ plan: WorkoutPlan, logoDraft: WorkoutLogoDraft? = nil) -> Bool {
         do {
             try plan.validate()
         } catch {
@@ -92,6 +92,14 @@ final class AppStore: ObservableObject {
         }
 
         var saved = plan
+        if let logoDraft {
+            do {
+                saved.logo = try WorkoutLogoImageStore.shared.materialize(logoDraft)
+            } catch {
+                lastErrorMessage = error.localizedDescription
+                return false
+            }
+        }
         saved.updatedAt = now()
         var updated = data
         for index in saved.exercises.indices {
@@ -294,6 +302,11 @@ final class AppStore: ObservableObject {
     private func persist() {
         do {
             defaults.set(try AppDataCodec.encode(data), forKey: persistenceKey)
+            // Retain recovered assets until the recovery payload has been handled.
+            if defaults.data(forKey: "\(persistenceKey).recovery") == nil {
+                let images = WorkoutLogoImageStore.shared
+                images.cleanup(retaining: images.retainedFilenames(in: data))
+            }
         } catch {
             lastErrorMessage = "Changes could not be saved."
         }

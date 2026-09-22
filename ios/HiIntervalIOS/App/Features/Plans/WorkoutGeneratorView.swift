@@ -97,8 +97,8 @@ struct WorkoutGeneratorView: View {
         }
         .sheet(item: $generatedPlan) { plan in
             NavigationStack {
-                PlanEditorView(plan: plan, isNew: true) { savedPlan in
-                    guard store.savePlan(savedPlan) else {
+                PlanEditorView(plan: plan, isNew: true) { savedPlan, logoDraft in
+                    guard store.savePlan(savedPlan, logoDraft: logoDraft) else {
                         errorMessage = store.lastErrorMessage
                         return
                     }

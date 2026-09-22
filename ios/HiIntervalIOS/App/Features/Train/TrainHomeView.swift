@@ -75,11 +75,9 @@ struct TrainHomeView: View {
                         .accessibilityIdentifier("train.selected-plan-name")
                 }
                 Spacer()
-                Image(systemName: "timer")
-                    .font(.title2)
-                    .foregroundStyle(Color.accentColor)
-                    .padding(12)
-                    .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
+                WorkoutLogoMark(logo: plan.logo)
+                    .frame(width: 48, height: 48)
+                    .accessibilityHidden(true)
             }
 
             HStack(spacing: 0) {
