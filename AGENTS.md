@@ -306,9 +306,12 @@ hardware Silent Mode audio, or on-device Apple Intelligence availability; those 
   Coverage/UI artifacts are retained for 14 days. Use actual job logs when diagnosing failures.
 - App versions belong in `project.yml`; keep the TestFlight workflow fallback and release examples
   consistent when bumping versions. The Python package version in `pyproject.toml` is separate.
-  Before each Git push, check the latest version actually uploaded to App Store Connect and ensure
-  the version for the next TestFlight upload is at least one SemVer patch higher. Never upload a
-  marketing version twice, even with a different build number; do not blindly reuse examples.
+  Before each Git push containing app changes, check the latest version actually uploaded to App
+  Store Connect and ensure the next TestFlight version is at least one SemVer patch higher. Never
+  upload a marketing version twice, even with a different build number; do not blindly reuse examples.
+- Documentation/planning-only pushes, including TODO updates, require neither an app version bump
+  nor a TestFlight upload. Including already released app code as a planning branch's base does not
+  count as a new app change. Resume version bumps and uploads when implementation changes the app.
 - Run required local checks before every Git push of app changes. Immediately after each push,
   upload that exact pushed source to TestFlight through the local CLI; do not wait for or poll remote
   CI unless the user specifically asks. If local checks fail, fix them before pushing. If later CI
