@@ -12,6 +12,7 @@ struct PlanEditorView: View {
     @State private var showsRoundOverrides = false
     @State private var showsNaturalLanguageEditor: Bool
     @State private var exerciseEditMode: EditMode = .inactive
+    @State private var showsCatalogue = false
 
     init(
         plan: WorkoutPlan,
@@ -91,6 +92,14 @@ struct PlanEditorView: View {
             NavigationStack {
                 NaturalLanguagePlanEditorView(plan: plan, isNew: isNew) { updatedPlan in
                     plan = updatedPlan
+                }
+            }
+            .tint(PlanPalette.accent)
+        }
+        .sheet(isPresented: $showsCatalogue) {
+            NavigationStack {
+                ExerciseCatalogueView { catalogueExercise in
+                    saveExercise(catalogueExercise.makeStep(), at: nil)
                 }
             }
             .tint(PlanPalette.accent)
@@ -299,6 +308,11 @@ struct PlanEditorView: View {
                     .fontWeight(.semibold)
             }
             .accessibilityIdentifier("plan.editor.exercise.add")
+            Button { showsCatalogue = true } label: {
+                Label("Choose from catalogue", systemImage: "square.stack.3d.up")
+                    .fontWeight(.semibold)
+            }
+            .accessibilityIdentifier("plan.editor.exercise.catalogue")
         } header: {
             HStack {
                 Text("Exercises")
@@ -315,7 +329,7 @@ struct PlanEditorView: View {
                 }
             }
         } footer: {
-            Text("Tap an exercise for custom work, recovery, notes, and left/right timing.")
+            Text("Choose catalogue exercises to reuse defaults. Change timing, sides, or notes for this plan. Renaming an exercise here creates a separate catalogue entry; rename it in the catalogue to update all linked plans.")
         }
     }
 

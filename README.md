@@ -5,6 +5,8 @@ Native iPhone and iPad HIIT timer. Fast planning, glanceable training, local his
 ## Product
 
 - Build reusable workouts with configurable warm-up, work, recovery, round recovery, cool-down, rounds, and exercise order.
+- Maintain a shared exercise catalogue, merge duplicates across plans, and attach shared body areas and custom tags using removable pills and suggestions.
+- Generate random workouts from tag-filtered exercises, optionally alternating body areas; preview and edit before saving. Exercise order stays fixed across rounds.
 - Override individual exercise duration/recovery.
 - Split exercises or selected rounds into deterministic left/right phases, including switch time.
 - Run pause/resume/skip-safe sessions without timer drift; get sound, spoken, haptic, and final-countdown cues.
@@ -52,17 +54,17 @@ Generated project uses scheme `HiInterval` and defaults to bundle ID `de.malaber
 .venv/bin/inv check
 
 # Local Xcode archive, automatic signing, and TestFlight upload
-.venv/bin/inv upload-testflight --marketing-version=0.3.0 --build-number=1
+.venv/bin/inv upload-testflight --marketing-version=0.4.1 --build-number=1
 ```
 
-Local upload requires configured Xcode Apple account with access to team `VWKG94374J`. Use a new
-build number for every later upload of same marketing version. Signed archive stays in printed
+Local upload requires configured Xcode Apple account with access to team `VWKG94374J`. Every later upload needs a fresh
+marketing version, increased by at least one SemVer patch; never upload a marketing version twice. Signed archive stays in printed
 temporary path. Helper forces macOS system `rsync`; Homebrew `rsync` is incompatible with Xcode's
 extended-attribute packaging flags.
 
-CI runs Swift package coverage in Linux Swift 6.2 plus full XCUITest on named iPhone and iPad simulators. Test execution is serial, starts from reset app data and clean derived data, retries only failed XCTest cases when they can be identified (with a full-run fallback), and always uploads diagnostic evidence. Pull requests run once through the PR event; pushes run automatically on `main`.
+CI runs Swift package coverage in Linux Swift 6.2 plus full XCUITest on named iPhone and iPad simulators. Test execution is serial, starts from reset app data and clean derived data, runs each device suite once, and always uploads diagnostic evidence. Any assertion or infrastructure failure fails its job. Pull requests run once through the PR event; pushes run automatically on `main`.
 
-Current suite contains 36 portable core tests and 10 XCUITest flows. Core tests cover plans/timeline expansion, drift-safe timer behavior, persistence/history/safe export, active duration, and future entitlement policy. UI flows cover empty states, plan/library/history management, settings persistence, full training transitions, accessibility audit, and largest Dynamic Type.
+Portable core tests and XCUITest flows cover exercise catalogue migration and merging, filtered workout generation, and existing app behavior. Core tests also cover plans/timeline expansion, drift-safe timer behavior, persistence/history/safe export, active duration, and future entitlement policy. UI flows cover empty states, plan/library/history management, settings persistence, full training transitions, deterministic accessibility contracts, and largest Dynamic Type.
 
 See [architecture](docs/architecture.md), [delivery/testing](docs/delivery.md), and the
 [App Store Connect/TestFlight setup](docs/app-store-connect-setup.md).

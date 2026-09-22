@@ -95,6 +95,8 @@ public struct ExerciseStep: Codable, Equatable, Identifiable, Sendable {
     public var recovery: RecoverySetting
     public var sideConfiguration: SideConfiguration
     public var notes: String
+    /// The reusable catalogue exercise this instance was created from, if any.
+    public var catalogueExerciseID: UUID?
 
     public init(
         id: UUID = UUID(),
@@ -102,7 +104,8 @@ public struct ExerciseStep: Codable, Equatable, Identifiable, Sendable {
         duration: DurationSetting = .planDefault,
         recovery: RecoverySetting = .planDefault,
         sideConfiguration: SideConfiguration = .together,
-        notes: String = ""
+        notes: String = "",
+        catalogueExerciseID: UUID? = nil
     ) {
         self.id = id
         self.name = name
@@ -110,6 +113,7 @@ public struct ExerciseStep: Codable, Equatable, Identifiable, Sendable {
         self.recovery = recovery
         self.sideConfiguration = sideConfiguration
         self.notes = notes
+        self.catalogueExerciseID = catalogueExerciseID
     }
 
     public func resolvedWorkSeconds(default defaultSeconds: Int) -> Int {

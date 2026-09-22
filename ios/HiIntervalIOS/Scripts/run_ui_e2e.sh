@@ -6,7 +6,6 @@ repo_dir=$(cd "$package_dir/../.." && pwd)
 device_name=${1:-"iPhone 17 Pro"}
 artifact_dir=${2:-"e2e-artifacts/ios-iphone"}
 only_testing=${3:-"HiIntervalUITests"}
-attempts=${HIINTERVAL_E2E_ATTEMPTS:-2}
 
 if [[ "$artifact_dir" = /* ]]; then
   artifact_candidate="$artifact_dir"
@@ -76,71 +75,36 @@ if [[ "$build_status" -ne 0 ]]; then
   exit "$build_status"
 fi
 
-test_status=1
-used_attempts=0
-test_selections=("$only_testing")
-for ((attempt = 1; attempt <= attempts; attempt++)); do
-  used_attempts=$attempt
-  rm -rf "$result_bundle"
-  xcrun simctl shutdown "$device_udid" >/dev/null 2>&1 || true
-  if [[ "${CI:-}" == "true" ]]; then
-    # Hosted simulator services can survive shutdown in a wedged state. Runner devices contain
-    # no user data, so erase before each attempt to reset accessibility and launch services.
-    xcrun simctl erase "$device_udid"
-  fi
-  xcrun simctl boot "$device_udid" >/dev/null 2>&1 || true
-  xcrun simctl bootstatus "$device_udid" -b
-  xcrun simctl ui "$device_udid" appearance light
-  xcrun simctl uninstall "$device_udid" de.malaber.hiinterval >/dev/null 2>&1 || true
+rm -rf "$result_bundle"
+xcrun simctl shutdown "$device_udid" >/dev/null 2>&1 || true
+if [[ "${CI:-}" == "true" ]]; then
+  # Hosted runner devices contain no user data. Erase once before the single test run so stale
+  # simulator services cannot influence its result; any test failure then fails the job directly.
+  xcrun simctl erase "$device_udid"
+fi
+xcrun simctl boot "$device_udid" >/dev/null 2>&1 || true
+xcrun simctl bootstatus "$device_udid" -b
+xcrun simctl ui "$device_udid" appearance light
+xcrun simctl uninstall "$device_udid" de.malaber.hiinterval >/dev/null 2>&1 || true
 
-  test_log="$artifact_path/test-attempt-$attempt.log"
-  only_testing_args=()
-  for selection in "${test_selections[@]}"; do
-    only_testing_args+=("-only-testing:$selection")
-  done
-  set +e
-  xcodebuild \
-    -project HiIntervalApp.xcodeproj \
-    -scheme HiInterval \
-    -derivedDataPath "$derived_data" \
-    -destination "platform=iOS Simulator,id=$device_udid" \
-    -destination-timeout 120 \
-    -resultBundlePath "$result_bundle" \
-    -parallel-testing-enabled NO \
-    -maximum-parallel-testing-workers 1 \
-    "${only_testing_args[@]}" \
-    CODE_SIGNING_ALLOWED=NO \
-    test-without-building \
-    2>&1 | tee "$test_log"
-  test_status=${PIPESTATUS[0]}
-  set -e
-
-  if [[ "$test_status" -eq 0 ]]; then
-    break
-  fi
-  if [[ "$attempt" -lt "$attempts" ]]; then
-    if [[ -d "$result_bundle" ]]; then
-      mv "$result_bundle" "$artifact_path/TestResults-attempt-$attempt.xcresult"
-    fi
-    failed_tests=()
-    while IFS= read -r failed_test; do
-      if [[ -n "$failed_test" ]]; then
-        failed_tests+=("$failed_test")
-      fi
-    done < <(
-      sed -nE \
-        "s/^Test Case '-\[([^.]*)\.([^ ]+) ([^]]+)\]' failed.*/\1\/\2\/\3/p" \
-        "$test_log"
-    )
-    if [[ ${#failed_tests[@]} -gt 0 ]]; then
-      test_selections=("${failed_tests[@]}")
-      echo "Retrying failed UI tests ($attempt/$attempts): ${test_selections[*]}"
-    else
-      test_selections=("$only_testing")
-      echo "Retrying full isolated UI test run ($attempt/$attempts)..."
-    fi
-  fi
-done
+test_log="$artifact_path/test.log"
+set +e
+xcodebuild \
+  -project HiIntervalApp.xcodeproj \
+  -scheme HiInterval \
+  -derivedDataPath "$derived_data" \
+  -destination "platform=iOS Simulator,id=$device_udid" \
+  -destination-timeout 120 \
+  -resultBundlePath "$result_bundle" \
+  -collect-test-diagnostics never \
+  -parallel-testing-enabled NO \
+  -maximum-parallel-testing-workers 1 \
+  -only-testing:"$only_testing" \
+  CODE_SIGNING_ALLOWED=NO \
+  test-without-building \
+  2>&1 | tee "$test_log"
+test_status=${PIPESTATUS[0]}
+set -e
 
 result="passed"
 if [[ "$test_status" -ne 0 ]]; then
@@ -154,7 +118,7 @@ screenshot_count=$(find "$artifact_path" -maxdepth 1 -type f -name '*.png' -prin
   echo "- Simulator UDID: \`$device_udid\`"
   echo "- Selection: \`$only_testing\`"
   echo "- Result: $result"
-  echo "- Attempts: $used_attempts"
+  echo "- Runs: 1 (no retries)"
   echo "- Screenshots: $screenshot_count"
   echo "- Result bundle: \`TestResults.xcresult\`"
 } > "$summary_path"

@@ -5,6 +5,7 @@ import SwiftUI
 struct TrainHomeView: View {
     @EnvironmentObject private var store: AppStore
     @State private var activePlan: WorkoutPlan?
+    @State private var showsGenerator = false
 
     var body: some View {
         NavigationStack {
@@ -24,10 +25,22 @@ struct TrainHomeView: View {
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("Train")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showsGenerator = true } label: {
+                        Label("Generate workout", systemImage: "shuffle")
+                    }
+                    .accessibilityIdentifier("generator.open")
+                }
+            }
         }
         .fullScreenCover(item: $activePlan) { plan in
             WorkoutSessionFlow(plan: plan)
                 .environmentObject(store)
+        }
+        .sheet(isPresented: $showsGenerator) {
+            NavigationStack { WorkoutGeneratorView() }
+                .tint(PlanPalette.accent)
         }
         .accessibilityIdentifier("train.screen")
     }

@@ -7,6 +7,13 @@ enum PlanPalette {
     static let secondary = Color(red: 0.46, green: 0.38, blue: 0.96)
     static let warning = Color(red: 0.96, green: 0.55, blue: 0.20)
 
+    /// UUID-based rather than `hashValue`, so a workout retains its hue after renaming/relaunch.
+    static func workoutTint(for id: UUID) -> Color {
+        let colors: [Color] = [.teal, .blue, .orange, .pink, .green, .indigo, .cyan, .brown]
+        let index = id.uuidString.utf8.reduce(UInt64(0)) { ($0 &* 31) &+ UInt64($1) }
+        return colors[Int(index % UInt64(colors.count))]
+    }
+
     static func cardSurface(for colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
             ? Color(red: 0.07, green: 0.085, blue: 0.10)

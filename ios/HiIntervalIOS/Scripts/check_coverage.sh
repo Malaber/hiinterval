@@ -14,7 +14,10 @@ rm -f \
 
 export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-$package_dir/.clang-module-cache}"
 
+# Keep the package-wide test runner used by LLVM export. Swift 6.4 otherwise
+# defaults to swiftbuild on macOS, which emits separate target test bundles.
 swift test \
+  --build-system native \
   --package-path "$package_dir" \
   --enable-code-coverage
 
