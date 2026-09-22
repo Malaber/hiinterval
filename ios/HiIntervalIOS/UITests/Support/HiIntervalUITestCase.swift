@@ -36,23 +36,13 @@ class HiIntervalUITestCase: XCTestCase {
         launchConfiguredApplication()
     }
 
-    /// Hosted simulators occasionally finish XCTest's launch handshake before SwiftUI publishes
-    /// its first accessibility tree. Give a cold launch room to settle, then relaunch once with
-    /// the same arguments so fixture setup remains deterministic.
     func launchConfiguredApplication(
         timeout: TimeInterval = 20,
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
         app.launch()
-        let trainScreen = element("train.screen")
-        if trainScreen.waitForExistence(timeout: timeout) {
-            return
-        }
-
-        app.terminate()
-        app.launch()
-        waitForExistence(trainScreen, timeout: timeout, file: file, line: line)
+        waitForExistence(element("train.screen"), timeout: timeout, file: file, line: line)
     }
 
     func configuredApplication(resetFixture: Fixture?) -> XCUIApplication {
@@ -83,22 +73,11 @@ class HiIntervalUITestCase: XCTestCase {
 
     func selectTab(_ name: String, file: StaticString = #filePath, line: UInt = #line) {
         let destination = element("\(name).screen")
-        if tapHittableTab(name), destination.waitForExistence(timeout: 8) {
+        guard tapHittableTab(name) else {
+            XCTFail("Could not find hittable tab labeled '\(name.capitalized)'", file: file, line: line)
             return
         }
-
-        // A completed iOS 26 accessibility audit can transiently leave the app's native tab
-        // buttons absent from the automation tree. A fresh session restores that tree while
-        // retaining the isolated fixture and any settings changed by the test.
-        relaunchPreservingData()
-        let relaunchedDestination = element("\(name).screen")
-        if relaunchedDestination.exists {
-            return
-        }
-        if tapHittableTab(name), relaunchedDestination.waitForExistence(timeout: 8) {
-            return
-        }
-        XCTFail("Could not open tab labeled '\(name.capitalized)'", file: file, line: line)
+        waitForExistence(destination, timeout: 8, file: file, line: line)
     }
 
     private func tapHittableTab(_ name: String) -> Bool {
@@ -448,10 +427,25 @@ class HiIntervalUITestCase: XCTestCase {
         // SwiftUI TextField has just become first responder. Triple-tap uses the real touch
         // selection path and selects the complete value.
         field.tap(withNumberOfTaps: 3, numberOfTouches: 1)
+        typeText(text, intoFocusedField: field, file: file, line: line)
+        let keyboardDone = app.keyboards.buttons["Done"]
+        if keyboardDone.exists && keyboardDone.isHittable {
+            keyboardDone.tap()
+        }
+    }
+
+    /// Keeps the initial focus assertion meaningful: type without tapping or refocusing the
+    /// field, then finish any prefix interrupted by SwiftUI rebuilding the text input.
+    func typeText(
+        _ text: String,
+        intoFocusedField field: XCUIElement,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
         field.typeText(text)
 
-        // An axis-expanding SwiftUI TextField can be recreated after its first characters on
-        // iPad, which cuts the in-flight XCTest typing event short. Resume from the observed
+        // A SwiftUI TextField can be recreated after its first characters on hosted iPhone
+        // and iPad simulators, cutting the in-flight typing event short. Resume the observed
         // prefix until the complete value is present; normal fields finish on the first event.
         var observed = field.value as? String ?? ""
         var attempts = 0
@@ -472,10 +466,6 @@ class HiIntervalUITestCase: XCTestCase {
             file: file,
             line: line
         )
-        let keyboardDone = app.keyboards.buttons["Done"]
-        if keyboardDone.exists && keyboardDone.isHittable {
-            keyboardDone.tap()
-        }
     }
 
     func selectSegment(
@@ -520,37 +510,67 @@ class HiIntervalUITestCase: XCTestCase {
         }
         let expected = enabled ? "1" : "0"
         if String(describing: toggle.value ?? "") != expected {
+            revealSwitch(toggle, identifier: identifier, file: file, line: line)
             // SwiftUI exposes the full Form row as the switch element. Its center can land on
             // the label without toggling. Use a fixed trailing inset: a percentage misses the
             // actual switch by roughly 100 points on a full-width iPad Form row.
-            for attempt in 0..<3 {
-                toggle.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
-                    .withOffset(CGVector(dx: -28, dy: 0))
-                    .tap()
-                if valueMatches(expected, on: toggle, timeout: 2) {
-                    return
-                }
-                if attempt == 0 {
-                    // iOS 26 can call a row hittable while its switch is still inside a Form
-                    // boundary. Move it toward the viewport center before the bounded retry.
-                    dragScroll(up: toggle.frame.midY >= app.frame.midY)
-                    scrollToHittable(toggle, file: file, line: line)
-                }
-            }
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
+                .withOffset(CGVector(dx: -28, dy: 0))
+                .tap()
         }
         waitForValue(expected, on: toggle, file: file, line: line)
     }
 
-    private func valueMatches(
-        _ expected: String,
-        on target: XCUIElement,
-        timeout: TimeInterval
-    ) -> Bool {
-        let expectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == true AND value == %@", expected),
-            object: target
+    private func revealSwitch(
+        _ target: XCUIElement,
+        identifier: String,
+        maxSwipes: Int = 8,
+        file: StaticString,
+        line: UInt
+    ) {
+        // `isHittable` can be true for a Form row whose trailing switch is clipped. Use the
+        // containing scroll view's bounds, not an arbitrary band of the application window:
+        // a short sheet may have no scroll range with which to reach that band.
+        let collection = app.collectionViews.containing(.switch, identifier: identifier).firstMatch
+        let scrollView = collection.exists
+            ? collection
+            : app.scrollViews.containing(.switch, identifier: identifier).firstMatch
+        guard waitForExistence(scrollView, file: file, line: line) else { return }
+
+        let applicationFrame = app.frame
+        var viewport = scrollView.frame.intersection(applicationFrame)
+        for bar in app.navigationBars.allElementsBoundByIndex where bar.isHittable {
+            let overlap = viewport.intersection(bar.frame)
+            if !overlap.isNull && overlap.maxY < viewport.midY {
+                let bottom = viewport.maxY
+                viewport.origin.y = overlap.maxY
+                viewport.size.height = bottom - overlap.maxY
+            }
+        }
+        let keyboard = app.keyboards.firstMatch
+        if keyboard.exists, keyboard.frame.intersects(viewport) {
+            viewport.size.height = max(0, keyboard.frame.minY - viewport.minY)
+        }
+        viewport = viewport.insetBy(dx: 0, dy: 8)
+
+        for _ in 0..<maxSwipes {
+            let frame = target.frame
+            if viewport.contains(frame) { return }
+            let scrollsUp = frame.midY > viewport.midY
+            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+                dx: viewport.midX - applicationFrame.minX,
+                dy: viewport.minY - applicationFrame.minY + viewport.height * (scrollsUp ? 0.75 : 0.25)
+            ))
+            let end = start.withOffset(CGVector(dx: 0, dy: viewport.height * (scrollsUp ? -0.4 : 0.4)))
+            start.press(forDuration: 0.01, thenDragTo: end)
+        }
+        let frame = target.frame
+        XCTAssertTrue(
+            viewport.contains(frame),
+            "Switch \(identifier) at \(frame) is clipped by its scroll viewport \(viewport)",
+            file: file,
+            line: line
         )
-        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
     func capture(_ name: String) {
@@ -585,13 +605,19 @@ class HiIntervalUITestCase: XCTestCase {
         for predicate: NSPredicate,
         on object: Any,
         timeout: TimeInterval,
-        message: String,
+        message: @autoclosure () -> String,
         file: StaticString,
         line: UInt
     ) -> Bool {
+        // A hosted accessibility snapshot can itself take longer than a short waiter timeout.
+        // Accept an already-satisfied predicate before starting the asynchronous waiter, and
+        // avoid fetching another snapshot solely to format a successful assertion's message.
+        if predicate.evaluate(with: object) { return true }
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: object)
         let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
-        XCTAssertEqual(result, .completed, message, file: file, line: line)
+        if result != .completed {
+            XCTFail(message(), file: file, line: line)
+        }
         return result == .completed
     }
 }

@@ -64,6 +64,8 @@ final class AppStore: ObservableObject {
         do {
             data = Self.normalized(try AppDataCodec.decode(encoded))
             lastErrorMessage = nil
+            // Store catalogue migration immediately, even if the user makes no edits.
+            persist()
         } catch {
             defaults.set(encoded, forKey: "\(persistenceKey).recovery")
             data = AppData.starter(now: now())
@@ -91,14 +93,67 @@ final class AppStore: ObservableObject {
 
         var saved = plan
         saved.updatedAt = now()
-        if let index = data.plans.firstIndex(where: { $0.id == saved.id }) {
-            data.plans[index] = saved
-        } else {
-            data.plans.append(saved)
+        var updated = data
+        for index in saved.exercises.indices {
+            let step = saved.exercises[index]
+            if let catalogueID = step.catalogueExerciseID,
+               let entry = updated.exerciseCatalogue.first(where: { $0.id == catalogueID }),
+               step.name != entry.name {
+                // A name changed inside a plan is a new exercise; global renaming is
+                // explicit in the catalogue, where all affected plans are visible.
+                saved.exercises[index].catalogueExerciseID = nil
+            }
         }
-        data.selectedPlanID = saved.id
+        if let index = updated.plans.firstIndex(where: { $0.id == saved.id }) {
+            updated.plans[index] = saved
+        } else {
+            updated.plans.append(saved)
+        }
+        updated.selectedPlanID = saved.id
+        updated.synchronizeExerciseCatalogue()
+        data = updated
         lastErrorMessage = nil
         return true
+    }
+
+    @discardableResult
+    func saveCatalogueExercise(_ exercise: CatalogueExercise, labels: [ExerciseLabel] = []) -> Bool {
+        do {
+            var updated = data
+            try updated.saveCatalogueExercise(exercise, labels: labels)
+            stampChangedPlans(in: &updated)
+            data = updated
+            lastErrorMessage = nil
+            return true
+        } catch {
+            lastErrorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    @discardableResult
+    func mergeCatalogueExercises(sourceIDs: Set<UUID>, into targetID: UUID) -> Bool {
+        do {
+            var updated = data
+            try updated.mergeCatalogueExercises(sourceIDs: sourceIDs, into: targetID)
+            stampChangedPlans(in: &updated)
+            data = updated
+            lastErrorMessage = nil
+            return true
+        } catch {
+            lastErrorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    private func stampChangedPlans(in updated: inout AppData) {
+        let timestamp = now()
+        for index in updated.plans.indices {
+            if let original = data.plans.first(where: { $0.id == updated.plans[index].id }),
+               original.exercises != updated.plans[index].exercises {
+                updated.plans[index].updatedAt = timestamp
+            }
+        }
     }
 
     func deletePlan(id: UUID) {
@@ -349,9 +404,9 @@ private extension AppData {
         let plan = WorkoutPlan(
             id: fixtureUUID(41),
             name: "Eight Move Session",
-            warmUpSeconds: 105,
+            warmUpSeconds: 600,
             warmUpNotes: "Move at 60% effort",
-            defaultWorkSeconds: 105,
+            defaultWorkSeconds: 600,
             defaultRecoverySeconds: 20,
             recoveryNotes: "Breathe and reset",
             roundRecoverySeconds: 0,

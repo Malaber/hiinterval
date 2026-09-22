@@ -6,6 +6,8 @@ struct PlansView: View {
 
     @State private var editorDestination: PlanEditorDestination?
     @State private var planPendingDeletion: WorkoutPlan?
+    @State private var showsCatalogue = false
+    @State private var showsGenerator = false
 
     var body: some View {
         NavigationStack {
@@ -19,6 +21,18 @@ struct PlansView: View {
             }
             .navigationTitle("Plans")
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showsCatalogue = true } label: {
+                        Label("Exercise catalogue", systemImage: "square.stack.3d.up")
+                    }
+                    .accessibilityIdentifier("catalogue.open")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showsGenerator = true } label: {
+                        Label("Generate workout", systemImage: "shuffle")
+                    }
+                    .accessibilityIdentifier("generator.open")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: createPlanWithIntelligence) {
                         Label("Create with Apple Intelligence", systemImage: "apple.intelligence")
@@ -48,6 +62,14 @@ struct PlansView: View {
                 }
             }
             .tint(PlanPalette.accent)
+        }
+        .sheet(isPresented: $showsCatalogue) {
+            NavigationStack { ExerciseCatalogueView() }
+                .tint(PlanPalette.accent)
+        }
+        .sheet(isPresented: $showsGenerator) {
+            NavigationStack { WorkoutGeneratorView() }
+                .tint(PlanPalette.accent)
         }
         .confirmationDialog(
             "Delete \(planPendingDeletion?.name ?? "plan")?",

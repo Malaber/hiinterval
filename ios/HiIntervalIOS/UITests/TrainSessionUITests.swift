@@ -14,7 +14,9 @@ final class TrainSessionUITests: HiIntervalUITestCase {
     }
 
     func testFreshFixtureStartsSelectedWorkout() {
-        launch()
+        app = configuredApplication(resetFixture: .standard)
+        app.launchEnvironment["HIINTERVAL_UI_TEST_MANUAL_CELEBRATION"] = "1"
+        launchConfiguredApplication()
 
         waitForLabel("Quick Start", on: element("train.selected-plan-name"))
         XCTAssertTrue(element("train.free-status").exists)
@@ -28,20 +30,33 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         XCTAssertTrue(element("completion.one-more-round").exists)
         let celebration = element("completion.screen")
         waitForValue("Foreground fireworks", on: celebration, timeout: 5)
-        // Repeated accessibility snapshots can monopolize a loaded hosted iPad's main thread.
-        // Let the five-second production transition run before querying the hierarchy again.
-        Thread.sleep(forTimeInterval: 6)
+        // Hosted iPad accessibility polling can delay its main actor beyond production's five-second
+        // foreground interval. This test-only clock crosses same core timeline boundary on demand.
+        tap(element("completion.advance-fireworks"))
         waitForValue("Background fireworks", on: celebration, timeout: 10)
         capture("02-fixture-started-and-complete")
     }
 
     func testOneMoreRoundCompletesAndCongratulatesExtraEffort() {
-        launch()
+        app = configuredApplication(resetFixture: .glanceableSession)
+        app.launchEnvironment["HIINTERVAL_UI_TEST_SPEED"] = "1"
+        app.launchEnvironment["HIINTERVAL_UI_TEST_CELEBRATION_DURATION"] = "0"
+        launchConfiguredApplication()
         tap(element("train.start"))
-        waitForExistence(element("completion.screen"), timeout: 15)
+        waitForExistence(element("session.screen"), timeout: 20)
+        tap(element("session.pause"), scrolls: true)
+        waitForLabel("Resume workout", on: element("session.pause"))
+        finishBySkippingPausedPhases()
+        waitForExistence(element("completion.screen"), timeout: 20)
+        // Automatic task path still runs; zero-duration test configuration makes boundary exact.
+        waitForValue("Background fireworks", on: element("completion.screen"), timeout: 20)
 
         tap(element("completion.one-more-round"), scrolls: true)
-        waitForExistence(element("completion.extra-congratulation"), timeout: 15)
+        waitForExistence(element("session.screen"), timeout: 20)
+        tap(element("session.pause"), scrolls: true)
+        waitForLabel("Resume workout", on: element("session.pause"))
+        finishBySkippingPausedPhases()
+        waitForExistence(element("completion.extra-congratulation"), timeout: 20)
         waitForLabel(
             "You did more than planned. Extra round complete!",
             on: element("completion.extra-congratulation")
@@ -52,6 +67,7 @@ final class TrainSessionUITests: HiIntervalUITestCase {
     func testPauseResumeSplitTransitionsSkipCompletionAndHistory() {
         launch()
         stretchQuickStartForDeterministicClockControl()
+        relaunchAtRealtimeSpeedPreservingData()
 
         selectTab("train")
         waitForLabel("Quick Start", on: element("train.selected-plan-name"))
@@ -135,9 +151,9 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         waitForLabelToChange(from: fullDuration, on: remaining)
         tap(element("session.pause"))
         waitForLabel("Resume workout", on: element("session.pause"))
-        XCTAssertLessThan(remainingSeconds(from: remaining), 105)
+        XCTAssertLessThan(remainingSeconds(from: remaining), 600)
         tap(element("session.restart"))
-        waitForRemainingSeconds(105, on: remaining)
+        waitForRemainingSeconds(600, on: remaining)
         capture("02-single-reset-restored-time")
 
         // Recovery stays visually current for exercise one; next-up skips it entirely.
@@ -155,7 +171,7 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         element("session.restart").doubleTap()
         waitForLabel("High Knees", on: element("session.exercise"))
         waitForLabel("WORK", on: element("session.phase-kind"))
-        waitForRemainingSeconds(105, on: remaining)
+        waitForRemainingSeconds(600, on: remaining)
         waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
         capture("04-double-back-restored-exercise")
 
@@ -179,6 +195,13 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         launchConfiguredApplication()
     }
 
+    private func relaunchAtRealtimeSpeedPreservingData() {
+        app.terminate()
+        app = configuredApplication(resetFixture: nil)
+        app.launchEnvironment["HIINTERVAL_UI_TEST_SPEED"] = "1"
+        launchConfiguredApplication()
+    }
+
     private func stretchQuickStartForDeterministicClockControl() {
         selectTab("plans")
         tap(
@@ -191,7 +214,7 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         )
         waitForExistence(element("plan.editor.screen"))
 
-        // 5s -> 105s. At required 60x speed, each High Knees phase remains visible for 1.75s.
+        // 5s -> 105s, then relaunch at real time before starting this state-heavy session.
         incrementStepper("plan.editor.work", times: 20)
         // Ten rounds keep session alive while UI assertions and screenshots are collected.
         incrementStepper("plan.editor.rounds", times: 8)

@@ -2,6 +2,9 @@
 
 HiInterval is a native interval training timer for iPhone and iPad.
 It focuses on configurable workout structure, glanceable phase colors, local history, and privacy.
+A local exercise catalogue supports shared exercises, duplicate merging, body areas, and custom tags.
+Workout generation selects unique tag-filtered exercises with optional body-area alternation.
+Generated workouts are editable and repeat the same exercise order each round. Planning tags are hidden during training.
 
 ## Canonical
 https://hiinterval.malaber.de/

@@ -4,7 +4,7 @@
 
 `ios/HiIntervalIOS/Scripts/check_coverage.sh` runs SwiftPM tests with LLVM coverage and enforces 99% `HiIntervalCore` line coverage. It writes JSON, LCOV, text report, and summary under ignored `ios/HiIntervalIOS/coverage`.
 
-Current test inventory is 36 portable core tests plus 10 XCUITest flows. Core coverage spans plan validation/timeline expansion, timer transitions and clock edge cases, persistence/history/safe export, active-duration accounting, and disabled future entitlement rules. UI coverage spans empty states, plan/library/history operations, preference persistence, workout execution, system accessibility audit, and largest Dynamic Type.
+The current inventory is defined by the XCTest sources. Core coverage includes catalogue migration/merging, generation filters and alternation, and plan validation/timeline expansion, timer transitions and clock edge cases, persistence/history/safe export, active-duration accounting, and disabled future entitlement rules. UI coverage spans empty states, plan/library/history operations, preference persistence, workout execution, explicit accessibility-label, hit-target, and phase-semantic contracts, plus largest Dynamic Type.
 
 `ios/HiIntervalIOS/Scripts/run_ui_e2e.sh`:
 
@@ -12,7 +12,7 @@ Current test inventory is 36 portable core tests plus 10 XCUITest flows. Core co
 2. Requires exact named simulator and generates project from `project.yml`.
 3. Builds once for testing with signing disabled and parallel testing off.
 4. Shuts down only the target simulator, boots it, uninstalls app, then runs tests serially.
-5. Retries only failed XCTest cases when the log identifies them; infrastructure failures without a test identity fall back to one complete isolated rerun.
+5. Runs each device suite once. Any assertion or infrastructure failure fails the job directly.
 6. Keeps logs, screenshots produced by tests, summary, and `TestResults.xcresult`; removes derived data.
 
 UI tests launch with deterministic `--ui-testing` fixture mode. Tests must query accessibility identifiers and wait for observable state, never sleep for animation timing.
@@ -22,10 +22,12 @@ UI tests launch with deterministic `--ui-testing` fixture mode. Tests must query
 With an Xcode Apple account configured for team `VWKG94374J`, upload a signed archive directly:
 
 ```bash
-.venv/bin/inv upload-testflight --marketing-version=0.3.0 --build-number=1
+.venv/bin/inv upload-testflight --marketing-version=0.4.1 --build-number=1
 ```
 
-Use a new build number for later uploads of the same marketing version. The task generates the
+Each later upload uses a fresh marketing version, increased by at least one SemVer patch. Never
+upload a marketing version twice. Git pushes should be followed by TestFlight delivery after the
+required checks pass. The task generates the
 Xcode project, archives with automatic signing, exports with
 `ExportOptions.TestFlight.plist`, and uploads to App Store Connect. It deliberately gives Xcode a
 system-only `PATH`: Homebrew `rsync` does not support Apple's extended-attribute option and causes
@@ -48,7 +50,7 @@ TestFlight variables:
 - `TESTFLIGHT_UPLOAD_ENABLED`: `true` for automatic successful-`main` delivery.
 - `APPLE_TEAM_ID`: defaults to `VWKG94374J`.
 - `IOS_BUNDLE_IDENTIFIER`: defaults to `de.malaber.hiinterval`.
-- `IOS_MARKETING_VERSION`: defaults to `0.3.0`.
+- `IOS_MARKETING_VERSION`: defaults to `0.4.1`.
 - `APP_STORE_CONNECT_APP_ID`: numeric App Store Connect app ID.
 
 TestFlight secrets:

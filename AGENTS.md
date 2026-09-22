@@ -1,7 +1,8 @@
 # Working on HiInterval
 
-This file applies to the whole repository. Follow the user's current scope and release instructions;
-the commands below describe available workflows, not automatic permission to deploy.
+This file applies to the whole repository. Follow the user's current scope and release instructions.
+The user has authorized TestFlight delivery after Git pushes as described below; other delivery
+commands describe available workflows, not automatic permission to deploy elsewhere.
 
 ## Agent workflow
 
@@ -140,7 +141,8 @@ For small changes, use the shortest version of that flow that preserves correctn
 ## Product and repository map
 
 HiInterval is a native, local-first iPhone/iPad interval-training app. It includes workout planning,
-left/right splits, round overrides, optional notes, audio/haptic cues, history, reminders, completion
+a shared exercise catalogue, tag-filtered workout generation, left/right splits, round overrides,
+optional notes, audio/haptic cues, history, reminders, completion
 celebrations, and an optional extra round. Apple Intelligence can create or revise workout plans on
 supported devices. The separate `website/` directory is a static product/support/privacy site.
 
@@ -205,6 +207,14 @@ rules cover their standard locations.
   `UserDefaults` under `io.malaber.hiinterval.app-data.v1` (deliberately different from the bundle ID).
   Preserve backward decoding and missing-field defaults. Add codec regression tests when models
   change; retain corrupt bytes in the `.recovery` key and the existing user-facing recovery behavior.
+- Catalogue records provide shared identity, canonical names, planning labels, and defaults for new
+  uses. Saved steps keep their own timing, recovery, side configuration, and notes. Merge live-plan
+  references atomically; never rewrite history snapshots. Generation randomizes once into a normal
+  plan, so order stays fixed across rounds. Body areas and tags stay out of workout presentation.
+- `AppData.exerciseLabels` owns shared body-area/tag records; exercises attach stable `labelIDs`.
+  Migrate old string arrays without losing associations. Detaching a label retains it for suggestions;
+  saving an exercise commits draft labels atomically, while cancelling must create no records.
+  Use removable pills and existing/general suggestions rather than comma-separated entry fields.
 - History includes a plan snapshot so editing a saved plan does not rewrite completed workouts.
   Preserve selected-plan normalization, history ordering, and CSV escaping/formula protections.
 - Notes start empty and appear during relevant phases only when nonblank. New exercise entry should
@@ -264,18 +274,26 @@ transient phase assertions rather than racing the accelerated short workout. AI 
 require live nondeterministic model generation on a simulator.
 
 Wait for observable state and reuse the existing launch/hittability helpers. Avoid arbitrary sleeps
-and aggressive accessibility polling. The completion test has a documented delay because repeated
-snapshots can starve the hosted iPad main thread; preserve its reason when changing that test.
-Retries are infrastructure recovery, not proof that a failing assertion is harmless.
+and aggressive accessibility polling. Successful waits should not fetch extra snapshots just to
+format failure messages. Focus tests type without refocusing and complete any interrupted prefix.
+The foreground/background completion test uses `HIINTERVAL_UI_TEST_MANUAL_CELEBRATION=1` together
+with `--ui-testing` to pause cosmetic fireworks animation and advance the existing timeline boundary
+on demand: continuous rendering can starve hosted iPad accessibility snapshots, and wall-clock waits
+can miss the five-second foreground window. Automatic transition
+uses a deterministic test duration while core tests retain and verify the five-second default.
+Switch helpers must reveal the entire row within its containing Form's visible bounds; requiring a
+fixed central band of the application window fails for short sheets with no remaining scroll range.
+Tests run once; any assertion or infrastructure failure fails the suite. Do not add automatic reruns
+or accept a later pass as evidence of correctness.
 
-`run_ui_e2e.sh` builds once without signing, uses one simulator at a time, uninstalls the app before
-each attempt, and retries identified failed tests (the whole selection when none can be identified).
-`HIINTERVAL_E2E_ATTEMPTS` defaults to 2 locally and is set to 3 in CI. With `CI=true`, it also erases
-the selected simulator: do not set this on a simulator containing data you need. Do not run two
+`run_ui_e2e.sh` builds once without signing, uses one simulator at a time, disables slow verbose
+test-diagnostic collection, and uninstalls the app before its single test run. Logs, screenshots,
+and the result bundle remain available. With `CI=true`, it also erases the selected simulator: do
+not set this on a simulator containing data you need. Do not run two
 suites against the same simulator or derived-data/artifact directory concurrently.
 
 Artifacts must be in a child of `e2e-artifacts/`; the runner replaces that selected directory on
-each invocation. Inspect `build-for-testing.log`, `test-attempt-*.log`, `summary.md`, screenshots,
+each invocation. Inspect `build-for-testing.log`, `test.log`, `summary.md`, screenshots,
 and `TestResults*.xcresult` to distinguish app assertions from simulator/launch failures. Coverage
 reports live in `ios/HiIntervalIOS/coverage/`. Read current test sources/results rather than relying
 on fixed test counts in older documentation. Simulator tests cannot prove actual vibration,
@@ -288,8 +306,16 @@ hardware Silent Mode audio, or on-device Apple Intelligence availability; those 
   Coverage/UI artifacts are retained for 14 days. Use actual job logs when diagnosing failures.
 - App versions belong in `project.yml`; keep the TestFlight workflow fallback and release examples
   consistent when bumping versions. The Python package version in `pyproject.toml` is separate.
-  Choose a fresh build number for an existing marketing version; do not blindly reuse examples.
-- For a requested local TestFlight release, run the following with the chosen values and an Xcode
+  Before each Git push, check the latest version actually uploaded to App Store Connect and ensure
+  the version for the next TestFlight upload is at least one SemVer patch higher. Never upload a
+  marketing version twice, even with a different build number; do not blindly reuse examples.
+- Run required local checks before every Git push of app changes. Immediately after each push,
+  upload that exact pushed source to TestFlight through the local CLI; do not wait for or poll remote
+  CI unless the user specifically asks. If local checks fail, fix them before pushing. If later CI
+  fails, fix it in a new commit and upload that new push with a new marketing version. Verify source
+  commit, version, build number, and prior uploads first; report any release blocker rather than
+  silently skipping the upload. This is a standing user release instruction.
+- For a local TestFlight release, run the following with the chosen values and an Xcode
   account configured for the team. This command **uploads**, not merely archives:
 
   ```bash
