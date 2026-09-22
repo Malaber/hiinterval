@@ -129,6 +129,21 @@ final class HalfwayExerciseCuePolicyTests: XCTestCase {
         XCTAssertNil(tracker.nextCue(in: zeroWork, currentPhaseIndex: 0, elapsedSeconds: 0))
     }
 
+    func testSkippedSplitDoesNotAnnounceButNextExerciseStillDoes() {
+        let timeline = timeline(phases: [
+            work(name: "Lunge", seconds: 5, round: 1, exercise: 1),
+            sideSwitch(seconds: 2, round: 1, exercise: 1),
+            work(name: "Lunge", seconds: 5, round: 1, exercise: 1),
+            work(name: "Plank", seconds: 10, round: 1, exercise: 2),
+        ])
+        var tracker = HalfwayExerciseCueTracker()
+        tracker.suppressCue(for: nil)
+        tracker.suppressCue(for: position(round: 1, exercise: 1))
+        XCTAssertNil(tracker.nextCue(in: timeline, currentPhaseIndex: 1, elapsedSeconds: 6))
+        XCTAssertNil(tracker.nextCue(in: timeline, currentPhaseIndex: 2, elapsedSeconds: 10))
+        XCTAssertEqual(tracker.nextCue(in: timeline, currentPhaseIndex: 3, elapsedSeconds: 17)?.exerciseName, "Plank")
+    }
+
     private func timeline(phases: [WorkoutPhase]) -> WorkoutTimeline {
         WorkoutTimeline(planID: UUID(), planName: "Test", phases: phases)
     }

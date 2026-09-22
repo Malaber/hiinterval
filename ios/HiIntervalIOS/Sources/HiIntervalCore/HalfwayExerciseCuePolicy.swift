@@ -35,6 +35,12 @@ public struct HalfwayExerciseCueTracker: Equatable, Sendable {
         )
     }
 
+    /// Skipped work is not active training time; suppress a misleading cue later in the split.
+    public mutating func suppressCue(for position: PhasePosition?) {
+        guard let position else { return }
+        announcedOccurrences.insert(Occurrence(position: position))
+    }
+
     private static let timeEpsilon: TimeInterval = 0.000_001
 
     private func midpoint(

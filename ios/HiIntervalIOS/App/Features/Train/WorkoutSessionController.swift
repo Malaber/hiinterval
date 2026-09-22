@@ -126,6 +126,8 @@ final class WorkoutSessionController: ObservableObject {
     func skip(preferences: UserPreferences) {
         let wallDate = Date()
         let clockDate = virtualNow()
+        handle(engine.tick(at: clockDate), preferences: preferences, clockDate: clockDate, wallDate: wallDate)
+        halfwayCueTracker.suppressCue(for: engine.currentPhase?.position)
         handle(
             engine.skip(at: clockDate),
             preferences: preferences,
