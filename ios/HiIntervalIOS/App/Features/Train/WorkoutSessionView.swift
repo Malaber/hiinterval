@@ -44,10 +44,33 @@ private struct ActiveWorkoutView: View {
     @State private var timer = Timer.publish(every: 0.2, on: .main, in: .common).autoconnect()
 
     private var phase: WorkoutPhase? { controller.engine.currentPhase }
-    private var phaseColor: Color { PhaseStyle.color(for: phase?.kind) }
-    private var sessionForeground: Color { Color.black.opacity(0.88) }
-    private var sessionSecondary: Color { Color.black.opacity(0.75) }
-    private var controlSurface: Color { Color.black.opacity(0.12) }
+    private var workoutTheme: WorkoutTheme { store.data.preferences.workoutTheme }
+    private var phaseColor: Color {
+        guard let kind = phase?.kind else { return Color.accentColor }
+        return HITheme.phaseColor(kind, in: workoutTheme)
+    }
+    private var usesDarkForeground: Bool {
+        guard let kind = phase?.kind else { return true }
+        let color: WorkoutLogoColor
+        switch kind {
+        case .work:
+            color = workoutTheme.workColor
+        case .recovery, .roundRecovery:
+            color = workoutTheme.recoveryColor
+        case .warmUp, .sideSwitch, .coolDown:
+            color = workoutTheme.transitionColor
+        }
+        return workoutTheme.prefersDarkText(for: color)
+    }
+    private var sessionForeground: Color {
+        usesDarkForeground ? Color.black : Color.white
+    }
+    private var sessionSecondary: Color {
+        sessionForeground
+    }
+    private var controlSurface: Color {
+        sessionForeground.opacity(0.12)
+    }
     private let headingHierarchy = SessionHeadingHierarchy()
 
     var body: some View {
@@ -214,7 +237,7 @@ private struct ActiveWorkoutView: View {
                         .font(.body.weight(.semibold))
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .foregroundStyle(Color.black)
+                .foregroundStyle(sessionForeground)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -274,7 +297,7 @@ private struct ActiveWorkoutView: View {
                     Label("NEXT UP", systemImage: "forward.fill")
                         .font(.caption.weight(.bold))
                         .tracking(1.1)
-                        .foregroundStyle(Color.black)
+                        .foregroundStyle(sessionForeground)
                     Text(next.title + sideSuffix(next.side))
                         .font(
                             .system(

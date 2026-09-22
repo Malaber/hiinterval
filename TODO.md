@@ -36,7 +36,7 @@ validation runs after all features are implemented, before Git and TestFlight de
   define image sizing and cleanup while retaining assets referenced by plans/history snapshots.
   Verify cancel/save/relaunch, old-plan defaults, readable colors, and selected-photo privacy.
 
-- [ ] **Choose global workout background themes in Settings, with preview and custom colors.**
+- [x] **Choose global workout background themes in Settings, with preview and custom colors.**
   Add preset themes and a custom color picker, with previews of work, recovery, and other phases
   before applying. Keep preview changes local until Save and provide a reset to the default theme.
   Store theme data in global user preferences with backward-compatible defaults and use the shared design system for

@@ -6,6 +6,7 @@ struct SettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var reminderMessage: String?
     @State private var reminderTask: Task<Void, Never>?
+    @State private var isWorkoutThemeEditorPresented = false
 
     private let weekdays: [(Int, String)] = [
         (2, "M"), (3, "T"), (4, "W"), (5, "T"), (6, "F"), (7, "S"), (1, "S"),
@@ -20,6 +21,7 @@ struct SettingsView: View {
                     behaviorSection
                     remindersSection
                     appearanceSection
+                    workoutThemeSection
                     aboutSection
                 }
                 .hiStableScrollContrast(hidingBottomEffect: true)
@@ -37,6 +39,13 @@ struct SettingsView: View {
             .navigationTitle("Settings")
         }
         .accessibilityIdentifier("settings.screen")
+        .sheet(isPresented: $isWorkoutThemeEditorPresented) {
+            WorkoutThemeEditor(initialTheme: store.data.preferences.workoutTheme) { theme in
+                var preferences = store.data.preferences
+                preferences.workoutTheme = theme
+                store.updatePreferences(preferences)
+            }
+        }
     }
 
     private var accessSection: some View {
@@ -201,6 +210,33 @@ struct SettingsView: View {
         }
     }
 
+    private var workoutThemeSection: some View {
+        Section {
+            Button {
+                isWorkoutThemeEditorPresented = true
+            } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Workout colors")
+                            .foregroundStyle(settingsTextColor)
+                        Text("Global colors for work, recovery, and transitions")
+                            .font(.caption)
+                            .foregroundStyle(settingsTextColor.opacity(0.72))
+                    }
+                    Spacer()
+                    WorkoutThemeSettingsSwatches(theme: store.data.preferences.workoutTheme)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(settingsTextColor.opacity(0.55))
+                }
+            }
+            .accessibilityIdentifier("settings.workout-theme")
+            .accessibilityHint("Choose global colors for running workouts")
+        } header: {
+            settingsHeader("Workout appearance")
+        }
+    }
+
     private var aboutSection: some View {
         Section {
             LabeledContent("App", value: "HiInterval")
@@ -321,5 +357,19 @@ struct SettingsView: View {
         let symbols = Calendar.current.weekdaySymbols
         guard (1...symbols.count).contains(weekday) else { return "Day" }
         return symbols[weekday - 1]
+    }
+}
+
+private struct WorkoutThemeSettingsSwatches: View {
+    let theme: WorkoutTheme
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Circle().fill(Color(theme.workColor))
+            Circle().fill(Color(theme.recoveryColor))
+            Circle().fill(Color(theme.transitionColor))
+        }
+        .frame(width: 44, height: 16)
+        .accessibilityHidden(true)
     }
 }

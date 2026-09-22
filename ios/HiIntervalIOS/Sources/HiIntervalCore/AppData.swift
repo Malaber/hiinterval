@@ -309,6 +309,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
     public var pauseWhenInactive: Bool
     public var countdownEnabled: Bool
     public var keepScreenAwake: Bool
+    public var workoutTheme: WorkoutTheme
     public var appearance: AppearancePreference
     public var reminders: ReminderSettings
 
@@ -321,6 +322,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
         countdownEnabled: Bool = true,
         keepScreenAwake: Bool = true,
         appearance: AppearancePreference = .system,
+        workoutTheme: WorkoutTheme = .default,
         reminders: ReminderSettings = ReminderSettings()
     ) {
         self.cueStyle = cueStyle
@@ -330,6 +332,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
         self.pauseWhenInactive = pauseWhenInactive
         self.countdownEnabled = countdownEnabled
         self.keepScreenAwake = keepScreenAwake
+        self.workoutTheme = workoutTheme
         self.appearance = appearance
         self.reminders = reminders
     }
@@ -343,6 +346,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
         case countdownEnabled
         case keepScreenAwake
         case appearance
+        case workoutTheme
         case reminders
     }
 
@@ -355,6 +359,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
         pauseWhenInactive = try values.decodeIfPresent(Bool.self, forKey: .pauseWhenInactive) ?? true
         countdownEnabled = try values.decodeIfPresent(Bool.self, forKey: .countdownEnabled) ?? true
         keepScreenAwake = try values.decodeIfPresent(Bool.self, forKey: .keepScreenAwake) ?? true
+        workoutTheme = try values.decodeIfPresent(WorkoutTheme.self, forKey: .workoutTheme) ?? .default
         appearance = try values.decodeIfPresent(AppearancePreference.self, forKey: .appearance) ?? .system
         reminders = try values.decodeIfPresent(ReminderSettings.self, forKey: .reminders) ?? ReminderSettings()
     }
@@ -368,6 +373,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
         try values.encode(pauseWhenInactive, forKey: .pauseWhenInactive)
         try values.encode(countdownEnabled, forKey: .countdownEnabled)
         try values.encode(keepScreenAwake, forKey: .keepScreenAwake)
+        try values.encode(workoutTheme, forKey: .workoutTheme)
         try values.encode(appearance, forKey: .appearance)
         try values.encode(reminders, forKey: .reminders)
     }

@@ -167,12 +167,6 @@ struct WorkoutLogoMark: View {
     }
 }
 
-private extension Color {
-    init(_ color: WorkoutLogoColor) {
-        self.init(red: color.red, green: color.green, blue: color.blue, opacity: color.opacity)
-    }
-}
-
 private extension WorkoutLogoColor {
     @MainActor
     init(_ color: Color) {

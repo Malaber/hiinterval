@@ -57,6 +57,32 @@ final class SettingsUITests: HiIntervalUITestCase {
         capture("02-settings-after-relaunch")
     }
 
+    func testWorkoutThemePresetSavesGlobally() {
+        launch()
+        selectTab("settings")
+
+        let theme = element("settings.workout-theme")
+        scrollToHittable(theme)
+        tap(theme)
+        waitForExistence(element("settings.workout-theme.preview"))
+
+        tap(element("settings.workout-theme.preset.ocean"))
+        tap(element("settings.workout-theme.save"))
+        waitForExistence(theme)
+        relaunchPreservingData()
+        selectTab("settings")
+        tap(theme, scrolls: true)
+        let ocean = element("settings.workout-theme.preset.ocean")
+        scrollToHittable(ocean)
+        waitForValue("Selected", on: ocean)
+        tap(element("settings.workout-theme.preset.forest"), scrolls: true)
+        tap(element("settings.workout-theme.cancel"))
+        tap(theme, scrolls: true)
+        waitForValue("Selected", on: ocean)
+        tap(element("settings.workout-theme.reset"))
+        tap(element("settings.workout-theme.save"))
+    }
+
     private func assertPersistedPreferences() {
         assertSwitch("settings.haptics", value: "0")
         assertSwitch("settings.duck-audio", value: "1")
