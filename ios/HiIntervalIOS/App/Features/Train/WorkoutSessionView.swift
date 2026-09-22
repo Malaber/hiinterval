@@ -180,20 +180,23 @@ private struct ActiveWorkoutView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 24)
-        .accessibilityHidden(true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(PhaseStyle.label(for: phase?.kind))
+        .accessibilityValue(store.data.preferences.hapticsEnabled ? "Haptics enabled" : "Haptics disabled")
+        .accessibilityIdentifier("session.phase-kind")
+    }
+
+    private var currentHeading: String {
+        guard phase?.kind == .recovery,
+              let position = phase?.position,
+              controller.plan.exercises.indices.contains(position.exerciseIndex - 1) else {
+            return phase?.title ?? "Complete"
+        }
+        return controller.plan.exercises[position.exerciseIndex - 1].name
     }
 
     private var timerBody: some View {
         VStack(spacing: 18) {
-            Label(PhaseStyle.label(for: phase?.kind), systemImage: PhaseStyle.icon(for: phase?.kind))
-                .font(.caption.weight(.bold))
-                .tracking(1.4)
-                .foregroundStyle(sessionForeground)
-                .accessibilityValue(
-                    store.data.preferences.hapticsEnabled ? "Haptics enabled" : "Haptics disabled"
-                )
-                .accessibilityIdentifier("session.phase-kind")
-
             if controller.engine.state == .paused {
                 Label("PAUSED", systemImage: "pause.fill")
                     .font(.caption.weight(.black))
@@ -205,7 +208,7 @@ private struct ActiveWorkoutView: View {
                     .accessibilityIdentifier("session.paused")
             }
 
-            Text(phase?.title ?? "Complete")
+            Text(currentHeading)
                 .font(
                     .system(
                         size: CGFloat(headingHierarchy.currentNamePointSize),
@@ -216,6 +219,7 @@ private struct ActiveWorkoutView: View {
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .minimumScaleFactor(0.62)
+                .accessibilityLabel(phase?.kind == .recovery ? "Recover after \(currentHeading)" : currentHeading)
                 .accessibilityIdentifier("session.exercise")
                 .accessibilityValue("Primary focus")
 

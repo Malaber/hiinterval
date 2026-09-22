@@ -140,6 +140,8 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         waitForLabel("Next up, Reverse Lunges · Left", on: element("session.next"))
         waitForValue("Primary focus", on: element("session.exercise"))
         waitForValue("Secondary preview", on: element("session.next"))
+        XCTAssertFalse(app.staticTexts["WORK"].exists)
+        XCTAssertFalse(app.staticTexts["RECOVER"].exists)
         capture("01-running-eight-exercise-work")
 
         waitForLabel("Resume workout", on: element("session.pause"))
@@ -157,7 +159,7 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         capture("02-single-reset-restored-time")
 
         // Recovery stays visually current for exercise one; next-up skips it entirely.
-        skipPausedPhase(expectingExercise: "Recover")
+        skipPausedPhase(expectingExercise: "Recover after High Knees")
         waitForLabel("Notes, Breathe and reset", on: element("session.notes"))
         waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
         waitForLabel("Next up, Reverse Lunges · Left", on: element("session.next"))
@@ -175,7 +177,7 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
         capture("04-double-back-restored-exercise")
 
-        skipPausedPhase(expectingExercise: "Recover")
+        skipPausedPhase(expectingExercise: "Recover after High Knees")
         skipPausedPhase(expectingExercise: "Reverse Lunges")
         waitForLabel("Exercise 2 of 8", on: element("session.exercise-progress"))
         waitForLabel("Next up, Reverse Lunges · Right", on: element("session.next"))

@@ -51,7 +51,7 @@ validation runs after all features are implemented, before Git and TestFlight de
   Test delayed ticks, odd/short durations, pause/resume, restart, skip, and split exercises; avoid
   duplicate or stale announcements and collisions with side-switch/countdown cues.
 
-- [ ] **Remove the redundant phase icon and visible “Work”/“Recover” labels.**
+- [x] **Remove the redundant phase icon and visible “Work”/“Recover” labels.**
   Simplify the running-workout header around phase color, exercise name, timer, and progress.
   Retain phase descriptions for VoiceOver and useful context such as warm-up, cool-down, and
   left/right sides. Verify that recovery remains understandable with custom themes and accessibility
