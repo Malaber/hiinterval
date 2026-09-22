@@ -22,12 +22,13 @@ UI tests launch with deterministic `--ui-testing` fixture mode. Tests must query
 With an Xcode Apple account configured for team `VWKG94374J`, upload a signed archive directly:
 
 ```bash
-.venv/bin/inv upload-testflight --marketing-version=0.4.1 --build-number=1
+.venv/bin/inv upload-testflight --marketing-version=0.5.0 --build-number=1
 ```
 
 Each later upload uses a fresh marketing version, increased by at least one SemVer patch. Never
-upload a marketing version twice. Git pushes should be followed by TestFlight delivery after the
-required checks pass. The task generates the
+upload a marketing version twice. After required local checks pass, pushes containing app changes
+are followed immediately by CLI TestFlight delivery without polling remote CI. Documentation-only
+pushes require no version bump or upload. The task generates the
 Xcode project, archives with automatic signing, exports with
 `ExportOptions.TestFlight.plist`, and uploads to App Store Connect. It deliberately gives Xcode a
 system-only `PATH`: Homebrew `rsync` does not support Apple's extended-attribute option and causes
@@ -50,7 +51,7 @@ TestFlight variables:
 - `TESTFLIGHT_UPLOAD_ENABLED`: `true` for automatic successful-`main` delivery.
 - `APPLE_TEAM_ID`: defaults to `VWKG94374J`.
 - `IOS_BUNDLE_IDENTIFIER`: defaults to `de.malaber.hiinterval`.
-- `IOS_MARKETING_VERSION`: defaults to `0.4.1`.
+- `IOS_MARKETING_VERSION`: defaults to `0.5.0`.
 - `APP_STORE_CONNECT_APP_ID`: numeric App Store Connect app ID.
 
 TestFlight secrets:

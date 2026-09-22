@@ -215,6 +215,11 @@ rules cover their standard locations.
   Migrate old string arrays without losing associations. Detaching a label retains it for suggestions;
   saving an exercise commits draft labels atomically, while cancelling must create no records.
   Use removable pills and existing/general suggestions rather than comma-separated entry fields.
+- Global workout phase colors live in `UserPreferences.workoutTheme`, edited in Settings; never
+  attach themes to individual plans. `WorkoutPlan.logo` is per plan. Use the system photo picker;
+  keep photo drafts memory-only until Save and retain assets referenced by history or recovery data.
+- Deleted catalogue IDs remain tombstoned in `AppData.deletedCatalogueExerciseIDs` so retained plan
+  steps cannot recreate removed entries. Saved `generationOptions` support exercise-only reshuffling.
 - History includes a plan snapshot so editing a saved plan does not rewrite completed workouts.
   Preserve selected-plan normalization, history ordering, and CSV escaping/formula protections.
 - Notes start empty and appear during relevant phases only when nonblank. New exercise entry should

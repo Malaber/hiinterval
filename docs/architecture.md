@@ -55,3 +55,26 @@ all included tags and excludes any forbidden tags. It samples unique entries
 and can prefer nonoverlapping known body areas at each step. Alternation is best effort for uneven
 or unlabelled pools. The result is an ordinary editable workout plan: randomness is used only at
 generation, never between rounds or in the timer. Planning labels are not part of session cues.
+
+
+## Workout editing and presentation (0.5.0)
+
+Adding an exercise searches the shared catalogue first; typed names can reuse suggested records.
+Deleting a catalogue entry records its ID in `deletedCatalogueExerciseIDs`. Saved steps keep their
+payload and tombstoned link; synchronization does not recreate deleted entries. Labels and history
+remain unchanged. Explicitly saving that catalogue ID restores it.
+
+`WorkoutPlan.generationOptions` retains generation filters. Reshuffling prefers unused eligible
+exercises, previews the result, and replaces only exercises/options after confirmation. Catalogue
+defaults initialize replacement steps; plan timing, round overrides, identity, notes, and logo stay.
+
+`WorkoutPlan.logo` describes a symbol/colors or an app-managed JPEG filename. Photos arrive through
+`PhotosPicker` without broad library permission, stay in an in-memory draft until Save, and are
+resized to at most 1,024 pixels. Cleanup retains files referenced by live plans and history snapshots;
+recovery data suppresses cleanup. `UserPreferences.workoutTheme` holds global phase colors, edited
+with previews in Settings. Text switches between black and white for contrast.
+
+`HalfwayExerciseCueTracker` derives one cue per round/exercise from active work time across both
+sides. The controller emits it only while running, after higher-priority phase speech, and honors
+mute/audio settings. The session keeps phase context accessible without visual Work/Recover labels.
+Pause status overlays the layout; a single measured layout enables scrolling only when content exceeds the available height.
