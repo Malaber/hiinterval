@@ -309,8 +309,10 @@ hardware Silent Mode audio, or on-device Apple Intelligence availability; those 
   Before each Git push, check the latest version actually uploaded to App Store Connect and ensure
   the version for the next TestFlight upload is at least one SemVer patch higher. Never upload a
   marketing version twice, even with a different build number; do not blindly reuse examples.
-- Every Git push of this app's changes should be followed by a TestFlight upload of that pushed
-  source once its required checks pass. If checks fail, fix them before uploading. Verify the source
+- Run required local checks before every Git push of app changes. Immediately after each push,
+  upload that exact pushed source to TestFlight through the local CLI; do not wait for or poll remote
+  CI unless the user specifically asks. If local checks fail, fix them before pushing. If later CI
+  fails, fix it in a new commit and upload that new push with a new marketing version. Verify source
   commit, version, build number, and prior uploads first; report any release blocker rather than
   silently skipping the upload. This is a standing user release instruction.
 - For a local TestFlight release, run the following with the chosen values and an Xcode
