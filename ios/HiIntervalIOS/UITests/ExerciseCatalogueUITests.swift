@@ -16,6 +16,10 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         for id in [CatalogueID.highKnees, CatalogueID.reverseLunges, CatalogueID.deadBug, CatalogueID.sidePlank] {
             waitForExistence(element("catalogue.row.\(id)"))
         }
+        waitForLabel(
+            "Used in Quick Start",
+            on: element("catalogue.usage.\(CatalogueID.highKnees).\(FixtureID.quickStartPlan)")
+        )
 
         capture("01-migrated-exercise-catalogue")
     }
@@ -27,8 +31,8 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         editCatalogueExercise(
             id: CatalogueID.highKnees,
             name: "Fast High Knees",
-            bodyAreas: "legs, cardio",
-            tags: "achilles recovery, warm-up"
+            bodyAreas: ["legs", "cardio"],
+            tags: ["achilles recovery", "warm-up"]
         )
         relaunchPreservingData()
         openCatalogue()
@@ -36,8 +40,10 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         tap(element("catalogue.row.\(CatalogueID.highKnees)"), scrolls: true)
         waitForExistence(element("catalogue.editor.screen"))
         waitForValue("Fast High Knees", on: element("catalogue.editor.name"))
-        waitForValue("legs, cardio", on: element("catalogue.editor.bodyAreas"))
-        waitForValue("achilles recovery, warm-up", on: element("catalogue.editor.tags"))
+        waitForExistence(element("catalogue.editor.bodyAreas.pill.legs"))
+        waitForExistence(element("catalogue.editor.bodyAreas.pill.cardio"))
+        waitForExistence(element("catalogue.editor.tags.pill.achilles-recovery"))
+        waitForExistence(element("catalogue.editor.tags.pill.warm-up"))
         tapToolbarButton("catalogue.editor.save", label: "Save")
 
         closeCatalogue()
@@ -97,14 +103,14 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         editCatalogueExercise(
             id: CatalogueID.highKnees,
             name: "High Knees",
-            bodyAreas: "legs",
-            tags: "achilles recovery"
+            bodyAreas: ["legs"],
+            tags: ["achilles recovery"]
         )
         editCatalogueExercise(
             id: CatalogueID.deadBug,
             name: "Dead Bug",
-            bodyAreas: "core",
-            tags: "achilles recovery"
+            bodyAreas: ["core"],
+            tags: ["achilles recovery"]
         )
 
         closeCatalogue()
@@ -165,6 +171,73 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         tapToolbarButton("catalogue.editor.save", label: "Save")
         waitForExistence(app.staticTexts["Heel Raises"])
         capture("05-empty-catalogue-creates-an-exercise")
+    }
+
+    func testPlanningLabelPillsSuggestReuseDeduplicateAndPersist() {
+        launch()
+        openCatalogue()
+
+        tap(element("catalogue.row.\(CatalogueID.highKnees)"), scrolls: true)
+        waitForExistence(element("catalogue.editor.screen"))
+
+        // Body-area suggestions include a useful starting vocabulary before any labels exist.
+        let legsSuggestion = element("catalogue.editor.bodyAreas.suggestion.legs")
+        waitForExistence(legsSuggestion)
+        tap(legsSuggestion, scrolls: true)
+        waitForExistence(element("catalogue.editor.bodyAreas.pill.legs"))
+
+        addPlanningLabel("Achilles recovery", kind: "tags")
+        waitForExistence(element("catalogue.editor.tags.pill.achilles-recovery"))
+        // Case differences must not create two planning labels for one concept.
+        addPlanningLabel("ACHILLES RECOVERY", kind: "tags")
+        XCTAssertEqual(
+            app.descendants(matching: .any)
+                .matching(identifier: "catalogue.editor.tags.pill.achilles-recovery").count,
+            1,
+            "Planning labels should deduplicate case-insensitively."
+        )
+        tapToolbarButton("catalogue.editor.save", label: "Save")
+        waitForDisappearance(element("catalogue.editor.screen"), timeout: 8)
+
+        tap(element("catalogue.row.\(CatalogueID.deadBug)"), scrolls: true)
+        waitForExistence(element("catalogue.editor.screen"))
+        waitForExistence(element("catalogue.editor.tags.suggestion.achilles-recovery"))
+        tap(element("catalogue.editor.tags.suggestion.achilles-recovery"), scrolls: true)
+        waitForExistence(element("catalogue.editor.tags.pill.achilles-recovery"))
+        tapToolbarButton("catalogue.editor.save", label: "Save")
+        waitForDisappearance(element("catalogue.editor.screen"), timeout: 8)
+
+        relaunchPreservingData()
+        openCatalogue()
+        tap(element("catalogue.row.\(CatalogueID.deadBug)"), scrolls: true)
+        waitForExistence(element("catalogue.editor.tags.pill.achilles-recovery"))
+        tap(element("catalogue.editor.tags.remove.achilles-recovery"), scrolls: true)
+        waitForDisappearance(element("catalogue.editor.tags.pill.achilles-recovery"))
+        tapToolbarButton("catalogue.editor.save", label: "Save")
+        waitForDisappearance(element("catalogue.editor.screen"), timeout: 8)
+
+        // Detaching a label from one exercise must retain it in the shared catalogue.
+        tap(element("catalogue.row.\(CatalogueID.deadBug)"), scrolls: true)
+        waitForExistence(element("catalogue.editor.tags.suggestion.achilles-recovery"))
+    }
+
+    func testCancelledPlanningLabelDoesNotEnterSharedSuggestions() {
+        launch()
+        openCatalogue()
+        tap(element("catalogue.add"))
+        waitForExistence(element("catalogue.editor.screen"))
+        replaceText(in: element("catalogue.editor.name"), with: "Temporary exercise")
+        addPlanningLabel("Do not save", kind: "tags")
+        waitForExistence(element("catalogue.editor.tags.pill.do-not-save"))
+        tapToolbarButton("catalogue.editor.cancel", label: "Cancel")
+        waitForDisappearance(element("catalogue.editor.screen"), timeout: 8)
+
+        tap(element("catalogue.row.\(CatalogueID.highKnees)"), scrolls: true)
+        waitForExistence(element("catalogue.editor.screen"))
+        XCTAssertFalse(
+            element("catalogue.editor.tags.suggestion.do-not-save").exists,
+            "Cancelling an editor must not create a shared planning label."
+        )
     }
 
     func testCancellingGeneratedPreviewDoesNotCreateAPlan() {
@@ -263,14 +336,29 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         waitForDisappearance(element("catalogue.screen"), timeout: 8)
     }
 
-    private func editCatalogueExercise(id: String, name: String, bodyAreas: String, tags: String) {
+    private func editCatalogueExercise(id: String, name: String, bodyAreas: [String], tags: [String]) {
         tap(element("catalogue.row.\(id)"), scrolls: true)
         waitForExistence(element("catalogue.editor.screen"))
         replaceText(in: element("catalogue.editor.name"), with: name)
-        replaceText(in: element("catalogue.editor.bodyAreas"), with: bodyAreas)
-        replaceText(in: element("catalogue.editor.tags"), with: tags)
+        bodyAreas.forEach { addPlanningLabel($0, kind: "bodyAreas") }
+        tags.forEach { addPlanningLabel($0, kind: "tags") }
         tapToolbarButton("catalogue.editor.save", label: "Save")
         waitForDisappearance(element("catalogue.editor.screen"), timeout: 8)
+    }
+
+    private func addPlanningLabel(_ label: String, kind: String) {
+        let input = element("catalogue.editor.\(kind)")
+        // `replaceText` closes the keyboard. That emits this picker's submit action, which
+        // would add the label before this helper explicitly taps Add. Keep the field focused
+        // so each assertion exercises exactly one add path.
+        if input.exists && input.isHittable {
+            tap(input)
+        } else {
+            tap(input, scrolls: true)
+        }
+        input.tap(withNumberOfTaps: 3, numberOfTouches: 1)
+        typeText(label, intoFocusedField: input)
+        tap(element("catalogue.editor.\(kind).add"), scrolls: true)
     }
 
     private func planCard(containing title: String) -> XCUIElement {
