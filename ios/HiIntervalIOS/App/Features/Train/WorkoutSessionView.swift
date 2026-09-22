@@ -41,6 +41,7 @@ private struct ActiveWorkoutView: View {
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject var controller: WorkoutSessionController
     @State private var confirmExit = false
+    @State private var contentHeight: CGFloat = 0
     @State private var timer = Timer.publish(every: 0.2, on: .main, in: .common).autoconnect()
 
     private var phase: WorkoutPhase? { controller.engine.currentPhase }
@@ -81,16 +82,21 @@ private struct ActiveWorkoutView: View {
                 .accessibilityHidden(true)
 
             GeometryReader { geometry in
-                ViewThatFits(in: .vertical) {
-                    sessionContent(compact: false)
-                    sessionContent(compact: true)
-                    ScrollView {
-                        sessionContent(compact: true)
-                    }
-                    .scrollIndicators(.hidden)
-                    .accessibilityIdentifier("session.accessible-scroll")
+                ScrollView {
+                    sessionContent(compact: geometry.size.height < 850)
+                        .background {
+                            GeometryReader { content in
+                                Color.clear.preference(key: SessionContentHeightKey.self, value: content.size.height)
+                            }
+                        }
+                        .frame(minHeight: geometry.size.height)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .scrollDisabled(contentHeight <= geometry.size.height + 1)
+                .scrollBounceBehavior(.basedOnSize)
+                .scrollIndicators(.hidden)
+                .onPreferenceChange(SessionContentHeightKey.self) { contentHeight = $0 }
+                .accessibilityIdentifier("session.content")
+                .accessibilityValue(contentHeight <= geometry.size.height + 1 ? "Fits screen" : "Scrollable content")
             }
         }
         .overlay(alignment: .top) {
@@ -728,5 +734,12 @@ private struct CompletionFireworksView: View {
                 )
             )
         }
+    }
+}
+
+private struct SessionContentHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }

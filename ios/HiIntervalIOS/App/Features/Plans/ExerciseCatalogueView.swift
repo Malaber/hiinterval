@@ -128,24 +128,32 @@ struct ExerciseCatalogueView: View {
             Text("Choose the name and defaults to keep. Tags and body areas are combined. Existing plan timing, notes, and workout history stay exactly as they are.")
                 .accessibilityIdentifier("catalogue.merge.confirm")
         }
-        .confirmationDialog(
-            deletionTitle,
-            isPresented: deletionDialogIsPresented,
-            titleVisibility: .visible
-        ) {
-            Button("Delete exercise", role: .destructive) {
-                guard let exercise = exercisePendingDeletion else { return }
-                if store.deleteCatalogueExercise(id: exercise.id) {
-                    selectedIDs.remove(exercise.id)
-                    exercisePendingDeletion = nil
+        .sheet(item: $exercisePendingDeletion) { exercise in
+            NavigationStack {
+                Form {
+                    Section {
+                        Text(deletionMessage)
+                            .accessibilityIdentifier("catalogue.delete.warning")
+                    }
+                    Section {
+                        Button("Delete exercise", role: .destructive) {
+                            if store.deleteCatalogueExercise(id: exercise.id) {
+                                selectedIDs.remove(exercise.id)
+                                exercisePendingDeletion = nil
+                            }
+                        }
+                        .accessibilityIdentifier("catalogue.delete.confirm")
+                    }
+                }
+                .navigationTitle("Delete \(exercise.name)?")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { exercisePendingDeletion = nil }
+                            .accessibilityIdentifier("catalogue.delete.cancel")
+                    }
                 }
             }
-            .accessibilityIdentifier("catalogue.delete.confirm")
-            Button("Cancel", role: .cancel) { exercisePendingDeletion = nil }
-                .accessibilityIdentifier("catalogue.delete.cancel")
-        } message: {
-            Text(deletionMessage)
-                .accessibilityIdentifier("catalogue.delete.warning")
         }
         .onAppear { store.clearError() }
         .accessibilityIdentifier("catalogue.screen")
@@ -274,18 +282,6 @@ struct ExerciseCatalogueView: View {
         } else {
             exercisePendingDeletion = exercise
         }
-    }
-
-    private var deletionDialogIsPresented: Binding<Bool> {
-        Binding(
-            get: { exercisePendingDeletion != nil },
-            set: { if !$0 { exercisePendingDeletion = nil } }
-        )
-    }
-
-    private var deletionTitle: String {
-        guard let exercise = exercisePendingDeletion else { return "Delete exercise?" }
-        return "Delete \(exercise.name)?"
     }
 
     private var deletionMessage: String {
