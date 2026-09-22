@@ -43,7 +43,7 @@ validation runs after all features are implemented, before Git and TestFlight de
   consistent rendering. Check text/control contrast, light/dark appearance, and distinguishable
   phase colors; coordinate this with the phase-label cleanup below.
 
-- [ ] **Announce the exercise halfway point when audio is enabled.**
+- [x] **Announce the exercise halfway point when audio is enabled.**
   Add a localized spoken halfway cue through the existing cue player, respecting audio settings,
   session mute, mixing/ducking, and Silent Mode behavior. Announce once per exercise occurrence
   per round at half its active work time; left/right exercises combine both work phases and exclude

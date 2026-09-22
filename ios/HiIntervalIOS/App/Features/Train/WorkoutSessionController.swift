@@ -21,6 +21,7 @@ final class WorkoutSessionController: ObservableObject {
     private var activeDuration = ActiveDurationTracker()
     private var lastCountdownSecond: Int?
     private var recoveryStartedAt: Date?
+    private var halfwayCueTracker = HalfwayExerciseCueTracker()
 
     init(plan: WorkoutPlan) {
         self.plan = plan
@@ -59,13 +60,29 @@ final class WorkoutSessionController: ObservableObject {
         handle(events, preferences: preferences, clockDate: clockDate, wallDate: wallDate)
 
         let second = engine.displayedRemainingSeconds
-        if events.isEmpty,
-           engine.state == .running,
-           preferences.countdownEnabled,
-           second > 0,
-           second <= 3,
-           second != priorSecond,
-           second != lastCountdownSecond {
+        let shouldPlayCountdown = events.isEmpty
+            && engine.state == .running
+            && preferences.countdownEnabled
+            && second > 0
+            && second <= 3
+            && second != priorSecond
+            && second != lastCountdownSecond
+
+        let halfwayCue = events.isEmpty && engine.state == .running && !cuePlayer.isSpeaking
+            ? halfwayCueTracker.nextCue(
+                in: engine.timeline,
+                currentPhaseIndex: engine.currentPhaseIndex,
+                elapsedSeconds: engine.totalElapsedSeconds
+            )
+            : nil
+
+        if let halfwayCue {
+            cuePlayer.halfway(
+                exerciseName: halfwayCue.exerciseName,
+                preferences: preferences,
+                muted: isMuted
+            )
+        } else if shouldPlayCountdown {
             lastCountdownSecond = second
             cuePlayer.countdown(second, preferences: preferences, muted: isMuted)
         }
@@ -162,6 +179,7 @@ final class WorkoutSessionController: ObservableObject {
         extraRoundCount += 1
         engine = IntervalTimerEngine(timeline: extraTimeline)
         lastCountdownSecond = nil
+        halfwayCueTracker = HalfwayExerciseCueTracker()
 
         let wallDate = Date()
         let clockDate = virtualNow()
@@ -288,9 +306,12 @@ private final class SessionCuePlayer {
         }
     }
 
+    var isSpeaking: Bool { speech.isSpeaking }
+
     func countdown(_ second: Int, preferences: UserPreferences, muted: Bool) {
         haptics.play(.countdown, enabled: preferences.hapticsEnabled)
         guard !muted, preferences.cueStyle != .silent else { return }
+        guard !speech.isSpeaking else { return }
         prepareAudio(preferences)
         switch preferences.cueStyle {
         case .tones:
@@ -304,6 +325,20 @@ private final class SessionCuePlayer {
         case .silent:
             break
         }
+    }
+
+    /// Halfway announcements are always spoken, including tone cue mode, so the cue remains useful
+    /// without competing with a tone that has no exercise context.
+    func halfway(exerciseName: String, preferences: UserPreferences, muted: Bool) {
+        guard !muted, preferences.cueStyle != .silent else { return }
+        prepareAudio(preferences)
+        let german = usesGerman(preferences)
+        let utterance = AVSpeechUtterance(
+            string: german ? "Halbzeit bei \(exerciseName)" : "Halfway through \(exerciseName)"
+        )
+        utterance.voice = AVSpeechSynthesisVoice(language: german ? "de-DE" : "en-US")
+        speech.stopSpeaking(at: .immediate)
+        speech.speak(utterance)
     }
 
     func pause(preferences: UserPreferences, muted: Bool) {
