@@ -16,6 +16,7 @@ public struct WorkoutPlan: Codable, Equatable, Identifiable, Sendable {
     public var exercises: [ExerciseStep]
     public var roundOverrides: [WorkoutRoundOverride]
     public var logo: WorkoutLogo
+    public var generationOptions: WorkoutGenerationOptions?
     public var createdAt: Date
     public var updatedAt: Date
 
@@ -35,6 +36,7 @@ public struct WorkoutPlan: Codable, Equatable, Identifiable, Sendable {
         exercises: [ExerciseStep],
         roundOverrides: [WorkoutRoundOverride] = [],
         logo: WorkoutLogo = .default,
+        generationOptions: WorkoutGenerationOptions? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -53,6 +55,7 @@ public struct WorkoutPlan: Codable, Equatable, Identifiable, Sendable {
         self.exercises = exercises
         self.roundOverrides = roundOverrides
         self.logo = logo
+        self.generationOptions = generationOptions
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -60,7 +63,7 @@ public struct WorkoutPlan: Codable, Equatable, Identifiable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case id, name, warmUpSeconds, warmUpNotes, defaultWorkSeconds, defaultRecoverySeconds
         case recoveryNotes, roundRecoverySeconds, roundRecoveryNotes, coolDownSeconds, coolDownNotes
-        case roundCount, exercises, roundOverrides, logo, createdAt, updatedAt
+        case roundCount, exercises, roundOverrides, logo, generationOptions, createdAt, updatedAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -80,6 +83,7 @@ public struct WorkoutPlan: Codable, Equatable, Identifiable, Sendable {
         exercises = try values.decode([ExerciseStep].self, forKey: .exercises)
         roundOverrides = try values.decodeIfPresent([WorkoutRoundOverride].self, forKey: .roundOverrides) ?? []
         logo = try values.decodeIfPresent(WorkoutLogo.self, forKey: .logo) ?? .default
+        generationOptions = try values.decodeIfPresent(WorkoutGenerationOptions.self, forKey: .generationOptions)
         createdAt = try values.decode(Date.self, forKey: .createdAt)
         updatedAt = try values.decode(Date.self, forKey: .updatedAt)
     }
@@ -101,6 +105,7 @@ public struct WorkoutPlan: Codable, Equatable, Identifiable, Sendable {
         try values.encode(exercises, forKey: .exercises)
         try values.encode(roundOverrides, forKey: .roundOverrides)
         try values.encode(logo, forKey: .logo)
+        try values.encodeIfPresent(generationOptions, forKey: .generationOptions)
         try values.encode(createdAt, forKey: .createdAt)
         try values.encode(updatedAt, forKey: .updatedAt)
     }

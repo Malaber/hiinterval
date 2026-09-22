@@ -1,6 +1,6 @@
 import Foundation
 
-public struct WorkoutGenerationOptions: Equatable, Sendable {
+public struct WorkoutGenerationOptions: Codable, Equatable, Sendable {
     public var exerciseCount: Int
     public var requiredTagIDs: Set<UUID>
     public var excludedTagIDs: Set<UUID>
@@ -74,10 +74,11 @@ public enum WorkoutGenerator {
             }
             selected.append(next)
         }
-        let plan = WorkoutPlan(
+        var plan = WorkoutPlan(
             name: "Generated workout",
             exercises: selected.map { $0.makeStep() }
         )
+        plan.generationOptions = options
         try plan.validate()
         return plan
     }
@@ -89,6 +90,29 @@ public enum WorkoutGenerator {
     ) throws -> WorkoutPlan {
         var random = SystemRandomNumberGenerator()
         return try generate(from: catalogue, labels: labels, options: options, using: &random)
+    }
+
+    /// Replaces exercise instances only. Prefer unused choices; retain some existing exercises
+    /// when the eligible catalogue cannot supply a wholly new selection.
+    public static func replacingExercises<R: RandomNumberGenerator>(
+        in plan: WorkoutPlan,
+        from catalogue: [CatalogueExercise],
+        labels: [ExerciseLabel],
+        options: WorkoutGenerationOptions,
+        using random: inout R
+    ) throws -> WorkoutPlan {
+        let eligible = eligibleExercises(in: catalogue, labels: labels, options: options)
+        let existing = Set(plan.exercises.compactMap(\.catalogueExerciseID))
+        var fresh = eligible.filter { !existing.contains($0.id) }
+        var reused = eligible.filter { existing.contains($0.id) }
+        reused.shuffle(using: &random)
+        fresh += reused.prefix(max(0, options.exerciseCount - fresh.count))
+        let generated = try generate(from: fresh, labels: labels, options: options, using: &random)
+        var result = plan
+        result.exercises = generated.exercises
+        result.generationOptions = options
+        try result.validate()
+        return result
     }
 
     private static func bodyAreaIDs(for exercise: CatalogueExercise, in labels: [ExerciseLabel]) -> Set<UUID> {

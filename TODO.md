@@ -10,7 +10,7 @@ validation runs after all features are implemented, before Git and TestFlight de
   Verify that reuse creates no duplicate record, plan-specific edits remain independent, and
   cancelling leaves both the plan and catalogue unchanged.
 
-- [ ] **Offer “Shuffle new exercises” in the workout plan's exercise overview.**
+- [x] **Offer “Shuffle new exercises” in the workout plan's exercise overview.**
   Reuse the generator's exercise count, required/excluded tags, and body-area alternation options.
   Persist those options with backward-compatible defaults so a generated workout can reuse its
   previous choices; manual plans start with their current exercise count. Draw a new selection

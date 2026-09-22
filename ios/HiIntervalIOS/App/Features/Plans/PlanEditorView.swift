@@ -15,6 +15,7 @@ struct PlanEditorView: View {
     @State private var showsNaturalLanguageEditor: Bool
     @State private var exerciseEditMode: EditMode = .inactive
     @State private var showsCatalogue = false
+    @State private var showsShuffle = false
 
     init(
         plan: WorkoutPlan,
@@ -97,6 +98,14 @@ struct PlanEditorView: View {
             NavigationStack {
                 NaturalLanguagePlanEditorView(plan: plan, isNew: isNew) { updatedPlan in
                     plan = updatedPlan
+                }
+            }
+            .tint(PlanPalette.accent)
+        }
+        .sheet(isPresented: $showsShuffle) {
+            NavigationStack {
+                WorkoutGeneratorView(replacing: plan) { replacement in
+                    plan = replacement
                 }
             }
             .tint(PlanPalette.accent)
@@ -300,7 +309,10 @@ struct PlanEditorView: View {
                     .fontWeight(.semibold)
             }
             .accessibilityIdentifier("plan.editor.exercise.add")
-
+            Button { showsShuffle = true } label: {
+                Label("Shuffle new exercises", systemImage: "shuffle")
+            }
+            .accessibilityIdentifier("plan.editor.exercise.shuffle")
         } header: {
             HStack {
                 Text("Exercises")
