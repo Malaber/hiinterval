@@ -30,6 +30,7 @@ final class PlanEditorUITests: HiIntervalUITestCase {
         waitForExistence(element("plan.editor.screen"))
 
         tap(element("plan.editor.exercise.add"), scrolls: true)
+        tap(element("exercise.choice.create"))
         waitForExistence(element("exercise.editor.screen"))
 
         let name = element("exercise.editor.name")

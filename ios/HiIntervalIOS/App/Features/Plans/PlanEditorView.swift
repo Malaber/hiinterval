@@ -98,8 +98,12 @@ struct PlanEditorView: View {
         }
         .sheet(isPresented: $showsCatalogue) {
             NavigationStack {
-                ExerciseCatalogueView { catalogueExercise in
-                    saveExercise(catalogueExercise.makeStep(), at: nil)
+                ExerciseChoiceView(
+                    defaultWorkSeconds: plan.defaultWorkSeconds,
+                    defaultRecoverySeconds: plan.defaultRecoverySeconds
+                ) { exercise in
+                    saveExercise(exercise, at: nil)
+                    showsCatalogue = false
                 }
             }
             .tint(PlanPalette.accent)
@@ -298,21 +302,11 @@ struct PlanEditorView: View {
                 plan.exercises.remove(atOffsets: offsets)
             }
 
-            Button {
-                exerciseDestination = ExerciseEditorDestination(
-                    exercise: ExerciseStep(name: ""),
-                    index: nil
-                )
-            } label: {
+            Button { showsCatalogue = true } label: {
                 Label("Add exercise", systemImage: "plus.circle.fill")
                     .fontWeight(.semibold)
             }
             .accessibilityIdentifier("plan.editor.exercise.add")
-            Button { showsCatalogue = true } label: {
-                Label("Choose from catalogue", systemImage: "square.stack.3d.up")
-                    .fontWeight(.semibold)
-            }
-            .accessibilityIdentifier("plan.editor.exercise.catalogue")
         } header: {
             HStack {
                 Text("Exercises")

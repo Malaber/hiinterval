@@ -1,12 +1,9 @@
 # Workout improvements TODO
 
-Planning only. This branch starts from `main` and includes PR #9's shared exercise catalogue,
-labels, and workout generator. All items below remain unimplemented.
+Implementation for **0.5.0**, based on merged PR #9. Each feature gets a separate commit; full
+validation runs after all features are implemented, before Git and TestFlight delivery.
 
-Likely release target: **0.5.0**, after PR #9 merges and these features are implemented.
-This planning-only push keeps app release metadata unchanged and does not upload to TestFlight.
-
-- [ ] **Prefer catalogue exercises when adding to a workout.**
+- [x] **Prefer catalogue exercises when adding to a workout.**
   Make catalogue search/selection the primary add flow, with an explicit option to create an
   exercise. While entering a name, suggest matching catalogue records using the existing name
   normalization; selecting one attaches its stable ID and initializes its defaults.
@@ -19,8 +16,7 @@ This planning-only push keeps app release metadata unchanged and does not upload
   previous choices; manual plans start with their current exercise count. Draw a new selection
   from the eligible catalogue, not just a new order for the current selection.
   Preview changes and replace only the exercise list on confirmation. Keep the workout's identity,
-  name, warm-up/cool-down, timing defaults, recoveries, notes, rounds, round overrides, logo, and
-  theme. Make treatment of replaced exercises' individual overrides clear in the preview.
+  name, warm-up/cool-down, timing defaults, recoveries, notes, rounds, round overrides, and logo. Make treatment of replaced exercises' individual overrides clear in the preview.
   Verify cancellation, insufficient matches, unique exercises, preserved settings, and one fixed
   order across all rounds. Reuse `WorkoutGenerator` rather than creating another selection engine.
 
@@ -40,10 +36,10 @@ This planning-only push keeps app release metadata unchanged and does not upload
   define image sizing and cleanup while retaining assets referenced by plans/history snapshots.
   Verify cancel/save/relaunch, old-plan defaults, readable colors, and selected-photo privacy.
 
-- [ ] **Choose workout background themes with preview and custom colors.**
+- [ ] **Choose global workout background themes in Settings, with preview and custom colors.**
   Add preset themes and a custom color picker, with previews of work, recovery, and other phases
   before applying. Keep preview changes local until Save and provide a reset to the default theme.
-  Store theme data with backward-compatible plan defaults and use the shared design system for
+  Store theme data in global user preferences with backward-compatible defaults and use the shared design system for
   consistent rendering. Check text/control contrast, light/dark appearance, and distinguishable
   phase colors; coordinate this with the phase-label cleanup below.
 
@@ -86,4 +82,4 @@ Preserve legacy JSON decoding and immutable history snapshots. Add meaningful co
 deterministic UI regressions as implementation lands; retain the 99% core coverage gate and complete
 iPhone/iPad suites before delivery. Check VoiceOver, large text, light/dark mode, and iPad widths;
 verify spoken cues and photo selection on a physical device. Follow `AGENTS.md` for push/TestFlight
-delivery and fresh marketing versions. This planning change does not implement the features above.
+delivery and fresh marketing versions. Theme selection applies globally to every workout, not to individual plans.

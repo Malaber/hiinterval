@@ -272,7 +272,7 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         tap(element("plans.add"))
         waitForExistence(element("plan.editor.screen"))
         replaceText(in: element("plan.editor.name"), with: "Detached catalogue plan")
-        tap(element("plan.editor.exercise.catalogue"), scrolls: true)
+        tap(element("plan.editor.exercise.add"), scrolls: true)
         waitForExistence(element("catalogue.screen"))
         tap(element("catalogue.row.\(CatalogueID.highKnees)"), scrolls: true)
         waitForDisappearance(element("catalogue.screen"), timeout: 8)
@@ -304,6 +304,26 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         tap(element("catalogue.row.\(CatalogueID.highKnees)"), scrolls: true)
         waitForValue("High Knees", on: element("catalogue.editor.name"))
         capture("06-plan-only-name-does-not-rename-catalogue")
+    }
+
+    func testTypedNameSuggestsCatalogueAndCancellingPlanCreatesNothing() {
+        launch()
+        selectTab("plans")
+        tap(element("plans.add"))
+        tap(element("plan.editor.exercise.add"), scrolls: true)
+        tap(element("exercise.choice.create"))
+        let name = element("exercise.editor.name")
+        waitForExistence(app.keyboards.firstMatch)
+        typeText("high knees", intoFocusedField: name)
+        tap(element("exercise.editor.suggestion.\(CatalogueID.highKnees)"), scrolls: true)
+        waitForValue("High Knees", on: name)
+        tapToolbarButton("exercise.editor.save", label: "Done")
+        waitForLabel("Exercise 2, High Knees", on: element("plan.editor.exercise.1"))
+        tapToolbarButton("plan.editor.cancel", label: "Cancel")
+        relaunchPreservingData()
+        openCatalogue()
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'catalogue.row.'")).count, 4)
+        waitForExistence(element("catalogue.row.\(CatalogueID.highKnees)"))
     }
 
     func testCatalogueAndGeneratorRemainUsableAtLargestTextAndIpadLandscape() {

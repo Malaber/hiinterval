@@ -318,7 +318,8 @@ struct CatalogueExerciseEditorView: View {
                     exercise: exercise.makeStep(),
                     defaultWorkSeconds: 40,
                     defaultRecoverySeconds: 20,
-                    isNew: false
+                    isNew: false,
+                    suggestsCatalogue: false
                 ) { edited in
                     exercise.name = edited.name
                     exercise.duration = edited.duration
