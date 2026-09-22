@@ -211,6 +211,10 @@ rules cover their standard locations.
   uses. Saved steps keep their own timing, recovery, side configuration, and notes. Merge live-plan
   references atomically; never rewrite history snapshots. Generation randomizes once into a normal
   plan, so order stays fixed across rounds. Body areas and tags stay out of workout presentation.
+- `AppData.exerciseLabels` owns shared body-area/tag records; exercises attach stable `labelIDs`.
+  Migrate old string arrays without losing associations. Detaching a label retains it for suggestions;
+  saving an exercise commits draft labels atomically, while cancelling must create no records.
+  Use removable pills and existing/general suggestions rather than comma-separated entry fields.
 - History includes a plan snapshot so editing a saved plan does not rewrite completed workouts.
   Preserve selected-plan normalization, history ordering, and CSV escaping/formula protections.
 - Notes start empty and appear during relevant phases only when nonblank. New exercise entry should

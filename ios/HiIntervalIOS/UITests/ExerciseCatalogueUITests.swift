@@ -11,6 +11,8 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
 
     func testMigratesFixtureExercisesIntoUsableCatalogue() {
         launch()
+        selectTab("settings")
+        selectSegment(control: "settings.appearance", option: "Light")
         openCatalogue()
 
         for id in [CatalogueID.highKnees, CatalogueID.reverseLunges, CatalogueID.deadBug, CatalogueID.sidePlank] {
@@ -40,10 +42,10 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         tap(element("catalogue.row.\(CatalogueID.highKnees)"), scrolls: true)
         waitForExistence(element("catalogue.editor.screen"))
         waitForValue("Fast High Knees", on: element("catalogue.editor.name"))
-        waitForExistence(element("catalogue.editor.bodyAreas.pill.legs"))
-        waitForExistence(element("catalogue.editor.bodyAreas.pill.cardio"))
-        waitForExistence(element("catalogue.editor.tags.pill.achilles-recovery"))
-        waitForExistence(element("catalogue.editor.tags.pill.warm-up"))
+        scrollToVisible(element("catalogue.editor.bodyAreas.pill.legs"))
+        scrollToVisible(element("catalogue.editor.bodyAreas.pill.cardio"))
+        scrollToVisible(element("catalogue.editor.tags.pill.achilles-recovery"))
+        scrollToVisible(element("catalogue.editor.tags.pill.warm-up"))
         tapToolbarButton("catalogue.editor.save", label: "Save")
 
         closeCatalogue()
@@ -196,12 +198,12 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
             1,
             "Planning labels should deduplicate case-insensitively."
         )
+        capture("11-selected-label-pills")
         tapToolbarButton("catalogue.editor.save", label: "Save")
         waitForDisappearance(element("catalogue.editor.screen"), timeout: 8)
 
         tap(element("catalogue.row.\(CatalogueID.deadBug)"), scrolls: true)
         waitForExistence(element("catalogue.editor.screen"))
-        waitForExistence(element("catalogue.editor.tags.suggestion.achilles-recovery"))
         tap(element("catalogue.editor.tags.suggestion.achilles-recovery"), scrolls: true)
         waitForExistence(element("catalogue.editor.tags.pill.achilles-recovery"))
         tapToolbarButton("catalogue.editor.save", label: "Save")
@@ -210,7 +212,7 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         relaunchPreservingData()
         openCatalogue()
         tap(element("catalogue.row.\(CatalogueID.deadBug)"), scrolls: true)
-        waitForExistence(element("catalogue.editor.tags.pill.achilles-recovery"))
+        scrollToVisible(element("catalogue.editor.tags.pill.achilles-recovery"))
         tap(element("catalogue.editor.tags.remove.achilles-recovery"), scrolls: true)
         waitForDisappearance(element("catalogue.editor.tags.pill.achilles-recovery"))
         tapToolbarButton("catalogue.editor.save", label: "Save")
@@ -218,7 +220,8 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
 
         // Detaching a label from one exercise must retain it in the shared catalogue.
         tap(element("catalogue.row.\(CatalogueID.deadBug)"), scrolls: true)
-        waitForExistence(element("catalogue.editor.tags.suggestion.achilles-recovery"))
+        scrollToHittable(element("catalogue.editor.tags.suggestion.achilles-recovery"))
+        capture("10-reusable-label-suggestions")
     }
 
     func testCancelledPlanningLabelDoesNotEnterSharedSuggestions() {
@@ -234,6 +237,7 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
 
         tap(element("catalogue.row.\(CatalogueID.highKnees)"), scrolls: true)
         waitForExistence(element("catalogue.editor.screen"))
+        scrollToHittable(element("catalogue.editor.tags"))
         XCTAssertFalse(
             element("catalogue.editor.tags.suggestion.do-not-save").exists,
             "Cancelling an editor must not create a shared planning label."
@@ -307,11 +311,36 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         app.launchEnvironment["HIINTERVAL_UI_TEST_DYNAMIC_TYPE"] = "accessibility5"
         app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         launchConfiguredApplication()
+        selectTab("settings")
+        selectSegment(control: "settings.appearance", option: "Dark")
         selectTab("plans")
         tap(element("catalogue.open"))
         waitForExistence(element("catalogue.screen"))
         scrollToHittable(element("catalogue.row.\(CatalogueID.sidePlank)"))
         capture("07-dynamic-type-catalogue")
+        tap(element("catalogue.row.\(CatalogueID.sidePlank)"))
+        let longLabel = "Upper body mobility and recovery"
+        addPlanningLabel(longLabel, kind: "bodyAreas")
+        let pill = element("catalogue.editor.bodyAreas.pill.upper-body-mobility-and-recovery")
+        let remove = element("catalogue.editor.bodyAreas.remove.upper-body-mobility-and-recovery")
+        scrollToHittable(remove)
+        let form = element("catalogue.editor.screen")
+        XCTAssertGreaterThanOrEqual(pill.frame.minX, form.frame.minX)
+        XCTAssertLessThanOrEqual(pill.frame.maxX, form.frame.maxX)
+        waitForLabel("Remove \(longLabel)", on: remove)
+        capture("12-dynamic-type-dark-label-pill")
+        if app.frame.width > 700 {
+            XCUIDevice.shared.orientation = .landscapeLeft
+            defer { XCUIDevice.shared.orientation = .portrait }
+            scrollToHittable(remove)
+            XCTAssertGreaterThanOrEqual(pill.frame.minX, form.frame.minX)
+            XCTAssertLessThanOrEqual(pill.frame.maxX, form.frame.maxX)
+            capture("13-ipad-landscape-label-pill")
+        }
+        tap(remove)
+        waitForDisappearance(pill)
+        tapToolbarButton("catalogue.editor.cancel", label: "Cancel")
+        waitForDisappearance(element("catalogue.editor.screen"))
         closeCatalogue()
         tap(element("generator.open"))
         waitForExistence(element("generator.screen"))

@@ -4,7 +4,7 @@
 
 - Add a local exercise catalogue shared by every saved plan. Existing exercise occurrences
   migrate separately; users decide which duplicates are the same exercise by merging them.
-- Catalogue records own the shared name, body areas, custom tags, and defaults for new uses.
+- Catalogue records own the shared name and defaults, with ID links to shared body areas and tags.
   Each plan occurrence retains its own duration, recovery, side split, and notes.
 - Merge into an explicitly chosen record: use its name/defaults, combine labels, and redirect
   all saved-plan references. Historical snapshots remain immutable. Catalogue renaming updates
@@ -42,3 +42,15 @@
   narrow that pool, and insufficient matches produce a clear error instead of repeats.
 - Generated rounds use the same exercise order. Session presentation contains no planning tags.
 - Cancelling catalogue edits or a generated-plan preview does not save draft changes.
+
+## 0.4.1 follow-up: shared planning labels
+
+- Introduce independent body-area/tag records and exercise ID attachments. Deduplicate old labels
+  by normalized name within their kind; preserve history and all existing exercise defaults.
+- Replace comma-separated fields with one removable pill per label, existing catalogue suggestions,
+  common starter suggestions, and single-label custom entry. Cancelling discards drafts; detaching
+  leaves labels available for reuse. Saving also commits any unfinished single-label input.
+- Resolve generator filters and alternation through shared IDs. Use subtle, consistently tinted
+  workout-reference pills with readable text in the catalogue list.
+- Verify migration/round trips, merge/filter behavior, reuse/removal/cancellation, Dynamic Type,
+  and both complete device suites before delivering a fresh 0.4.1 TestFlight upload.

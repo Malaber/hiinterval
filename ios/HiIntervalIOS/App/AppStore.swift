@@ -117,10 +117,10 @@ final class AppStore: ObservableObject {
     }
 
     @discardableResult
-    func saveCatalogueExercise(_ exercise: CatalogueExercise) -> Bool {
+    func saveCatalogueExercise(_ exercise: CatalogueExercise, labels: [ExerciseLabel] = []) -> Bool {
         do {
             var updated = data
-            try updated.saveCatalogueExercise(exercise)
+            try updated.saveCatalogueExercise(exercise, labels: labels)
             stampChangedPlans(in: &updated)
             data = updated
             lastErrorMessage = nil

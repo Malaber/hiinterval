@@ -7,6 +7,7 @@ struct ExerciseCatalogueView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var query = ""
     @State private var editor: CatalogueEditorDestination?
@@ -24,8 +25,7 @@ struct ExerciseCatalogueView: View {
         guard !needle.isEmpty else { return store.data.exerciseCatalogue }
         return store.data.exerciseCatalogue.filter {
             $0.name.localizedCaseInsensitiveContains(needle)
-                || $0.bodyAreas.contains { $0.localizedCaseInsensitiveContains(needle) }
-                || $0.tags.contains { $0.localizedCaseInsensitiveContains(needle) }
+                || store.data.labels(for: $0).contains { $0.name.localizedCaseInsensitiveContains(needle) }
         }
     }
 
@@ -92,8 +92,11 @@ struct ExerciseCatalogueView: View {
         }
         .sheet(item: $editor) { destination in
             NavigationStack {
-                CatalogueExerciseEditorView(exercise: destination.exercise) { saved in
-                    if store.saveCatalogueExercise(saved) { editor = nil }
+                CatalogueExerciseEditorView(
+                    exercise: destination.exercise,
+                    labels: destination.exercise.map { store.data.labels(for: $0) } ?? []
+                ) { saved, labels in
+                    if store.saveCatalogueExercise(saved, labels: labels) { editor = nil }
                 }
             }
             .tint(PlanPalette.accent)
@@ -143,23 +146,32 @@ struct ExerciseCatalogueView: View {
                         .font(.title3)
                         .accessibilityHidden(true)
                 }
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 7) {
                     Text(exercise.name).font(.body.weight(.medium)).foregroundStyle(.primary)
-                    if !exercise.bodyAreas.isEmpty || !exercise.tags.isEmpty {
-                        Text((exercise.bodyAreas + exercise.tags).joined(separator: " · "))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                    let labels = store.data.labels(for: exercise)
+                    if !labels.isEmpty {
+                        HIPillLayout(spacing: 6) {
+                            ForEach(labels) { label in
+                                Text(label.name)
+                                    .font(.caption)
+                                    .foregroundStyle(HITheme.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 9))
+                            }
+                        }
                     }
-                    let plans = linkedPlanNames(for: exercise.id)
+                    let plans = linkedPlans(for: exercise.id)
                     if !plans.isEmpty {
-                        Text("Used in \(plans.joined(separator: ", "))")
-                            .font(.caption2)
-                            .foregroundStyle(PlanPalette.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                        HIPillLayout(spacing: 6) {
+                            ForEach(plans) { plan in
+                                workoutPill(plan, exerciseID: exercise.id)
+                            }
+                        }
                     }
                 }
-                Spacer()
+                .frame(maxWidth: .infinity, alignment: .leading)
                 if !selectionMode && !dynamicTypeSize.isAccessibilitySize {
                     Image(systemName: "chevron.right")
                         .font(.caption)
@@ -178,14 +190,34 @@ struct ExerciseCatalogueView: View {
         if selectedIDs.contains(id) { selectedIDs.remove(id) } else { selectedIDs.insert(id) }
     }
 
-    private func linkedPlanNames(for catalogueID: UUID) -> [String] {
+    private func workoutPill(_ plan: WorkoutPlan, exerciseID: UUID) -> some View {
+        let tint = PlanPalette.workoutTint(for: plan.id)
+        return HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Image(systemName: "rectangle.stack")
+                .foregroundStyle(tint)
+                .accessibilityHidden(true)
+            Text(plan.name)
+                .foregroundStyle(HITheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.caption2)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(tint.opacity(colorScheme == .dark ? 0.14 : 0.09), in: RoundedRectangle(cornerRadius: 9))
+        .overlay { RoundedRectangle(cornerRadius: 9).strokeBorder(tint.opacity(0.15)) }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Used in \(plan.name)")
+        .accessibilityIdentifier("catalogue.usage.\(exerciseID.uuidString).\(plan.id.uuidString)")
+    }
+
+    private func linkedPlans(for catalogueID: UUID) -> [WorkoutPlan] {
         store.data.plans.filter { plan in
             plan.exercises.contains { $0.catalogueExerciseID == catalogueID }
-        }.map(\.name)
+        }
     }
 
     private func mergeTargetLabel(_ exercise: CatalogueExercise) -> String {
-        let plans = linkedPlanNames(for: exercise.id)
+        let plans = linkedPlans(for: exercise.id).map(\.name)
         let context = plans.isEmpty ? "Catalogue only" : plans.joined(separator: ", ")
         return "Keep \(exercise.name) · \(context)"
     }
@@ -202,18 +234,22 @@ struct CatalogueExerciseEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: AppStore
     @FocusState private var focusedField: Field?
-    let onSave: (CatalogueExercise) -> Void
+    let onSave: (CatalogueExercise, [ExerciseLabel]) -> Void
     private let isNew: Bool
     @State private var exercise: CatalogueExercise
-    @State private var bodyAreasText: String
-    @State private var tagsText: String
+    @State private var selectedLabels: [ExerciseLabel]
+    @State private var bodyAreasText = ""
+    @State private var tagsText = ""
     @State private var showsDefaultsEditor = false
 
-    init(exercise: CatalogueExercise?, onSave: @escaping (CatalogueExercise) -> Void) {
+    init(
+        exercise: CatalogueExercise?,
+        labels: [ExerciseLabel] = [],
+        onSave: @escaping (CatalogueExercise, [ExerciseLabel]) -> Void
+    ) {
         let entry = exercise ?? CatalogueExercise(name: "")
         _exercise = State(initialValue: entry)
-        _bodyAreasText = State(initialValue: entry.bodyAreas.joined(separator: ", "))
-        _tagsText = State(initialValue: entry.tags.joined(separator: ", "))
+        _selectedLabels = State(initialValue: labels)
         self.isNew = exercise == nil
         self.onSave = onSave
     }
@@ -232,26 +268,18 @@ struct CatalogueExerciseEditorView: View {
             } footer: {
                 Text("Renaming updates every linked saved plan. Timing, sides, and notes below are defaults for new uses; existing plan settings and completed workouts stay unchanged.")
             }
-            Section {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Body areas").font(.caption).foregroundStyle(PlanPalette.secondary)
-                    TextField("e.g. arms, legs", text: $bodyAreasText, axis: .vertical)
-                        .lineLimit(1...3)
-                        .accessibilityLabel("Body areas")
-                        .accessibilityIdentifier("catalogue.editor.bodyAreas")
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Tags").font(.caption).foregroundStyle(PlanPalette.secondary)
-                    TextField("e.g. achilles recovery", text: $tagsText, axis: .vertical)
-                        .lineLimit(1...3)
-                        .accessibilityLabel("Tags")
-                        .accessibilityIdentifier("catalogue.editor.tags")
-                }
-            } header: {
-                Text("Planning")
-            } footer: {
-                Text("Separate entries with commas. These are used while planning and are hidden during training.")
-            }
+            ExerciseLabelPicker(
+                kind: .bodyArea,
+                available: store.data.exerciseLabels,
+                selection: $selectedLabels,
+                query: $bodyAreasText
+            )
+            ExerciseLabelPicker(
+                kind: .tag,
+                available: store.data.exerciseLabels,
+                selection: $selectedLabels,
+                query: $tagsText
+            )
             Section("Exercise defaults") {
                 Button { showsDefaultsEditor = true } label: {
                     Label("Set timing, sides, and notes", systemImage: "slider.horizontal.3")
@@ -270,7 +298,10 @@ struct CatalogueExerciseEditorView: View {
         .navigationTitle(isNew ? "Add catalogue exercise" : "Edit catalogue exercise")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") { dismiss() }
+                    .accessibilityIdentifier("catalogue.editor.cancel")
+            }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save", action: save).fontWeight(.semibold).disabled(!isValid)
                     .accessibilityIdentifier("catalogue.editor.save")
@@ -304,9 +335,19 @@ struct CatalogueExerciseEditorView: View {
 
     private func save() {
         exercise.name = exercise.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        exercise.bodyAreas = commaSeparatedTerms(bodyAreasText)
-        exercise.tags = commaSeparatedTerms(tagsText)
-        onSave(exercise)
+        // Save also commits unfinished single-label input, so leaving the keyboard open never
+        // loses a label. The store resolves draft IDs against its shared catalogue atomically.
+        for (name, kind) in [(bodyAreasText, ExerciseLabel.Kind.bodyArea), (tagsText, .tag)] {
+            if let label = ExerciseLabelPicker.resolveLabel(
+                name: name,
+                kind: kind,
+                available: store.data.exerciseLabels + selectedLabels
+            ), !selectedLabels.contains(where: { $0.id == label.id }) {
+                selectedLabels.append(label)
+            }
+        }
+        exercise.labelIDs = selectedLabels.map(\.id)
+        onSave(exercise, selectedLabels)
     }
 
     private var defaultsSummary: String {
@@ -315,7 +356,4 @@ struct CatalogueExerciseEditorView: View {
         return "\(work) · \(sides)"
     }
 
-    private func commaSeparatedTerms(_ value: String) -> [String] {
-        value.split(separator: ",").map { String($0) }
-    }
 }

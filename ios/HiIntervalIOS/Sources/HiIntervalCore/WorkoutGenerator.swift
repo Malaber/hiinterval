@@ -2,18 +2,18 @@ import Foundation
 
 public struct WorkoutGenerationOptions: Equatable, Sendable {
     public var exerciseCount: Int
-    public var requiredTags: Set<String>
-    public var excludedTags: Set<String>
+    public var requiredTagIDs: Set<UUID>
+    public var excludedTagIDs: Set<UUID>
     public var alternateBodyAreas: Bool
     public init(
         exerciseCount: Int = 6,
-        requiredTags: Set<String> = [],
-        excludedTags: Set<String> = [],
+        requiredTagIDs: Set<UUID> = [],
+        excludedTagIDs: Set<UUID> = [],
         alternateBodyAreas: Bool = true
     ) {
         self.exerciseCount = exerciseCount
-        self.requiredTags = requiredTags
-        self.excludedTags = excludedTags
+        self.requiredTagIDs = requiredTagIDs
+        self.excludedTagIDs = excludedTagIDs
         self.alternateBodyAreas = alternateBodyAreas
     }
 }
@@ -32,13 +32,15 @@ public enum WorkoutGenerationError: Error, Equatable, LocalizedError, Sendable {
 public enum WorkoutGenerator {
     public static func eligibleExercises(
         in catalogue: [CatalogueExercise],
+        labels: [ExerciseLabel],
         options: WorkoutGenerationOptions
     ) -> [CatalogueExercise] {
-        let required = normalized(options.requiredTags)
-        let excluded = normalized(options.excludedTags)
+        let knownTagIDs = Set(labels.filter { $0.kind == .tag }.map(\.id))
+        let required = options.requiredTagIDs
+        let excluded = options.excludedTagIDs
         var seen = Set<UUID>()
         return catalogue.filter { exercise in
-            let tags = normalized(Set(exercise.tags))
+            let tags = Set(exercise.labelIDs).intersection(knownTagIDs)
             return seen.insert(exercise.id).inserted
                 && required.isSubset(of: tags)
                 && excluded.isDisjoint(with: tags)
@@ -47,11 +49,12 @@ public enum WorkoutGenerator {
 
     public static func generate<R: RandomNumberGenerator>(
         from catalogue: [CatalogueExercise],
+        labels: [ExerciseLabel],
         options: WorkoutGenerationOptions = WorkoutGenerationOptions(),
         using random: inout R
     ) throws -> WorkoutPlan {
         guard options.exerciseCount > 0 else { throw WorkoutGenerationError.invalidExerciseCount }
-        var choices = eligibleExercises(in: catalogue, options: options)
+        var choices = eligibleExercises(in: catalogue, labels: labels, options: options)
         guard choices.count >= options.exerciseCount else {
             throw WorkoutGenerationError.insufficientEligibleExercises(available: choices.count, requested: options.exerciseCount)
         }
@@ -60,10 +63,10 @@ public enum WorkoutGenerator {
         while selected.count < options.exerciseCount {
             let next: CatalogueExercise
             if options.alternateBodyAreas, let previous = selected.last,
-               !normalized(previous.bodyAreas).isEmpty,
+               !bodyAreaIDs(for: previous, in: labels).isEmpty,
                let index = choices.firstIndex(where: { candidate in
-                   let areas = normalized(candidate.bodyAreas)
-                   return !areas.isEmpty && Set(areas).isDisjoint(with: Set(normalized(previous.bodyAreas)))
+                   let areas = bodyAreaIDs(for: candidate, in: labels)
+                   return !areas.isEmpty && areas.isDisjoint(with: bodyAreaIDs(for: previous, in: labels))
                }) {
                 next = choices.remove(at: index)
             } else {
@@ -81,16 +84,14 @@ public enum WorkoutGenerator {
 
     public static func generate(
         from catalogue: [CatalogueExercise],
+        labels: [ExerciseLabel],
         options: WorkoutGenerationOptions = WorkoutGenerationOptions()
     ) throws -> WorkoutPlan {
         var random = SystemRandomNumberGenerator()
-        return try generate(from: catalogue, options: options, using: &random)
+        return try generate(from: catalogue, labels: labels, options: options, using: &random)
     }
 
-    private static func normalized(_ values: Set<String>) -> Set<String> {
-        Set(values.map(CatalogueExercise.normalizedLabel).filter { !$0.isEmpty })
-    }
-    private static func normalized(_ values: [String]) -> [String] {
-        CatalogueExercise.normalizedTerms(values).map(CatalogueExercise.normalizedLabel)
+    private static func bodyAreaIDs(for exercise: CatalogueExercise, in labels: [ExerciseLabel]) -> Set<UUID> {
+        Set(exercise.labelIDs).intersection(labels.lazy.filter { $0.kind == .bodyArea }.map(\.id))
     }
 }

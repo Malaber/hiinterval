@@ -3,8 +3,7 @@ import Foundation
 public struct CatalogueExercise: Codable, Equatable, Identifiable, Sendable {
     public var id: UUID
     public var name: String
-    public var bodyAreas: [String]
-    public var tags: [String]
+    public var labelIDs: [UUID]
     public var duration: DurationSetting
     public var recovery: RecoverySetting
     public var sideConfiguration: SideConfiguration
@@ -13,8 +12,7 @@ public struct CatalogueExercise: Codable, Equatable, Identifiable, Sendable {
     public init(
         id: UUID = UUID(),
         name: String,
-        bodyAreas: [String] = [],
-        tags: [String] = [],
+        labelIDs: [UUID] = [],
         duration: DurationSetting = .planDefault,
         recovery: RecoverySetting = .planDefault,
         sideConfiguration: SideConfiguration = .together,
@@ -22,8 +20,7 @@ public struct CatalogueExercise: Codable, Equatable, Identifiable, Sendable {
     ) {
         self.id = id
         self.name = name
-        self.bodyAreas = bodyAreas
-        self.tags = tags
+        self.labelIDs = labelIDs
         self.duration = duration
         self.recovery = recovery
         self.sideConfiguration = sideConfiguration
@@ -55,27 +52,53 @@ public struct CatalogueExercise: Codable, Equatable, Identifiable, Sendable {
     public func normalized() -> CatalogueExercise {
         var value = self
         value.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        value.bodyAreas = Self.normalizedTerms(bodyAreas)
-        value.tags = Self.normalizedTerms(tags)
+        value.labelIDs = Self.uniqueIDs(labelIDs)
         return value
     }
 
-    static func normalizedTerms(_ values: [String]) -> [String] {
-        var seen = Set<String>()
-        return values.compactMap { raw in
-            let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !value.isEmpty, seen.insert(Self.normalizedLabel(value)).inserted else {
-                return nil
-            }
-            return value
-        }
+    private enum CodingKeys: String, CodingKey {
+        case id, name, labelIDs, duration, recovery, sideConfiguration, notes
+        case bodyAreas, tags
     }
 
-    static func normalizedLabel(_ value: String) -> String {
-        value.trimmingCharacters(in: .whitespacesAndNewlines).folding(
-            options: [.caseInsensitive, .diacriticInsensitive],
-            locale: Locale(identifier: "en_US_POSIX")
-        )
+    private var legacyBodyAreas: [String] = []
+    private var legacyTags: [String] = []
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        name = try values.decode(String.self, forKey: .name)
+        labelIDs = try values.decodeIfPresent([UUID].self, forKey: .labelIDs) ?? []
+        duration = try values.decodeIfPresent(DurationSetting.self, forKey: .duration) ?? .planDefault
+        recovery = try values.decodeIfPresent(RecoverySetting.self, forKey: .recovery) ?? .planDefault
+        sideConfiguration = try values.decodeIfPresent(SideConfiguration.self, forKey: .sideConfiguration) ?? .together
+        notes = try values.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        legacyBodyAreas = try values.decodeIfPresent([String].self, forKey: .bodyAreas) ?? []
+        legacyTags = try values.decodeIfPresent([String].self, forKey: .tags) ?? []
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(id, forKey: .id)
+        try values.encode(name, forKey: .name)
+        try values.encode(labelIDs, forKey: .labelIDs)
+        try values.encode(duration, forKey: .duration)
+        try values.encode(recovery, forKey: .recovery)
+        try values.encode(sideConfiguration, forKey: .sideConfiguration)
+        try values.encode(notes, forKey: .notes)
+    }
+
+    mutating func migrateLegacyLabels(using resolve: (String, ExerciseLabel.Kind) -> UUID?) {
+        labelIDs += legacyBodyAreas.compactMap { resolve($0, .bodyArea) }
+        labelIDs += legacyTags.compactMap { resolve($0, .tag) }
+        labelIDs = Self.uniqueIDs(labelIDs)
+        legacyBodyAreas = []
+        legacyTags = []
+    }
+
+    private static func uniqueIDs(_ ids: [UUID]) -> [UUID] {
+        var seen = Set<UUID>()
+        return ids.filter { seen.insert($0).inserted }
     }
 }
 

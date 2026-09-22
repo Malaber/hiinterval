@@ -5,7 +5,7 @@ Native iPhone and iPad HIIT timer. Fast planning, glanceable training, local his
 ## Product
 
 - Build reusable workouts with configurable warm-up, work, recovery, round recovery, cool-down, rounds, and exercise order.
-- Maintain a shared exercise catalogue, merge duplicates across plans, and label exercises with body areas and custom tags.
+- Maintain a shared exercise catalogue, merge duplicates across plans, and attach shared body areas and custom tags using removable pills and suggestions.
 - Generate random workouts from tag-filtered exercises, optionally alternating body areas; preview and edit before saving. Exercise order stays fixed across rounds.
 - Override individual exercise duration/recovery.
 - Split exercises or selected rounds into deterministic left/right phases, including switch time.
@@ -54,11 +54,11 @@ Generated project uses scheme `HiInterval` and defaults to bundle ID `de.malaber
 .venv/bin/inv check
 
 # Local Xcode archive, automatic signing, and TestFlight upload
-.venv/bin/inv upload-testflight --marketing-version=0.4.0 --build-number=1
+.venv/bin/inv upload-testflight --marketing-version=0.4.1 --build-number=1
 ```
 
-Local upload requires configured Xcode Apple account with access to team `VWKG94374J`. Use a new
-build number for every later upload of same marketing version. Signed archive stays in printed
+Local upload requires configured Xcode Apple account with access to team `VWKG94374J`. Every later upload needs a fresh
+marketing version, increased by at least one SemVer patch; never upload a marketing version twice. Signed archive stays in printed
 temporary path. Helper forces macOS system `rsync`; Homebrew `rsync` is incompatible with Xcode's
 extended-attribute packaging flags.
 

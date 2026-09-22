@@ -11,13 +11,17 @@ struct WorkoutGeneratorView: View {
     @State private var errorMessage: String?
     @State private var showsCatalogue = false
 
-    private var tags: [String] {
-        CatalogueExercise(name: "", tags: store.data.exerciseCatalogue.flatMap(\.tags))
-            .normalized().tags.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    private var tags: [ExerciseLabel] {
+        store.data.exerciseLabels.filter { $0.kind == .tag }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     private var eligibleCount: Int {
-        WorkoutGenerator.eligibleExercises(in: store.data.exerciseCatalogue, options: options).count
+        WorkoutGenerator.eligibleExercises(
+            in: store.data.exerciseCatalogue,
+            labels: store.data.exerciseLabels,
+            options: options
+        ).count
     }
 
     var body: some View {
@@ -70,8 +74,9 @@ struct WorkoutGeneratorView: View {
         .navigationTitle("Generate workout")
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: tags) { _, availableTags in
-            options.requiredTags = matchingTags(options.requiredTags, in: availableTags)
-            options.excludedTags = matchingTags(options.excludedTags, in: availableTags)
+            let availableIDs = Set(availableTags.map(\.id))
+            options.requiredTagIDs.formIntersection(availableIDs)
+            options.excludedTagIDs.formIntersection(availableIDs)
             errorMessage = nil
         }
         .toolbar {
@@ -106,45 +111,40 @@ struct WorkoutGeneratorView: View {
         .accessibilityIdentifier("generator.screen")
     }
 
-    private func tagSection(title: String, selected: Binding<Set<String>>) -> some View {
+    private func tagSection(title: String, selected: Binding<Set<UUID>>) -> some View {
         Section(title) {
-            ForEach(tags, id: \.self) { tag in
-                Toggle(tag, isOn: Binding(
-                    get: { selected.wrappedValue.contains(tag) },
+            ForEach(tags) { tag in
+                Toggle(tag.name, isOn: Binding(
+                    get: { selected.wrappedValue.contains(tag.id) },
                     set: { enabled in
-                        if enabled { selected.wrappedValue.insert(tag) }
-                        else { selected.wrappedValue.remove(tag) }
+                        if enabled { selected.wrappedValue.insert(tag.id) }
+                        else { selected.wrappedValue.remove(tag.id) }
                     }
                 ))
-                .accessibilityIdentifier("generator.\(title.hasPrefix("Must") ? "requiredTags" : "excludedTags").\(stableID(tag))")
+                .accessibilityIdentifier("generator.\(title.hasPrefix("Must") ? "requiredTags" : "excludedTags").\(stableID(tag.name))")
             }
         }
     }
 
-    private var requiredTags: Binding<Set<String>> {
-        Binding(get: { options.requiredTags }, set: { options.requiredTags = $0 })
+    private var requiredTags: Binding<Set<UUID>> {
+        Binding(get: { options.requiredTagIDs }, set: { options.requiredTagIDs = $0 })
     }
 
-    private var excludedTags: Binding<Set<String>> {
-        Binding(get: { options.excludedTags }, set: { options.excludedTags = $0 })
+    private var excludedTags: Binding<Set<UUID>> {
+        Binding(get: { options.excludedTagIDs }, set: { options.excludedTagIDs = $0 })
     }
 
     private func stableID(_ text: String) -> String {
         text.lowercased().map { $0.isLetter || $0.isNumber ? String($0) : "-" }.joined()
     }
 
-    private func matchingTags(_ selection: Set<String>, in available: [String]) -> Set<String> {
-        Set(available.filter { tag in
-            selection.contains {
-                tag.compare($0, options: [.caseInsensitive, .diacriticInsensitive],
-                            locale: Locale(identifier: "en_US_POSIX")) == .orderedSame
-            }
-        })
-    }
-
     private func generate() {
         do {
-            generatedPlan = try WorkoutGenerator.generate(from: store.data.exerciseCatalogue, options: options)
+            generatedPlan = try WorkoutGenerator.generate(
+                from: store.data.exerciseCatalogue,
+                labels: store.data.exerciseLabels,
+                options: options
+            )
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription

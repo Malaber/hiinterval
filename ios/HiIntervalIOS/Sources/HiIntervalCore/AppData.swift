@@ -7,6 +7,7 @@ public struct AppData: Codable, Equatable, Sendable {
     public var usage: UsageRecord
     public var selectedPlanID: UUID?
     public var exerciseCatalogue: [CatalogueExercise]
+    public var exerciseLabels: [ExerciseLabel]
 
     public init(
         plans: [WorkoutPlan] = [],
@@ -14,7 +15,8 @@ public struct AppData: Codable, Equatable, Sendable {
         preferences: UserPreferences = UserPreferences(),
         usage: UsageRecord = UsageRecord(),
         selectedPlanID: UUID? = nil,
-        exerciseCatalogue: [CatalogueExercise] = []
+        exerciseCatalogue: [CatalogueExercise] = [],
+        exerciseLabels: [ExerciseLabel] = []
     ) {
         self.plans = plans
         self.history = history
@@ -22,11 +24,12 @@ public struct AppData: Codable, Equatable, Sendable {
         self.usage = usage
         self.selectedPlanID = selectedPlanID
         self.exerciseCatalogue = exerciseCatalogue
+        self.exerciseLabels = exerciseLabels
         synchronizeExerciseCatalogue()
     }
 
     private enum CodingKeys: String, CodingKey {
-        case plans, history, preferences, usage, selectedPlanID, exerciseCatalogue
+        case plans, history, preferences, usage, selectedPlanID, exerciseCatalogue, exerciseLabels
     }
 
     public init(from decoder: Decoder) throws {
@@ -37,14 +40,32 @@ public struct AppData: Codable, Equatable, Sendable {
         usage = try values.decode(UsageRecord.self, forKey: .usage)
         selectedPlanID = try values.decodeIfPresent(UUID.self, forKey: .selectedPlanID)
         exerciseCatalogue = try values.decodeIfPresent([CatalogueExercise].self, forKey: .exerciseCatalogue) ?? []
+        exerciseLabels = try values.decodeIfPresent([ExerciseLabel].self, forKey: .exerciseLabels) ?? []
         synchronizeExerciseCatalogue()
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(plans, forKey: .plans)
+        try values.encode(history, forKey: .history)
+        try values.encode(preferences, forKey: .preferences)
+        try values.encode(usage, forKey: .usage)
+        try values.encodeIfPresent(selectedPlanID, forKey: .selectedPlanID)
+        try values.encode(exerciseCatalogue, forKey: .exerciseCatalogue)
+        try values.encode(exerciseLabels, forKey: .exerciseLabels)
     }
 
     /// Ensures every live plan step has a stable catalogue entry while leaving historical snapshots intact.
     public mutating func synchronizeExerciseCatalogue() {
+        normalizeExerciseLabels()
         var entries: [UUID: CatalogueExercise] = [:]
         for entry in exerciseCatalogue where entries[entry.id] == nil {
-            entries[entry.id] = entry.normalized()
+            var normalized = entry.normalized()
+            migrateLegacyLabels(on: &normalized)
+            normalized.labelIDs = normalized.labelIDs.filter { labelID in
+                exerciseLabels.contains(where: { $0.id == labelID })
+            }
+            entries[normalized.id] = normalized
         }
         for planIndex in plans.indices {
             for stepIndex in plans[planIndex].exercises.indices {
@@ -79,7 +100,13 @@ public struct AppData: Codable, Equatable, Sendable {
         }
     }
 
-    public mutating func saveCatalogueExercise(_ entry: CatalogueExercise) throws {
+    public func labels(for exercise: CatalogueExercise, kind: ExerciseLabel.Kind? = nil) -> [ExerciseLabel] {
+        exercise.labelIDs.compactMap { id in
+            exerciseLabels.first(where: { $0.id == id })
+        }.filter { kind == nil || $0.kind == kind }
+    }
+
+    public mutating func saveCatalogueExercise(_ entry: CatalogueExercise, labels: [ExerciseLabel] = []) throws {
         let normalized = entry.normalized()
         guard !normalized.name.isEmpty else { throw ExerciseCatalogueError.emptyName }
         do {
@@ -87,15 +114,47 @@ public struct AppData: Codable, Equatable, Sendable {
         } catch let error as LocalizedError {
             throw ExerciseCatalogueError.invalidConfiguration(error.errorDescription ?? "Invalid exercise configuration.")
         }
-        if let index = exerciseCatalogue.firstIndex(where: { $0.id == normalized.id }) {
-            exerciseCatalogue[index] = normalized
-        } else {
-            exerciseCatalogue.append(normalized)
+
+        var nextLabels = exerciseLabels
+        var canonicalByKey: [String: ExerciseLabel] = [:]
+        for label in nextLabels where canonicalByKey[labelKey(label)] == nil {
+            canonicalByKey[labelKey(label)] = label
         }
+        var knownIDs = Set(nextLabels.map(\.id))
+        var remappedIDs: [UUID: UUID] = [:]
+        for draft in labels.map({ $0.normalized() }) where !draft.name.isEmpty {
+            // Drafts normally receive fresh IDs in the UI. Preserve the first valid
+            // definition when malformed input reuses one, just like persisted labels.
+            guard remappedIDs[draft.id] == nil else { continue }
+            let key = labelKey(draft)
+            if let canonical = canonicalByKey[key] {
+                remappedIDs[draft.id] = canonical.id
+            } else {
+                var canonical = draft
+                if knownIDs.contains(canonical.id) { canonical.id = UUID() }
+                nextLabels.append(canonical)
+                knownIDs.insert(canonical.id)
+                canonicalByKey[key] = canonical
+                remappedIDs[draft.id] = canonical.id
+            }
+        }
+        var saved = normalized
+        saved.labelIDs = saved.labelIDs.compactMap { id in
+            let resolved = remappedIDs[id] ?? id
+            return knownIDs.contains(resolved) ? resolved : nil
+        }
+        var seenLabelIDs = Set<UUID>()
+        saved.labelIDs = saved.labelIDs.filter { seenLabelIDs.insert($0).inserted }
+        if let index = exerciseCatalogue.firstIndex(where: { $0.id == saved.id }) {
+            exerciseCatalogue[index] = saved
+        } else {
+            exerciseCatalogue.append(saved)
+        }
+        exerciseLabels = nextLabels
         for planIndex in plans.indices {
             for stepIndex in plans[planIndex].exercises.indices
-            where plans[planIndex].exercises[stepIndex].catalogueExerciseID == normalized.id {
-                plans[planIndex].exercises[stepIndex].name = normalized.name
+            where plans[planIndex].exercises[stepIndex].catalogueExerciseID == saved.id {
+                plans[planIndex].exercises[stepIndex].name = saved.name
             }
         }
     }
@@ -110,8 +169,9 @@ public struct AppData: Codable, Equatable, Sendable {
             throw ExerciseCatalogueError.missingExercise(missingID)
         }
         let sources = exerciseCatalogue.filter { sourceIDs.contains($0.id) && $0.id != targetID }
-        target.bodyAreas = CatalogueExercise.normalizedTerms(target.bodyAreas + sources.flatMap(\.bodyAreas))
-        target.tags = CatalogueExercise.normalizedTerms(target.tags + sources.flatMap(\.tags))
+        target.labelIDs += sources.flatMap(\.labelIDs)
+        var seenLabelIDs = Set<UUID>()
+        target.labelIDs = target.labelIDs.filter { seenLabelIDs.insert($0).inserted }
         try saveCatalogueExercise(target)
         for planIndex in plans.indices {
             for stepIndex in plans[planIndex].exercises.indices {
@@ -122,6 +182,52 @@ public struct AppData: Codable, Equatable, Sendable {
             }
         }
         exerciseCatalogue.removeAll { sourceIDs.contains($0.id) && $0.id != targetID }
+    }
+
+    private mutating func normalizeExerciseLabels() {
+        var labels: [ExerciseLabel] = []
+        var canonicalByKey: [String: ExerciseLabel] = [:]
+        var remappedIDs: [UUID: UUID] = [:]
+        for original in exerciseLabels {
+            let label = original.normalized()
+            guard !label.name.isEmpty else { continue }
+            // A persisted UUID identifies one record. If malformed data reuses it for
+            // multiple records, retain its first valid definition deterministically.
+            guard remappedIDs[original.id] == nil else { continue }
+            let key = labelKey(label)
+            if let canonical = canonicalByKey[key] {
+                remappedIDs[original.id] = canonical.id
+            } else {
+                labels.append(label)
+                canonicalByKey[key] = label
+                remappedIDs[original.id] = label.id
+            }
+        }
+        exerciseLabels = labels
+        if !remappedIDs.isEmpty {
+            for index in exerciseCatalogue.indices {
+                exerciseCatalogue[index].labelIDs = exerciseCatalogue[index].labelIDs.compactMap { id in
+                    let resolved = remappedIDs[id] ?? id
+                    return labels.contains(where: { $0.id == resolved }) ? resolved : nil
+                }
+            }
+        }
+    }
+
+    private mutating func migrateLegacyLabels(on exercise: inout CatalogueExercise) {
+        exercise.migrateLegacyLabels { name, kind in
+            let normalized = ExerciseLabel(name: name, kind: kind).normalized()
+            guard !normalized.name.isEmpty else { return nil }
+            if let existing = exerciseLabels.first(where: { labelKey($0) == labelKey(normalized) }) {
+                return existing.id
+            }
+            exerciseLabels.append(normalized)
+            return normalized.id
+        }
+    }
+
+    private func labelKey(_ label: ExerciseLabel) -> String {
+        "\(label.kind.rawValue)|\(ExerciseLabel.normalizedName(label.name))"
     }
 
     public static func starter(now: Date = Date()) -> AppData {

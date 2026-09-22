@@ -31,9 +31,16 @@ Future schema changes should decode old payloads into `AppData`, normalize selec
 
 Current app constructs `EntitlementPolicy()` with `monetizationEnabled == false`; every workout is allowed. Future StoreKit work should map verified transaction state to `UsageRecord.purchasedUnlimited`, enable policy through explicit release configuration, and keep StoreKit outside `HiIntervalCore`.
 
-## Exercise catalogue (0.4.0)
+## Exercise catalogue (0.4.1)
 
-`AppData.exerciseCatalogue` owns exercise names, body areas, custom tags, and defaults.
+`AppData.exerciseCatalogue` owns exercise names and defaults. `AppData.exerciseLabels` stores shared
+`ExerciseLabel` records with stable IDs and a body-area/tag kind; exercises attach `labelIDs` rather
+than copying label strings. Legacy string arrays migrate into this catalogue, deduplicated by kind
+and normalized name. Detaching the last exercise retains the label for reuse. Editor drafts commit
+new labels and exercise attachments together on Save; cancelling creates no catalogue records.
+The editor displays removable pills and filtered existing/general suggestions. Workout references
+use small pills with a stable tint derived from each plan's ID and semantic, readable text.
+
 `ExerciseStep.catalogueExerciseID` links a saved-plan occurrence to shared identity while retaining
 its own timing, recovery, side configuration, and notes. Old saved plans migrate on decoding, one
 record per existing occurrence; missing links are repaired. Repeated decoding is idempotent. The
@@ -43,7 +50,8 @@ Catalogue edits propagate the canonical name to saved plans; merges union labels
 references while retaining occurrence IDs and configuration. Renaming an exercise inside a plan
 creates a separate catalogue entry. Mutations commit a complete `AppData` value through `AppStore`.
 
-Generation requires all included tags and excludes any forbidden tags. It samples unique entries
+Generation filters shared tag IDs and resolves body-area IDs through the label catalogue. It requires
+all included tags and excludes any forbidden tags. It samples unique entries
 and can prefer nonoverlapping known body areas at each step. Alternation is best effort for uneven
 or unlabelled pools. The result is an ordinary editable workout plan: randomness is used only at
 generation, never between rounds or in the timer. Planning labels are not part of session cues.
