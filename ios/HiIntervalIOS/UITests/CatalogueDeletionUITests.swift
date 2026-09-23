@@ -48,8 +48,9 @@ final class CatalogueDeletionUITests: HiIntervalUITestCase {
         XCTAssertFalse(element("catalogue.row.\(CatalogueID.deadBug)").exists)
         closeCatalogue()
         selectTab("plans")
-        scrollToVisible(app.staticTexts["Exercise: Dead Bug"])
-        XCTAssertTrue(app.staticTexts["Exercise: Dead Bug"].exists)
+        let retainedPlan = element("plan.card.\(FixtureID.coreFocusPlan)")
+        scrollToVisible(retainedPlan)
+        XCTAssertTrue(retainedPlan.staticTexts["Exercise: Dead Bug"].exists)
     }
 
     private func openCatalogue() {

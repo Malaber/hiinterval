@@ -204,10 +204,9 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
 
         tap(element("catalogue.row.\(CatalogueID.deadBug)"), scrolls: true)
         waitForExistence(element("catalogue.editor.screen"))
-        tap(element("catalogue.editor.tags.suggestion.achilles-recovery"), scrolls: true)
-        // The selected pill is inserted above the suggestion; return to the top so Form
-        // materializes that row before checking its accessibility element.
-        scrollToTop(element("catalogue.editor.name"))
+        let suggestion = element("catalogue.editor.tags.suggestion.achilles-recovery")
+        revealPlanningSuggestion(suggestion)
+        tap(suggestion)
         waitForExistence(element("catalogue.editor.tags.pill.achilles-recovery"))
         tapToolbarButton("catalogue.editor.save", label: "Save")
         waitForDisappearance(element("catalogue.editor.screen"), timeout: 8)
@@ -375,6 +374,21 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         XCUIDevice.shared.orientation = .landscapeLeft
         waitForExistence(element("generator.screen"), timeout: 8)
         capture("09-ipad-landscape-generator")
+    }
+
+    /// A floating bottom action can overlap a partially visible suggestion even while XCTest
+    /// reports it hittable. Reveal the complete pill above the actual action before tapping once.
+    private func revealPlanningSuggestion(_ suggestion: XCUIElement) {
+        scrollToHittable(suggestion)
+        let form = app.collectionViews["catalogue.editor.screen"]
+        let delete = app.buttons["catalogue.editor.delete"]
+        for _ in 0..<8 {
+            let bottom = delete.exists ? min(form.frame.maxY, delete.frame.minY) : form.frame.maxY
+            if suggestion.frame.maxY <= bottom - 8 { return }
+            form.swipeUp()
+        }
+        let bottom = delete.exists ? min(form.frame.maxY, delete.frame.minY) : form.frame.maxY
+        XCTAssertLessThanOrEqual(suggestion.frame.maxY, bottom - 8)
     }
 
     private func openCatalogue() {

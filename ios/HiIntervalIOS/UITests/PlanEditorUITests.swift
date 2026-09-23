@@ -8,12 +8,14 @@ final class PlanEditorUITests: HiIntervalUITestCase {
 
         openQuickStartEditor()
         chooseLogoSymbol("flame.fill")
+        scrollToVisible(element("plan.editor.logo.reset"))
         XCTAssertTrue(element("plan.editor.logo.reset").isEnabled)
         tapToolbarButton("plan.editor.cancel", label: "Cancel")
         waitForDisappearance(element("plan.editor.screen"), timeout: 8)
 
         // Cancel never writes an edited symbol into plan JSON.
         openQuickStartEditor()
+        scrollToVisible(element("plan.editor.logo.reset"))
         XCTAssertFalse(element("plan.editor.logo.reset").isEnabled)
         chooseLogoSymbol("flame.fill")
         tapToolbarButton("plan.editor.save", label: "Save")
@@ -22,9 +24,11 @@ final class PlanEditorUITests: HiIntervalUITestCase {
         relaunchPreservingData()
         selectTab("plans")
         openQuickStartEditor()
+        scrollToVisible(element("plan.editor.logo.reset"))
         XCTAssertTrue(element("plan.editor.logo.reset").isEnabled)
 
         tap(element("plan.editor.logo.reset"), scrolls: true)
+        scrollToVisible(element("plan.editor.logo.reset"))
         XCTAssertFalse(element("plan.editor.logo.reset").isEnabled)
         tapToolbarButton("plan.editor.save", label: "Save")
         waitForDisappearance(element("plan.editor.screen"), timeout: 8)
@@ -32,6 +36,7 @@ final class PlanEditorUITests: HiIntervalUITestCase {
         relaunchPreservingData()
         selectTab("plans")
         openQuickStartEditor()
+        scrollToVisible(element("plan.editor.logo.reset"))
         XCTAssertFalse(element("plan.editor.logo.reset").isEnabled)
     }
 

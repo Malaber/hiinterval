@@ -48,6 +48,7 @@ final class PlanDurationEntryUITests: HiIntervalUITestCase {
             scrolls: true
         )
         waitForExistence(element("plan.editor.screen"))
+        scrollToHittable(element("plan.editor.work.value"))
         waitForValue("17 seconds", on: element("plan.editor.work.value"))
     }
 }

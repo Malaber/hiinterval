@@ -14,7 +14,7 @@ final class SessionLayoutUITests: HiIntervalUITestCase {
         let before = [heading.frame, timer.frame, pause.frame]
         XCTAssertTrue(pause.isHittable)
         XCTAssertTrue(element("session.skip").isHittable)
-        waitForValue("Fits screen", on: element("session.content"))
+        waitForValue("Fits screen", on: app.scrollViews["session.screen"])
         tap(pause)
         waitForExistence(element("session.paused"))
         let after = [heading.frame, timer.frame, pause.frame]

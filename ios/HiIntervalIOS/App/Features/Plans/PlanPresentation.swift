@@ -119,8 +119,6 @@ struct PlanDurationStepper: View {
     var accessibilityID: String
 
     @State private var isPresentingDurationEntry = false
-    @State private var draftSeconds = ""
-    @FocusState private var isDurationFieldFocused: Bool
 
     init(
         _ title: String,
@@ -150,7 +148,6 @@ struct PlanDurationStepper: View {
             }
             Spacer(minLength: 8)
             Button {
-                draftSeconds = String(seconds)
                 isPresentingDurationEntry = true
             } label: {
                 Text(PlanFormatting.compactDuration(seconds))
@@ -169,46 +166,76 @@ struct PlanDurationStepper: View {
                 .accessibilityIdentifier(accessibilityID)
         }
         .sheet(isPresented: $isPresentingDurationEntry) {
-            NavigationStack {
-                Form {
-                    Section {
-                        TextField("Seconds", text: $draftSeconds)
-                            .keyboardType(.numberPad)
-                            .focused($isDurationFieldFocused)
-                            .accessibilityIdentifier("\(accessibilityID).entry.seconds")
-                    } header: {
-                        Text("Duration")
-                    } footer: {
-                        Text("Enter \(range.lowerBound)–\(range.upperBound) seconds.")
-                    }
-                }
-                .navigationTitle(title)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") {
-                            isPresentingDurationEntry = false
+            PlanDurationEntrySheet(
+                title: title,
+                seconds: $seconds,
+                range: range,
+                accessibilityID: accessibilityID
+            )
+        }
+    }
+}
+
+private struct PlanDurationEntrySheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var seconds: Int
+    @State private var draftSeconds: String
+    @FocusState private var isDurationFieldFocused: Bool
+
+    let title: String
+    let range: ClosedRange<Int>
+    let accessibilityID: String
+
+    init(title: String, seconds: Binding<Int>, range: ClosedRange<Int>, accessibilityID: String) {
+        self.title = title
+        _seconds = seconds
+        _draftSeconds = State(initialValue: String(seconds.wrappedValue))
+        self.range = range
+        self.accessibilityID = accessibilityID
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Seconds", text: $draftSeconds)
+                        .keyboardType(.numberPad)
+                        .focused($isDurationFieldFocused)
+                        .accessibilityIdentifier("\(accessibilityID).entry.seconds")
+                        .task {
+                            // Request focus after the presented field joins its own view tree.
+                            await Task.yield()
+                            isDurationFieldFocused = true
                         }
-                        .accessibilityIdentifier("\(accessibilityID).entry.cancel")
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") {
-                            guard let enteredSeconds else { return }
-                            seconds = enteredSeconds
-                            isPresentingDurationEntry = false
-                        }
-                        .fontWeight(.semibold)
-                        .disabled(enteredSeconds == nil)
-                        .accessibilityIdentifier("\(accessibilityID).entry.done")
-                    }
-                }
-                .task {
-                    isDurationFieldFocused = true
+                } header: {
+                    Text("Duration")
+                } footer: {
+                    Text("Enter \(range.lowerBound)–\(range.upperBound) seconds.")
                 }
             }
-            .tint(PlanPalette.accent)
-            .accessibilityIdentifier("\(accessibilityID).entry.screen")
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                    .accessibilityIdentifier("\(accessibilityID).entry.cancel")
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        guard let enteredSeconds else { return }
+                        seconds = enteredSeconds
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                    .disabled(enteredSeconds == nil)
+                    .accessibilityIdentifier("\(accessibilityID).entry.done")
+                }
+            }
         }
+        .tint(PlanPalette.accent)
+        .accessibilityIdentifier("\(accessibilityID).entry.screen")
     }
 
     private var enteredSeconds: Int? {

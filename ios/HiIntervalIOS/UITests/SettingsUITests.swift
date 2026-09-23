@@ -79,7 +79,7 @@ final class SettingsUITests: HiIntervalUITestCase {
         tapToolbarButton("settings.workout-theme.cancel", label: "Cancel")
         tap(theme, scrolls: true)
         waitForValue("Selected", on: ocean)
-        tap(element("settings.workout-theme.reset"))
+        tap(app.buttons["settings.workout-theme.reset"])
         tapToolbarButton("settings.workout-theme.save", label: "Save")
     }
 
