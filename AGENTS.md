@@ -288,6 +288,10 @@ can miss the five-second foreground window. Automatic transition
 uses a deterministic test duration while core tests retain and verify the five-second default.
 Switch helpers must reveal the entire row within its containing Form's visible bounds; requiring a
 fixed central band of the application window fails for short sheets with no remaining scroll range.
+Catalogue plan-editor tests scroll within the sheet list’s leading gutter, avoiding text-entry targets.
+Whole-window swipes across multiline notes triggered an iPadOS 26 UIKit focus-guide assertion
+(`parentEnvironment != nil`) with a simulated hardware keyboard. This gesture constraint does not
+verify physical iPad keyboard behavior; retain that limitation in device validation.
 Tests run once; any assertion or infrastructure failure fails the suite. Do not add automatic reruns
 or accept a later pass as evidence of correctness.
 

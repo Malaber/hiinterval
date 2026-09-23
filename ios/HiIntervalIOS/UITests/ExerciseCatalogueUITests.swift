@@ -277,14 +277,16 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         tap(element("plans.add"))
         waitForExistence(element("plan.editor.screen"))
         replaceText(in: element("plan.editor.name"), with: "Detached catalogue plan")
-        tap(element("plan.editor.exercise.add"), scrolls: true)
+        revealPlanControl(element("plan.editor.exercise.add"))
+        tap(element("plan.editor.exercise.add"))
         waitForExistence(element("catalogue.screen"))
         tap(element("catalogue.row.\(CatalogueID.highKnees)"), scrolls: true)
         waitForDisappearance(element("catalogue.screen"), timeout: 8)
 
         let chosen = element("plan.editor.exercise.1")
         waitForLabel("Exercise 2, High Knees", on: chosen)
-        tap(chosen, scrolls: true)
+        revealPlanControl(chosen)
+        tap(chosen)
         waitForExistence(element("exercise.editor.screen"))
         replaceText(in: element("exercise.editor.name"), with: "Plan-only High Knees")
         tapToolbarButton("exercise.editor.save", label: "Done")
@@ -302,7 +304,7 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         tap(detachedCard.descendants(matching: .button)
             .matching(NSPredicate(format: "identifier BEGINSWITH 'plan.edit.'")).firstMatch, scrolls: true)
         waitForExistence(element("plan.editor.screen"))
-        scrollToVisible(element("plan.editor.exercise.1"))
+        revealPlanControl(element("plan.editor.exercise.1"))
         waitForLabel("Exercise 2, Plan-only High Knees", on: element("plan.editor.exercise.1"))
         tapToolbarButton("plan.editor.cancel", label: "Cancel")
         openCatalogue()
@@ -315,7 +317,8 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         launch()
         selectTab("plans")
         tap(element("plans.add"))
-        tap(element("plan.editor.exercise.add"), scrolls: true)
+        revealPlanControl(element("plan.editor.exercise.add"))
+        tap(element("plan.editor.exercise.add"))
         tap(element("exercise.choice.create"))
         let name = element("exercise.editor.name")
         waitForExistence(app.keyboards.firstMatch)
@@ -381,15 +384,30 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
 
     /// Reveal controls inside the actual sheet, excluding its floating actions and keyboard.
     /// XCTest can report a clipped control as hittable even when tapping only expands the sheet.
+    private func revealPlanControl(_ target: XCUIElement) {
+        // Scroll the sheet's list gutter, not a text input in the middle of a recycled row.
+        // iPadOS 26 can retain a detached focus guide when a swipe starts on vertical text input.
+        revealFormControl(target, identifier: "plan.editor.screen", usesLeadingGutter: true)
+    }
+
     private func revealPlanningSuggestion(_ target: XCUIElement) {
-        let form = app.collectionViews["catalogue.editor.screen"]
+        revealFormControl(target, identifier: "catalogue.editor.screen", usesLeadingGutter: false)
+    }
+
+    private func revealFormControl(
+        _ target: XCUIElement,
+        identifier: String,
+        usesLeadingGutter: Bool
+    ) {
+        let form = app.collectionViews[identifier]
         waitForExistence(form)
         for _ in 0..<12 {
             let viewport = planningViewport(form)
             if target.exists, viewport.contains(target.frame) { return }
             let up = !target.exists || target.frame.midY > viewport.midY
             let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
-                dx: viewport.midX, dy: viewport.minY + viewport.height * (up ? 0.8 : 0.2)
+                dx: usesLeadingGutter ? viewport.minX + 4 : viewport.midX,
+                dy: viewport.minY + viewport.height * (up ? 0.8 : 0.2)
             ))
             let end = start.withOffset(CGVector(dx: 0, dy: viewport.height * (up ? -0.5 : 0.5)))
             start.press(forDuration: 0.01, thenDragTo: end)
