@@ -95,7 +95,7 @@ private struct ActiveWorkoutView: View {
                 .scrollBounceBehavior(.basedOnSize)
                 .scrollIndicators(.hidden)
                 .onPreferenceChange(SessionContentHeightKey.self) { contentHeight = $0 }
-                .accessibilityIdentifier("session.content")
+                .accessibilityIdentifier("session.screen")
                 .accessibilityValue(contentHeight <= geometry.size.height + 1 ? "Fits screen" : "Scrollable content")
             }
         }
@@ -140,7 +140,6 @@ private struct ActiveWorkoutView: View {
         } message: {
             Text("Current progress will not be added to history.")
         }
-        .accessibilityIdentifier("session.screen")
     }
 
     private func sessionContent(compact: Bool) -> some View {

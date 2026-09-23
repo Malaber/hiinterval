@@ -145,6 +145,8 @@ final class PlanEditorUITests: HiIntervalUITestCase {
     }
 
     private func chooseLogoSymbol(_ symbol: String) {
+        // Reset assertions scroll lower in the Form; reveal the picker clear of the top bar.
+        scrollToTop(element("plan.editor.name"))
         tap(element("plan.editor.logo.symbol"), scrolls: true)
         tap(element("plan.editor.logo.symbol.option.\(symbol)"))
         waitForExistence(element("plan.editor.logo"))
