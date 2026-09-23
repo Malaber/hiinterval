@@ -86,6 +86,17 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         waitForLabelToChange(from: pausedLabel, on: remaining)
         XCUIDevice.shared.press(.home)
         app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20))
+        let homeIcon = XCUIApplication(bundleIdentifier: "com.apple.springboard").icons["HiInterval"]
+        let foreground = NSPredicate { [app] _, _ in
+            app!.state == .runningForeground && app!.windows.firstMatch.isHittable
+                && (!homeIcon.exists || !homeIcon.isHittable)
+        }
+        if !foreground.evaluate(with: app) {
+            let ready = XCTNSPredicateExpectation(predicate: foreground, object: app)
+            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 20), .completed,
+                           "Workout must be visibly foreground before tapping its controls")
+        }
         waitForLabel("Resume workout", on: element("session.pause"))
 
         tap(element("session.mute"))
@@ -289,16 +300,13 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        let expectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label BEGINSWITH %@", "\(seconds) seconds remaining"),
-            object: element
-        )
-        XCTAssertEqual(
-            XCTWaiter.wait(for: [expectation], timeout: timeout),
-            .completed,
-            "Expected \(seconds) seconds remaining, got '\(element.label)'",
-            file: file,
-            line: line
-        )
+        let predicate = NSPredicate(format: "label BEGINSWITH %@", "\(seconds) seconds remaining")
+        // A synchronous snapshot may outlast the waiter on hosted iPad simulators.
+        // Check the current state first and only fetch diagnostic text on actual failure.
+        if predicate.evaluate(with: element) { return }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        if XCTWaiter.wait(for: [expectation], timeout: timeout) != .completed {
+            XCTFail("Expected \(seconds) seconds remaining, got '\(element.label)'", file: file, line: line)
+        }
     }
 }

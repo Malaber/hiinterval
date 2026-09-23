@@ -574,7 +574,9 @@ class HiIntervalUITestCase: XCTestCase {
     }
 
     func capture(_ name: String) {
-        let screenshot = XCUIScreen.main.screenshot()
+        // Capture the tested application, not the simulator display shared with SpringBoard.
+        // Global display capture can stall after background/foreground and sheet transitions.
+        let screenshot = app.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name
         attachment.lifetime = .keepAlways
