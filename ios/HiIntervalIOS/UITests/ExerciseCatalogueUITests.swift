@@ -205,6 +205,9 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         tap(element("catalogue.row.\(CatalogueID.deadBug)"), scrolls: true)
         waitForExistence(element("catalogue.editor.screen"))
         tap(element("catalogue.editor.tags.suggestion.achilles-recovery"), scrolls: true)
+        // The selected pill is inserted above the suggestion; return to the top so Form
+        // materializes that row before checking its accessibility element.
+        scrollToTop(element("catalogue.editor.name"))
         waitForExistence(element("catalogue.editor.tags.pill.achilles-recovery"))
         tapToolbarButton("catalogue.editor.save", label: "Save")
         waitForDisappearance(element("catalogue.editor.screen"), timeout: 8)

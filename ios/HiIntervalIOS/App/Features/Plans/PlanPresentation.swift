@@ -139,32 +139,35 @@ struct PlanDurationStepper: View {
     }
 
     var body: some View {
-        Stepper(value: $seconds, in: range, step: step) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                    if let subtitle {
-                        Text(subtitle)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                Spacer(minLength: 8)
-                Button {
-                    draftSeconds = String(seconds)
-                    isPresentingDurationEntry = true
-                } label: {
-                    Text(PlanFormatting.compactDuration(seconds))
-                        .font(.body.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(seconds == 0 ? Color.secondary : PlanPalette.accent)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Edit \(title) duration")
-                .accessibilityValue("\(seconds) seconds")
-                .accessibilityIdentifier("\(accessibilityID).value")
             }
+            Spacer(minLength: 8)
+            Button {
+                draftSeconds = String(seconds)
+                isPresentingDurationEntry = true
+            } label: {
+                Text(PlanFormatting.compactDuration(seconds))
+                    .font(.body.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(seconds == 0 ? Color.secondary : PlanPalette.accent)
+                    .frame(minWidth: 44, minHeight: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Edit \(title) duration")
+            .accessibilityValue("\(seconds) seconds")
+            .accessibilityIdentifier("\(accessibilityID).value")
+
+            Stepper(title, value: $seconds, in: range, step: step)
+                .labelsHidden()
+                .fixedSize()
+                .accessibilityIdentifier(accessibilityID)
         }
-        .accessibilityIdentifier(accessibilityID)
         .sheet(isPresented: $isPresentingDurationEntry) {
             NavigationStack {
                 Form {

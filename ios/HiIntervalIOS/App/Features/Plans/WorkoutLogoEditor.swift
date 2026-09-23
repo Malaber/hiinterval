@@ -75,10 +75,10 @@ struct WorkoutLogoEditor: View {
             }
         } header: {
             Text("Workout logo")
+                .accessibilityIdentifier("plan.editor.logo")
         } footer: {
             Text("Photos are selected through Apple's picker. HiInterval never asks for full photo-library access.")
         }
-        .accessibilityIdentifier("plan.editor.logo")
     }
 
     private static let symbols = [

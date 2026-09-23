@@ -67,7 +67,7 @@ final class SettingsUITests: HiIntervalUITestCase {
         waitForExistence(element("settings.workout-theme.preview"))
 
         tap(element("settings.workout-theme.preset.ocean"))
-        tap(element("settings.workout-theme.save"))
+        tapToolbarButton("settings.workout-theme.save", label: "Save")
         waitForExistence(theme)
         relaunchPreservingData()
         selectTab("settings")
@@ -76,11 +76,11 @@ final class SettingsUITests: HiIntervalUITestCase {
         scrollToHittable(ocean)
         waitForValue("Selected", on: ocean)
         tap(element("settings.workout-theme.preset.forest"), scrolls: true)
-        tap(element("settings.workout-theme.cancel"))
+        tapToolbarButton("settings.workout-theme.cancel", label: "Cancel")
         tap(theme, scrolls: true)
         waitForValue("Selected", on: ocean)
         tap(element("settings.workout-theme.reset"))
-        tap(element("settings.workout-theme.save"))
+        tapToolbarButton("settings.workout-theme.save", label: "Save")
     }
 
     private func assertPersistedPreferences() {
