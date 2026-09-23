@@ -7,14 +7,20 @@ import UIKit
 /// store only after its full plan validates.
 struct WorkoutLogoEditor: View {
     @Binding var draft: WorkoutLogoDraft
+    @Binding var isLoadingPhoto: Bool
     let imageStore: WorkoutLogoImageStore
 
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var photoError: String?
     @State private var photoLoadToken = UUID()
 
-    init(draft: Binding<WorkoutLogoDraft>, imageStore: WorkoutLogoImageStore = .shared) {
+    init(
+        draft: Binding<WorkoutLogoDraft>,
+        isLoadingPhoto: Binding<Bool>,
+        imageStore: WorkoutLogoImageStore = .shared
+    ) {
         _draft = draft
+        _isLoadingPhoto = isLoadingPhoto
         self.imageStore = imageStore
     }
 
@@ -52,6 +58,15 @@ struct WorkoutLogoEditor: View {
             }
             .onChange(of: selectedPhoto) { _, item in
                 loadPhoto(item)
+            }
+
+            if isLoadingPhoto {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Loading photo…")
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("plan.editor.logo.loading")
             }
 
             if draft.hasPhoto {
@@ -94,22 +109,31 @@ struct WorkoutLogoEditor: View {
     }
 
     private func loadPhoto(_ item: PhotosPickerItem?) {
-        guard let item else { return }
         let token = UUID()
         photoLoadToken = token
+        guard let item else {
+            isLoadingPhoto = false
+            return
+        }
+        isLoadingPhoto = true
+        photoError = nil
         Task {
             do {
-                guard let data = try await item.loadTransferable(type: Data.self) else { return }
+                guard let data = try await item.loadTransferable(type: Data.self) else {
+                    throw WorkoutLogoImageStore.StoreError.invalidImage
+                }
                 let prepared = try imageStore.preparedPhotoData(from: data)
                 await MainActor.run {
                     guard photoLoadToken == token else { return }
                     draft.setPendingPhotoData(prepared)
                     photoError = nil
+                    isLoadingPhoto = false
                 }
             } catch {
                 await MainActor.run {
                     guard photoLoadToken == token else { return }
                     photoError = error.localizedDescription
+                    isLoadingPhoto = false
                 }
             }
         }
@@ -117,6 +141,7 @@ struct WorkoutLogoEditor: View {
 
     private func clearPhotoSelection() {
         photoLoadToken = UUID()
+        isLoadingPhoto = false
         selectedPhoto = nil
         photoError = nil
     }

@@ -9,6 +9,7 @@ struct PlanEditorView: View {
     let onSave: (WorkoutPlan, WorkoutLogoDraft) -> Void
 
     @State private var logoDraft: WorkoutLogoDraft
+    @State private var isLoadingLogoPhoto = false
     @State private var plan: WorkoutPlan
     @State private var exerciseDestination: ExerciseEditorDestination?
     @State private var showsRoundOverrides = false
@@ -43,7 +44,7 @@ struct PlanEditorView: View {
             previewSection
             intelligenceSection
             identitySection
-            WorkoutLogoEditor(draft: $logoDraft)
+            WorkoutLogoEditor(draft: $logoDraft, isLoadingPhoto: $isLoadingLogoPhoto)
             if let message = store.lastErrorMessage { ValidationBanner(message: message) }
             timingSection
             roundsSection
@@ -63,7 +64,7 @@ struct PlanEditorView: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save", action: save)
                     .fontWeight(.semibold)
-                    .disabled(validationMessage != nil)
+                    .disabled(validationMessage != nil || isLoadingLogoPhoto)
                     .accessibilityIdentifier("plan.editor.save")
             }
         }
@@ -329,7 +330,7 @@ struct PlanEditorView: View {
                 }
             }
         } footer: {
-            Text("Choose catalogue exercises to reuse defaults. Change timing, sides, or notes for this plan. Renaming an exercise here creates a separate catalogue entry; rename it in the catalogue to update all linked plans.")
+            Text("Choose catalogue exercises to reuse defaults. Change timing, sides, or notes for this plan. Renaming an exercise here changes only this plan. Rename it in the catalogue to update all linked plans.")
         }
     }
 
@@ -382,7 +383,7 @@ struct PlanEditorView: View {
     }
 
     private func save() {
-        guard validationMessage == nil else { return }
+        guard validationMessage == nil, !isLoadingLogoPhoto else { return }
         plan.name = plan.name.trimmingCharacters(in: .whitespacesAndNewlines)
         plan.warmUpNotes = normalizedNotes(plan.warmUpNotes)
         plan.recoveryNotes = normalizedNotes(plan.recoveryNotes)
