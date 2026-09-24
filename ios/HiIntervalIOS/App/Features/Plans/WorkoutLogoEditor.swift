@@ -14,6 +14,7 @@ struct WorkoutLogoEditor: View {
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var photoError: String?
     @State private var photoLoadToken = UUID()
+    @State private var cropPhoto: CropPhoto?
 
     init(
         draft: Binding<WorkoutLogoDraft>,
@@ -110,6 +111,13 @@ struct WorkoutLogoEditor: View {
             }
         }
         .accessibilityIdentifier("plan.editor.logo.screen")
+        .sheet(item: $cropPhoto, onDismiss: { selectedPhoto = nil }) { photo in
+            WorkoutLogoCropView(photo: photo, imageStore: imageStore) { croppedData in
+                draft.setPendingPhotoData(croppedData)
+                photoError = nil
+                cropPhoto = nil
+            }
+        }
     }
 
     private static let symbols = [
@@ -141,7 +149,12 @@ struct WorkoutLogoEditor: View {
                 let prepared = try imageStore.preparedPhotoData(from: data)
                 await MainActor.run {
                     guard photoLoadToken == token else { return }
-                    draft.setPendingPhotoData(prepared)
+                    guard let image = UIImage(data: prepared) else {
+                        photoError = WorkoutLogoImageStore.StoreError.invalidImage.localizedDescription
+                        isLoadingPhoto = false
+                        return
+                    }
+                    cropPhoto = CropPhoto(data: prepared, image: image)
                     photoError = nil
                     isLoadingPhoto = false
                 }
@@ -158,6 +171,7 @@ struct WorkoutLogoEditor: View {
     private func clearPhotoSelection() {
         photoLoadToken = UUID()
         isLoadingPhoto = false
+        cropPhoto = nil
         selectedPhoto = nil
         photoError = nil
     }
@@ -188,25 +202,205 @@ struct WorkoutLogoMark: View {
     }
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(logo.backgroundColor))
-            if let pendingPhotoData, let image = UIImage(data: pendingPhotoData) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else if let image = imageStore.image(for: logo.photoFilename) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Image(systemName: logo.symbolName)
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(Color(logo.symbolColor))
+        GeometryReader { geometry in
+            ZStack {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color(logo.backgroundColor))
+                if let pendingPhotoData, let image = UIImage(data: pendingPhotoData) {
+                    logoPhoto(image, size: geometry.size)
+                } else if let image = imageStore.image(for: logo.photoFilename) {
+                    logoPhoto(image, size: geometry.size)
+                } else {
+                    Image(systemName: logo.symbolName)
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(Color(logo.symbolColor))
+                }
             }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .accessibilityLabel("Workout logo")
+    }
+
+    private func logoPhoto(_ image: UIImage, size: CGSize) -> some View {
+        Image(uiImage: image)
+            .resizable()
+            .scaledToFill()
+            .frame(width: size.width, height: size.height)
+            .clipped()
+    }
+}
+
+private struct CropPhoto: Identifiable {
+    let id = UUID()
+    let data: Data
+    let image: UIImage
+}
+
+/// Square selection stays in memory. Only the enclosing plan editor writes a chosen crop on Save.
+private struct WorkoutLogoCropView: View {
+    @Environment(\.dismiss) private var dismiss
+    let photo: CropPhoto
+    let imageStore: WorkoutLogoImageStore
+    let onUse: (Data) -> Void
+
+    @State private var zoom: CGFloat = 1
+    @State private var zoomAtGestureStart: CGFloat = 1
+    @State private var offset: CGSize = .zero
+    @State private var offsetAtGestureStart: CGSize = .zero
+    @State private var cropError: String?
+
+    var body: some View {
+        NavigationStack {
+            GeometryReader { geometry in
+                let side = max(1, min(geometry.size.width - 32, geometry.size.height * 0.48))
+                ScrollView {
+                    VStack(spacing: 18) {
+                        cropWindow(side: side)
+                        Text("Drag photo to choose the square. Pinch or use zoom controls to adjust.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 16) {
+                                zoomOutButton(side: side)
+                                zoomInButton(side: side)
+                                moveMenu(side: side)
+                            }
+                            VStack(spacing: 12) {
+                                zoomOutButton(side: side)
+                                zoomInButton(side: side)
+                                moveMenu(side: side)
+                            }
+                        }
+                        if let cropError {
+                            Text(cropError)
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity)
+                    .padding(16)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }
+                            .accessibilityIdentifier("plan.editor.logo.crop.cancel")
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Use Photo") {
+                            do {
+                                let data = try imageStore.squarePhotoData(
+                                    from: photo.data,
+                                    viewportSide: side,
+                                    zoom: zoom,
+                                    offset: bounded(offset, side: side, zoom: zoom)
+                                )
+                                onUse(data)
+                            } catch {
+                                cropError = error.localizedDescription
+                            }
+                        }
+                        .accessibilityIdentifier("plan.editor.logo.crop.use")
+                    }
+                }
+            }
+            .navigationTitle("Crop workout photo")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.large])
+        .accessibilityIdentifier("plan.editor.logo.crop.screen")
+    }
+
+    private func cropWindow(side: CGFloat) -> some View {
+        let baseScale = max(side / photo.image.size.width, side / photo.image.size.height)
+        let visibleOffset = bounded(offset, side: side, zoom: zoom)
+        return Image(uiImage: photo.image)
+            .resizable()
+            .frame(width: photo.image.size.width * baseScale * zoom,
+                   height: photo.image.size.height * baseScale * zoom)
+            .offset(visibleOffset)
+            .frame(width: side, height: side)
+            .clipped()
+            .overlay {
+                RoundedRectangle(cornerRadius: 3)
+                    .strokeBorder(.white.opacity(0.9), lineWidth: 2)
+            }
+            .contentShape(Rectangle())
+            .gesture(DragGesture()
+                .onChanged { value in
+                    offset = bounded(
+                        CGSize(width: offsetAtGestureStart.width + value.translation.width,
+                               height: offsetAtGestureStart.height + value.translation.height),
+                        side: side,
+                        zoom: zoom
+                    )
+                }
+                .onEnded { _ in offsetAtGestureStart = offset }
+            )
+            .simultaneousGesture(MagnificationGesture()
+                .onChanged { value in
+                    zoom = min(4, max(1, zoomAtGestureStart * value))
+                    offset = bounded(offset, side: side, zoom: zoom)
+                }
+                .onEnded { _ in
+                    zoomAtGestureStart = zoom
+                    offsetAtGestureStart = offset
+                }
+            )
+            .accessibilityLabel("Square photo crop")
+            .accessibilityIdentifier("plan.editor.logo.crop.selection")
+    }
+
+    private func bounded(_ value: CGSize, side: CGFloat, zoom: CGFloat) -> CGSize {
+        let crop = WorkoutLogoCropGeometry(
+            sourceWidth: Double(photo.image.size.width),
+            sourceHeight: Double(photo.image.size.height),
+            viewportSide: Double(side),
+            zoom: Double(zoom)
+        )
+        let clamped = crop.clampedOffset(x: Double(value.width), y: Double(value.height))
+        return CGSize(width: clamped.x, height: clamped.y)
+    }
+
+    private func zoomOutButton(side: CGFloat) -> some View {
+        Button("Zoom out", systemImage: "minus.magnifyingglass") {
+            setZoom(zoom - 0.25, side: side)
+        }
+        .disabled(zoom <= 1)
+        .accessibilityIdentifier("plan.editor.logo.crop.zoom-out")
+    }
+
+    private func zoomInButton(side: CGFloat) -> some View {
+        Button("Zoom in", systemImage: "plus.magnifyingglass") {
+            setZoom(zoom + 0.25, side: side)
+        }
+        .disabled(zoom >= 4)
+        .accessibilityIdentifier("plan.editor.logo.crop.zoom-in")
+    }
+
+    private func moveMenu(side: CGFloat) -> some View {
+        Menu("Move photo", systemImage: "arrow.up.left.and.arrow.down.right") {
+            Button("Move left") { movePhoto(x: -side / 8, y: 0, side: side) }
+            Button("Move right") { movePhoto(x: side / 8, y: 0, side: side) }
+            Button("Move up") { movePhoto(x: 0, y: -side / 8, side: side) }
+            Button("Move down") { movePhoto(x: 0, y: side / 8, side: side) }
+        }
+        .accessibilityIdentifier("plan.editor.logo.crop.move")
+    }
+
+    private func setZoom(_ value: CGFloat, side: CGFloat) {
+        zoom = min(4, max(1, value))
+        zoomAtGestureStart = zoom
+        offset = bounded(offset, side: side, zoom: zoom)
+        offsetAtGestureStart = offset
+    }
+
+    private func movePhoto(x: CGFloat, y: CGFloat, side: CGFloat) {
+        offset = bounded(CGSize(width: offset.width + x, height: offset.height + y), side: side, zoom: zoom)
+        offsetAtGestureStart = offset
     }
 }
 

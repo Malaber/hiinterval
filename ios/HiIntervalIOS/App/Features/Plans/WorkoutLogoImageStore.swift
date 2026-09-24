@@ -58,6 +58,44 @@ final class WorkoutLogoImageStore {
         return data
     }
 
+    /// Renders exactly the square visible in the cropper. Offset is measured in viewport points;
+    /// the same cover scale and zoom are used by the cropper's image view.
+    func squarePhotoData(from source: Data, viewportSide: CGFloat, zoom: CGFloat, offset: CGSize) throws -> Data {
+        guard let image = UIImage(data: source), viewportSide.isFinite, viewportSide > 0,
+              zoom.isFinite, zoom >= 1, image.size.width > 0, image.size.height > 0 else {
+            throw StoreError.invalidImage
+        }
+        let geometry = WorkoutLogoCropGeometry(
+            sourceWidth: Double(image.size.width),
+            sourceHeight: Double(image.size.height),
+            viewportSide: Double(viewportSide),
+            zoom: Double(zoom)
+        )
+        let origin = geometry.cropOrigin(offsetX: Double(offset.width), offsetY: Double(offset.height))
+        let cropSide = CGFloat(geometry.cropSide)
+        guard origin.x.isFinite, origin.y.isFinite, cropSide.isFinite, cropSide > 0 else {
+            throw StoreError.invalidImage
+        }
+        let crop = CGRect(x: origin.x, y: origin.y, width: cropSide, height: cropSide)
+        let outputSide = min(maxPixelDimension, cropSide)
+        let outputSize = CGSize(width: outputSide, height: outputSide)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: outputSize, format: format)
+        let output = renderer.image { _ in
+            let ratio = outputSide / cropSide
+            image.draw(in: CGRect(
+                x: -crop.minX * ratio,
+                y: -crop.minY * ratio,
+                width: image.size.width * ratio,
+                height: image.size.height * ratio
+            ))
+        }
+        guard let data = output.jpegData(compressionQuality: 0.82) else { throw StoreError.invalidImage }
+        return data
+    }
+
     /// Writes a pending draft image only when its containing plan is being saved.
     /// Call `discardUncommittedPhoto(named:)` if persisting that returned logo fails.
     func materialize(_ draft: WorkoutLogoDraft) throws -> WorkoutLogo {
