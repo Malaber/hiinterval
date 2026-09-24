@@ -7,35 +7,42 @@ final class PlanEditorUITests: HiIntervalUITestCase {
         selectTab("plans")
 
         openQuickStartEditor()
+        openLogoEditor()
         chooseLogoSymbol("flame.fill")
         scrollToVisible(element("plan.editor.logo.reset"))
         XCTAssertTrue(element("plan.editor.logo.reset").isEnabled)
+        finishLogoEditor()
         tapToolbarButton("plan.editor.cancel", label: "Cancel")
         waitForDisappearance(element("plan.editor.screen"), timeout: 8)
 
         // Cancel never writes an edited symbol into plan JSON.
         openQuickStartEditor()
+        openLogoEditor()
         scrollToVisible(element("plan.editor.logo.reset"))
         XCTAssertFalse(element("plan.editor.logo.reset").isEnabled)
         chooseLogoSymbol("flame.fill")
+        finishLogoEditor()
         tapToolbarButton("plan.editor.save", label: "Save")
         waitForDisappearance(element("plan.editor.screen"), timeout: 8)
 
         relaunchPreservingData()
         selectTab("plans")
         openQuickStartEditor()
+        openLogoEditor()
         scrollToVisible(element("plan.editor.logo.reset"))
         XCTAssertTrue(element("plan.editor.logo.reset").isEnabled)
 
         tap(element("plan.editor.logo.reset"), scrolls: true)
         scrollToVisible(element("plan.editor.logo.reset"))
         XCTAssertFalse(element("plan.editor.logo.reset").isEnabled)
+        finishLogoEditor()
         tapToolbarButton("plan.editor.save", label: "Save")
         waitForDisappearance(element("plan.editor.screen"), timeout: 8)
 
         relaunchPreservingData()
         selectTab("plans")
         openQuickStartEditor()
+        openLogoEditor()
         scrollToVisible(element("plan.editor.logo.reset"))
         XCTAssertFalse(element("plan.editor.logo.reset").isEnabled)
     }
@@ -145,10 +152,22 @@ final class PlanEditorUITests: HiIntervalUITestCase {
     }
 
     private func chooseLogoSymbol(_ symbol: String) {
-        // Reset assertions scroll lower in the Form; reveal the picker clear of the top bar.
-        scrollToTop(element("plan.editor.name"))
         tap(element("plan.editor.logo.symbol"), scrolls: true)
         tap(element("plan.editor.logo.symbol.option.\(symbol)"))
         waitForExistence(element("plan.editor.logo"))
+    }
+
+    private func openLogoEditor() {
+        let row = element("plan.editor.logo.open")
+        waitForExistence(row)
+        XCTAssertFalse(element("plan.editor.logo.reset").exists)
+        tap(row, scrolls: true)
+        waitForExistence(element("plan.editor.logo.screen"))
+    }
+
+    private func finishLogoEditor() {
+        tapToolbarButton("plan.editor.logo.done", label: "Done")
+        waitForDisappearance(element("plan.editor.logo.screen"), timeout: 8)
+        waitForExistence(element("plan.editor.screen"))
     }
 }

@@ -44,7 +44,7 @@ struct PlanEditorView: View {
             previewSection
             intelligenceSection
             identitySection
-            WorkoutLogoEditor(draft: $logoDraft, isLoadingPhoto: $isLoadingLogoPhoto)
+            logoSection
             if let message = store.lastErrorMessage { ValidationBanner(message: message) }
             timingSection
             roundsSection
@@ -53,6 +53,7 @@ struct PlanEditorView: View {
         }
         .listSectionSpacing(18)
         .scrollDismissesKeyboard(.interactively)
+        .interactiveDismissDisabled(isLoadingLogoPhoto)
         .environment(\.editMode, $exerciseEditMode)
         .navigationTitle(isNew ? "New plan" : "Edit plan")
         .navigationBarTitleDisplayMode(.inline)
@@ -187,6 +188,31 @@ struct PlanEditorView: View {
                 .textInputAutocapitalization(.words)
                 .submitLabel(.done)
                 .accessibilityIdentifier("plan.editor.name")
+        }
+    }
+
+    private var logoSection: some View {
+        Section {
+            NavigationLink {
+                WorkoutLogoEditor(draft: $logoDraft, isLoadingPhoto: $isLoadingLogoPhoto)
+            } label: {
+                HStack(spacing: 12) {
+                    WorkoutLogoMark(logo: logoDraft.logo, pendingPhotoData: logoDraft.pendingPhotoData)
+                        .frame(width: 44, height: 44)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Workout logo")
+                        Text(logoDraft.hasPhoto ? "Selected photo" : "Symbol and colors")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                    if isLoadingLogoPhoto {
+                        ProgressView()
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            .accessibilityIdentifier("plan.editor.logo.open")
         }
     }
 

@@ -6,6 +6,7 @@ import UIKit
 /// Reusable controls for a plan editor. The enclosing editor owns Save/Cancel and calls the image
 /// store only after its full plan validates.
 struct WorkoutLogoEditor: View {
+    @Environment(\.dismiss) private var dismiss
     @Binding var draft: WorkoutLogoDraft
     @Binding var isLoadingPhoto: Bool
     let imageStore: WorkoutLogoImageStore
@@ -25,75 +26,90 @@ struct WorkoutLogoEditor: View {
     }
 
     var body: some View {
-        Section {
-            HStack(spacing: 16) {
-                WorkoutLogoMark(logo: draft.logo, pendingPhotoData: draft.pendingPhotoData, imageStore: imageStore)
-                    .frame(width: 76, height: 76)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(draft.hasPhoto ? "Selected photo" : "Symbol logo")
-                        .font(.headline)
-                    Text("Preview")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        List {
+            Section {
+                HStack(spacing: 16) {
+                    WorkoutLogoMark(logo: draft.logo, pendingPhotoData: draft.pendingPhotoData, imageStore: imageStore)
+                        .frame(width: 76, height: 76)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(draft.hasPhoto ? "Selected photo" : "Symbol logo")
+                            .font(.headline)
+                        Text("Preview")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
                 }
-                Spacer()
-            }
-            .padding(.vertical, 4)
+                .padding(.vertical, 4)
 
-            Picker("Symbol", selection: $draft.logo.symbolName) {
-                ForEach(Self.symbols, id: \.self) { symbol in
-                    Label(symbolName(symbol), systemImage: symbol)
-                        .tag(symbol)
-                        .accessibilityIdentifier("plan.editor.logo.symbol.option.\(symbol)")
+                Picker("Symbol", selection: $draft.logo.symbolName) {
+                    ForEach(Self.symbols, id: \.self) { symbol in
+                        Label(symbolName(symbol), systemImage: symbol)
+                            .tag(symbol)
+                            .accessibilityIdentifier("plan.editor.logo.symbol.option.\(symbol)")
+                    }
                 }
-            }
+                .accessibilityIdentifier("plan.editor.logo.symbol")
 
-            .accessibilityIdentifier("plan.editor.logo.symbol")
+                ColorPicker("Symbol color", selection: logoColorBinding(\.symbolColor), supportsOpacity: true)
+                ColorPicker("Background color", selection: logoColorBinding(\.backgroundColor), supportsOpacity: false)
 
-            ColorPicker("Symbol color", selection: logoColorBinding(\.symbolColor), supportsOpacity: true)
-            ColorPicker("Background color", selection: logoColorBinding(\.backgroundColor), supportsOpacity: false)
-
-            PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                Label(draft.hasPhoto ? "Replace photo" : "Choose photo", systemImage: "photo.on.rectangle")
-            }
-            .onChange(of: selectedPhoto) { _, item in
-                loadPhoto(item)
-            }
-
-            if isLoadingPhoto {
-                HStack(spacing: 10) {
-                    ProgressView()
-                    Text("Loading photo…")
+                PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                    Label(draft.hasPhoto ? "Replace photo" : "Choose photo", systemImage: "photo.on.rectangle")
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("plan.editor.logo.loading")
-            }
+                .onChange(of: selectedPhoto) { _, item in
+                    loadPhoto(item)
+                }
 
-            if draft.hasPhoto {
-                Button("Remove photo", role: .destructive) {
-                    draft.removePhoto()
+                if isLoadingPhoto {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text("Loading photo…")
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("plan.editor.logo.loading")
+                    Button("Cancel photo import") { clearPhotoSelection() }
+                        .accessibilityIdentifier("plan.editor.logo.cancel-import")
+                }
+
+                if draft.hasPhoto {
+                    Button("Remove photo", role: .destructive) {
+                        draft.removePhoto()
+                        clearPhotoSelection()
+                    }
+                }
+
+                Button("Restore default logo") {
+                    draft.reset()
                     clearPhotoSelection()
                 }
-            }
+                .accessibilityIdentifier("plan.editor.logo.reset")
+                .disabled(draft.logo == .default && draft.pendingPhotoData == nil)
 
-            Button("Restore default logo") {
-                draft.reset()
-                clearPhotoSelection()
+                if let photoError {
+                    Text(photoError)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+            } header: {
+                Text("Workout logo")
+                    .accessibilityIdentifier("plan.editor.logo")
+            } footer: {
+                Text("Photos are selected through Apple's picker. HiInterval never asks for full photo-library access.")
             }
-            .accessibilityIdentifier("plan.editor.logo.reset")
-            .disabled(draft.logo == .default && draft.pendingPhotoData == nil)
-
-            if let photoError {
-                Text(photoError)
-                    .font(.footnote)
-                    .foregroundStyle(.red)
-            }
-        } header: {
-            Text("Workout logo")
-                .accessibilityIdentifier("plan.editor.logo")
-        } footer: {
-            Text("Photos are selected through Apple's picker. HiInterval never asks for full photo-library access.")
         }
+        .navigationTitle("Workout logo")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(isLoadingPhoto)
+        .interactiveDismissDisabled(isLoadingPhoto)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Done") { dismiss() }
+                    .disabled(isLoadingPhoto)
+                    .accessibilityIdentifier("plan.editor.logo.done")
+            }
+        }
+        .accessibilityIdentifier("plan.editor.logo.screen")
     }
 
     private static let symbols = [
