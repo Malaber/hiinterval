@@ -282,6 +282,9 @@ require live nondeterministic model generation on a simulator.
 Wait for observable state and reuse the existing launch/hittability helpers. Avoid arbitrary sleeps
 and aggressive accessibility polling. Successful waits should not fetch extra snapshots just to
 format failure messages. Focus tests type without refocusing and complete any interrupted prefix.
+On iPadOS, native tabs expose nested duplicate buttons. Select the leaf button once, verify its
+selected state, then wait for destination content (Settings uses its concrete Form). Failed tab
+transitions must retain a hierarchy and screenshot; never hide missed taps with automatic retries.
 The foreground/background completion test uses `HIINTERVAL_UI_TEST_MANUAL_CELEBRATION=1` together
 with `--ui-testing` to pause cosmetic fireworks animation and advance the existing timeline boundary
 on demand: continuous rendering can starve hosted iPad accessibility snapshots, and wall-clock waits

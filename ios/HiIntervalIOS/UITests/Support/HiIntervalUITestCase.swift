@@ -72,27 +72,51 @@ class HiIntervalUITestCase: XCTestCase {
     }
 
     func selectTab(_ name: String, file: StaticString = #filePath, line: UInt = #line) {
-        let destination = element("\(name).screen")
-        guard tapHittableTab(name) else {
+        // Settings has a direct Form root. Wait for that concrete scroll container,
+        // rather than the NavigationStack's synthesized accessibility wrapper.
+        let destination = element(name == "settings" ? "settings.form" : "\(name).screen")
+        guard let tab = hittableTab(name) else {
             XCTFail("Could not find hittable tab labeled '\(name.capitalized)'", file: file, line: line)
             return
         }
-        waitForExistence(destination, timeout: 8, file: file, line: line)
+        tab.tap()
+        let selected = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "selected == true"), object: tab
+        )
+        guard XCTWaiter.wait(for: [selected], timeout: 8) == .completed else {
+            captureFailedTabTransition(name)
+            XCTFail("Tab was not selected after one tap: \(name)", file: file, line: line)
+            return
+        }
+        guard destination.waitForExistence(timeout: 8) else {
+            captureFailedTabTransition(name)
+            XCTFail("Element did not appear: \(destination)", file: file, line: line)
+            return
+        }
     }
 
-    private func tapHittableTab(_ name: String) -> Bool {
+    private func captureFailedTabTransition(_ name: String) {
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "Failed tab transition to \(name)"
+        hierarchy.lifetime = .keepAlways
+        add(hierarchy)
+        capture("failed-tab-\(name)")
+    }
+
+    private func hittableTab(_ name: String) -> XCUIElement? {
         let matches = app.buttons.matching(NSPredicate(format: "label == %@", name.capitalized))
         guard matches.firstMatch.waitForExistence(timeout: 3) else {
-            return false
+            return nil
         }
         for index in 0..<matches.count {
             let candidate = matches.element(boundBy: index)
-            if candidate.isHittable {
-                candidate.tap()
-                return true
+            // iPadOS exposes a wrapper Button containing the actual tab Button.
+            // Target the leaf, not whichever duplicate appears first in the tree.
+            if candidate.buttons.count == 0 && candidate.isHittable {
+                return candidate
             }
         }
-        return false
+        return nil
     }
 
     @discardableResult
