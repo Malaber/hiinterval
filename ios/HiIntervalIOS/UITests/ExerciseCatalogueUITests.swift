@@ -391,49 +391,12 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
     }
 
     private func revealPlanningSuggestion(_ target: XCUIElement) {
-        revealFormControl(target, identifier: "catalogue.editor.screen", usesLeadingGutter: false)
-    }
-
-    private func revealFormControl(
-        _ target: XCUIElement,
-        identifier: String,
-        usesLeadingGutter: Bool
-    ) {
-        let form = app.collectionViews[identifier]
-        waitForExistence(form)
-        for _ in 0..<12 {
-            let viewport = planningViewport(form)
-            if target.exists, viewport.contains(target.frame) { return }
-            let up = !target.exists || target.frame.midY > viewport.midY
-            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
-                dx: usesLeadingGutter ? viewport.minX + 4 : viewport.midX,
-                dy: viewport.minY + viewport.height * (up ? 0.8 : 0.2)
-            ))
-            let end = start.withOffset(CGVector(dx: 0, dy: viewport.height * (up ? -0.5 : 0.5)))
-            start.press(forDuration: 0.01, thenDragTo: end)
-        }
-        XCTAssertTrue(target.exists && planningViewport(form).contains(target.frame),
-                      "Planning control remains clipped: \(target)")
-    }
-
-    private func planningViewport(_ form: XCUIElement) -> CGRect {
-        var viewport = form.frame.intersection(app.frame)
-        for bar in app.navigationBars.allElementsBoundByIndex where bar.isHittable {
-            if bar.frame.intersects(viewport), bar.frame.maxY < viewport.midY {
-                let bottom = viewport.maxY
-                viewport.origin.y = max(viewport.minY, bar.frame.maxY)
-                viewport.size.height = bottom - viewport.minY
-            }
-        }
-        let keyboard = app.keyboards.firstMatch
-        if keyboard.exists, keyboard.frame.intersects(viewport) {
-            viewport.size.height = max(0, keyboard.frame.minY - viewport.minY)
-        }
-        let delete = app.buttons["catalogue.editor.delete"]
-        if delete.exists, delete.frame.intersects(viewport), delete.frame.minY > viewport.midY {
-            viewport.size.height = delete.frame.minY - viewport.minY
-        }
-        return viewport.insetBy(dx: 4, dy: 8)
+        revealFormControl(
+            target,
+            identifier: "catalogue.editor.screen",
+            usesLeadingGutter: false,
+            obscuringBottomControlID: "catalogue.editor.delete"
+        )
     }
 
     private func openCatalogue() {

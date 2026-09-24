@@ -347,6 +347,63 @@ class HiIntervalUITestCase: XCTestCase {
         )
     }
 
+    /// Bring a Form control fully inside its sheet viewport before tapping. iPadOS can report
+    /// a control behind the floating navigation bar as hittable, yet its tap only moves the sheet.
+    func revealFormControl(
+        _ target: XCUIElement,
+        identifier: String,
+        usesLeadingGutter: Bool,
+        obscuringBottomControlID: String? = nil,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let form = app.collectionViews[identifier]
+        guard waitForExistence(form, file: file, line: line) else { return }
+        for _ in 0..<12 {
+            let viewport = formViewport(form, obscuringBottomControlID: obscuringBottomControlID)
+            if target.exists, viewport.contains(target.frame) { return }
+            let up = !target.exists || target.frame.midY > viewport.midY
+            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+                dx: (usesLeadingGutter ? viewport.minX + 4 : viewport.midX) - app.frame.minX,
+                dy: viewport.minY - app.frame.minY + viewport.height * (up ? 0.8 : 0.2)
+            ))
+            let end = start.withOffset(CGVector(dx: 0, dy: viewport.height * (up ? -0.5 : 0.5)))
+            start.press(forDuration: 0.01, thenDragTo: end)
+        }
+        XCTAssertTrue(
+            target.exists && formViewport(form, obscuringBottomControlID: obscuringBottomControlID)
+                .contains(target.frame),
+            "Form control remains clipped: \(target)",
+            file: file,
+            line: line
+        )
+    }
+
+    private func formViewport(
+        _ form: XCUIElement,
+        obscuringBottomControlID: String?
+    ) -> CGRect {
+        var viewport = form.frame.intersection(app.frame)
+        for bar in app.navigationBars.allElementsBoundByIndex where bar.isHittable {
+            if bar.frame.intersects(viewport), bar.frame.maxY < viewport.midY {
+                let bottom = viewport.maxY
+                viewport.origin.y = max(viewport.minY, bar.frame.maxY)
+                viewport.size.height = bottom - viewport.minY
+            }
+        }
+        let keyboard = app.keyboards.firstMatch
+        if keyboard.exists, keyboard.frame.intersects(viewport) {
+            viewport.size.height = max(0, keyboard.frame.minY - viewport.minY)
+        }
+        if let obscuringBottomControlID {
+            let control = app.buttons[obscuringBottomControlID]
+            if control.exists, control.frame.intersects(viewport), control.frame.minY > viewport.midY {
+                viewport.size.height = control.frame.minY - viewport.minY
+            }
+        }
+        return viewport.insetBy(dx: 4, dy: 8)
+    }
+
     /// Scrolls semantic, noninteractive content into the viewport without asking XCTest for an
     /// activation point. Hosted iPad simulators can fail `isHittable` for visible static text and
     /// accessibility containers even though their frames are valid and displayed.

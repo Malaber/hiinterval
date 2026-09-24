@@ -16,7 +16,8 @@ final class PlanDurationEntryUITests: HiIntervalUITestCase {
         waitForExistence(element("plan.editor.screen"))
 
         let workValue = element("plan.editor.work.value")
-        tap(workValue, scrolls: true)
+        revealFormControl(workValue, identifier: "plan.editor.screen", usesLeadingGutter: true)
+        tap(workValue)
         waitForExistence(element("plan.editor.work.entry.screen"))
         let secondsField = element("plan.editor.work.entry.seconds")
         waitForExistence(secondsField)
@@ -28,7 +29,8 @@ final class PlanDurationEntryUITests: HiIntervalUITestCase {
         waitForDisappearance(element("plan.editor.work.entry.screen"))
         waitForValue("5 seconds", on: workValue)
 
-        tap(workValue, scrolls: true)
+        revealFormControl(workValue, identifier: "plan.editor.screen", usesLeadingGutter: true)
+        tap(workValue)
         waitForExistence(secondsField)
         replaceText(in: secondsField, with: "17")
         tapToolbarButton("plan.editor.work.entry.done", label: "Done")
@@ -48,7 +50,7 @@ final class PlanDurationEntryUITests: HiIntervalUITestCase {
             scrolls: true
         )
         waitForExistence(element("plan.editor.screen"))
-        scrollToHittable(element("plan.editor.work.value"))
+        revealFormControl(element("plan.editor.work.value"), identifier: "plan.editor.screen", usesLeadingGutter: true)
         waitForValue("17 seconds", on: element("plan.editor.work.value"))
     }
 }

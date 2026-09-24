@@ -22,11 +22,13 @@ final class LibraryManagementUITests: HiIntervalUITestCase {
             scrolls: true
         )
         waitForExistence(element("plan.editor.screen"))
-        tap(element("plan.editor.warmup.value"), scrolls: true)
-        waitForExistence(element("plan.editor.warmup.entry.screen"))
-        replaceText(in: element("plan.editor.warmup.entry.seconds"), with: "13")
-        tapToolbarButton("plan.editor.warmup.entry.done", label: "Done")
-        waitForDisappearance(element("plan.editor.warmup.entry.screen"))
+        let workValue = element("plan.editor.work.value")
+        revealFormControl(workValue, identifier: "plan.editor.screen", usesLeadingGutter: true)
+        tap(workValue)
+        waitForExistence(element("plan.editor.work.entry.screen"))
+        replaceText(in: element("plan.editor.work.entry.seconds"), with: "13")
+        tapToolbarButton("plan.editor.work.entry.done", label: "Done")
+        waitForDisappearance(element("plan.editor.work.entry.screen"))
         tapToolbarButton("plan.editor.save", label: "Save")
         waitForDisappearance(element("plan.editor.screen"), timeout: 8)
 
