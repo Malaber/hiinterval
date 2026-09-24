@@ -60,8 +60,8 @@ final class AccessibilityUITests: HiIntervalUITestCase {
         capture("accessibility-session-work")
 
         tap(element("session.skip"), scrolls: true)
-        waitForLabel("Recover after High Knees", on: element("session.exercise"))
-        assertSessionAccessibility(phase: "RECOVER", exercise: "Recover after High Knees")
+        waitForLabel("Recovery", on: element("session.exercise"))
+        assertSessionAccessibility(phase: "RECOVER", exercise: "Recovery")
         capture("accessibility-session-recovery")
     }
 

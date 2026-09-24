@@ -35,6 +35,33 @@ struct WorkoutSessionFlow: View {
     }
 }
 
+/// Native button tracking gives immediate pressed feedback without competing tap gestures.
+private struct SessionControlStyle: ViewModifier {
+    let foreground: Color
+    var prominent = false
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            if prominent {
+                content.buttonStyle(.glassProminent).tint(foreground)
+                    .buttonBorderShape(.circle)
+            } else {
+                content.buttonStyle(.glass).tint(foreground)
+                    .buttonBorderShape(.circle)
+            }
+        } else {
+            if prominent {
+                content.buttonStyle(.borderedProminent).tint(foreground)
+                    .buttonBorderShape(.circle)
+            } else {
+                content.buttonStyle(.bordered).tint(foreground)
+                    .buttonBorderShape(.circle)
+            }
+        }
+    }
+}
+
 private struct ActiveWorkoutView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
@@ -168,9 +195,8 @@ private struct ActiveWorkoutView: View {
             } label: {
                 Image(systemName: "xmark")
                     .frame(width: 44, height: 44)
-                    .background(controlSurface, in: Circle())
-                    .overlay { Circle().stroke(sessionForeground.opacity(0.12)) }
             }
+            .modifier(SessionControlStyle(foreground: sessionForeground))
             .accessibilityLabel("End workout")
             .accessibilityIdentifier("session.close")
 
@@ -193,9 +219,8 @@ private struct ActiveWorkoutView: View {
             } label: {
                 Image(systemName: controller.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
                     .frame(width: 44, height: 44)
-                    .background(controlSurface, in: Circle())
-                    .overlay { Circle().stroke(sessionForeground.opacity(0.12)) }
             }
+            .modifier(SessionControlStyle(foreground: sessionForeground))
             .accessibilityLabel(controller.isMuted ? "Unmute cues" : "Mute cues")
             .accessibilityIdentifier("session.mute")
         }
@@ -221,12 +246,11 @@ private struct ActiveWorkoutView: View {
     }
 
     private var currentHeading: String {
-        guard phase?.kind == .recovery,
-              let position = phase?.position,
-              controller.plan.exercises.indices.contains(position.exerciseIndex - 1) else {
-            return phase?.title ?? "Complete"
+        switch phase?.kind {
+        case .recovery: return "Recovery"
+        case .roundRecovery: return "Round recovery"
+        default: return (phase?.title ?? "Complete") + sideSuffix(phase?.side)
         }
-        return controller.plan.exercises[position.exerciseIndex - 1].name
     }
 
     private func timerBody(compact: Bool) -> some View {
@@ -237,19 +261,9 @@ private struct ActiveWorkoutView: View {
                 weight: .heavy,
                 minimumScale: 0.62
             )
-                .accessibilityLabel(phase?.kind == .recovery ? "Recover after \(currentHeading)" : currentHeading)
+                .accessibilityLabel(currentHeading)
                 .accessibilityIdentifier("session.exercise")
                 .accessibilityValue("Primary focus")
-
-            if sessionHasSides {
-                ZStack {
-                    sideBadge(.left).hidden().accessibilityHidden(true)
-                    if let side = phase?.side {
-                        sideBadge(side)
-                            .accessibilityIdentifier("session.side")
-                    }
-                }
-            }
 
             if sessionHasNotes {
                 ScrollView {
@@ -324,11 +338,6 @@ private struct ActiveWorkoutView: View {
             || plan.exercises.contains { !$0.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
 
-    private var sessionHasSides: Bool {
-        controller.plan.exercises.contains { $0.sideConfiguration.mode == .leftRight }
-            || controller.plan.roundOverrides.contains { $0.sideConfiguration?.mode == .leftRight }
-    }
-
     /// Measure an unscaled two-line slot so shorter or scaled names cannot shift other views.
     private func stableTitle(
         _ title: String, size: CGFloat, weight: Font.Weight, minimumScale: CGFloat
@@ -349,15 +358,6 @@ private struct ActiveWorkoutView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityHidden(false)
             .accessibilityLabel(title)
-    }
-
-    private func sideBadge(_ side: WorkoutSide) -> some View {
-        Text(side == .left ? "LEFT SIDE" : "RIGHT SIDE")
-            .font(.subheadline.weight(.bold))
-            .tracking(1.2)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
-            .background(controlSurface, in: Capsule())
     }
 
     private func notesCard(_ notes: String, compact: Bool) -> some View {
@@ -420,9 +420,8 @@ private struct ActiveWorkoutView: View {
                     .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(phaseColor)
                     .frame(width: 82, height: 82)
-                    .background(sessionForeground, in: Circle())
-                    .shadow(color: Color.black.opacity(0.22), radius: 18, y: 8)
             }
+            .modifier(SessionControlStyle(foreground: sessionForeground, prominent: true))
             .accessibilityLabel(controller.engine.state == .paused ? "Resume workout" : "Pause workout")
             .accessibilityIdentifier("session.pause")
 
@@ -439,25 +438,16 @@ private struct ActiveWorkoutView: View {
 
     private var restartControl: some View {
         Button {
-            controller.restart(preferences: store.data.preferences)
+            controller.restartTapped(preferences: store.data.preferences)
         } label: {
-            Image(systemName: "arrow.counterclockwise")
+            Image(systemName: controller.isPreviousTapArmed ? "arrow.backward" : "arrow.counterclockwise")
                 .font(.title3.weight(.semibold))
                 .frame(width: 58, height: 58)
-                .background(controlSurface, in: Circle())
-                .overlay { Circle().stroke(sessionForeground.opacity(0.12)) }
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain)
-        .highPriorityGesture(
-            TapGesture(count: 2)
-                .onEnded {
-                    if controller.engine.canReturnToPreviousExercise {
-                        controller.returnToPreviousExercise(preferences: store.data.preferences)
-                    }
-                }
-        )
-        .accessibilityLabel("Restart phase")
+        .modifier(SessionControlStyle(foreground: sessionForeground))
+        .accessibilityLabel(controller.isPreviousTapArmed ? "Previous exercise" : "Restart phase")
+        .accessibilityValue(controller.isPreviousTapArmed ? "Back available" : "Restart available")
         .accessibilityHint(
             controller.engine.canReturnToPreviousExercise
                 ? "Restarts this phase. Use the Previous exercise action to go back with VoiceOver."
@@ -483,9 +473,8 @@ private struct ActiveWorkoutView: View {
             Image(systemName: icon)
                 .font(.title3.weight(.semibold))
                 .frame(width: 58, height: 58)
-                .background(controlSurface, in: Circle())
-                .overlay { Circle().stroke(sessionForeground.opacity(0.12)) }
         }
+        .modifier(SessionControlStyle(foreground: sessionForeground))
         .accessibilityLabel(label)
         .accessibilityIdentifier(identifier)
     }

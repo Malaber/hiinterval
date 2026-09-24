@@ -106,16 +106,14 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         tap(element("session.mute"))
         waitForLabel("Mute cues", on: element("session.mute"))
 
-        seekPausedPhase(exercise: "Reverse Lunges", phase: "WORK", side: "LEFT SIDE")
+        seekPausedPhase(exercise: "Reverse Lunges · Left", phase: "WORK")
         capture("02-left-side")
 
-        skipPausedPhase(expectingExercise: "Switch sides")
+        skipPausedPhase(expectingExercise: "Switch sides · Right")
         waitForLabel("SWITCH", on: element("session.phase-kind"))
-        waitForLabel("RIGHT SIDE", on: element("session.side"))
 
-        skipPausedPhase(expectingExercise: "Reverse Lunges")
+        skipPausedPhase(expectingExercise: "Reverse Lunges · Right")
         waitForLabel("WORK", on: element("session.phase-kind"))
-        waitForLabel("RIGHT SIDE", on: element("session.side"))
         capture("03-right-side")
 
         skipPausedPhase(expectingExercise: "Round recovery")
@@ -169,8 +167,8 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         waitForRemainingSeconds(600, on: remaining)
         capture("02-single-reset-restored-time")
 
-        // Recovery stays visually current for exercise one; next-up skips it entirely.
-        skipPausedPhase(expectingExercise: "Recover after High Knees")
+        // Recovery has its own heading; next-up points to the next work phase.
+        skipPausedPhase(expectingExercise: "Recovery")
         waitForLabel("Notes, Breathe and reset", on: element("session.notes"))
         waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
         waitForLabel("Next up, Reverse Lunges · Left", on: element("session.next"))
@@ -188,8 +186,16 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
         capture("04-double-back-restored-exercise")
 
-        skipPausedPhase(expectingExercise: "Recover after High Knees")
-        skipPausedPhase(expectingExercise: "Reverse Lunges")
+        // The first exercise can return to warm-up, not just earlier work phases.
+        element("session.restart").doubleTap()
+        waitForLabel("Get ready", on: element("session.exercise"))
+        waitForLabel("WARM UP", on: element("session.phase-kind"))
+        waitForRemainingSeconds(600, on: remaining)
+        waitForValue("Restart available", on: element("session.restart"))
+        skipPausedPhase(expectingExercise: "High Knees")
+
+        skipPausedPhase(expectingExercise: "Recovery")
+        skipPausedPhase(expectingExercise: "Reverse Lunges · Left")
         waitForLabel("Exercise 2 of 8", on: element("session.exercise-progress"))
         waitForLabel("Next up, Reverse Lunges · Right", on: element("session.next"))
         capture("05-second-exercise-selected")
@@ -233,28 +239,6 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         incrementStepper("plan.editor.rounds", times: 8)
         tapToolbarButton("plan.editor.save", label: "Save")
         waitForExistence(element("plans.screen"))
-    }
-
-    private func seekPausedPhase(exercise: String, phase: String, side: String) {
-        let exerciseElement = element("session.exercise")
-        let phaseElement = element("session.phase-kind")
-        let sideElement = element("session.side")
-
-        for _ in 0..<12 {
-            if exerciseElement.label == exercise,
-               phaseElement.label == phase,
-               sideElement.exists,
-               sideElement.label == side {
-                return
-            }
-            let previous = exerciseElement.label
-            tap(element("session.skip"))
-            waitForLabelToChange(from: previous, on: exerciseElement)
-        }
-        XCTFail(
-            "Could not reach paused phase \(phase) / \(exercise) / \(side). "
-                + "Current: \(phaseElement.label) / \(exerciseElement.label) / \(sideElement.label)"
-        )
     }
 
     private func seekPausedPhase(exercise: String, phase: String, attempts: Int = 12) {

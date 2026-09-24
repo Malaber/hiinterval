@@ -32,8 +32,8 @@ final class SessionLayoutUITests: HiIntervalUITestCase {
 
         for expected in [
             "Long exercise heading\nwith a second line",
-            "Recover after Long exercise heading\nwith a second line",
-            "Reverse Lunges",
+            "Recovery",
+            "Reverse Lunges · Left",
         ] {
             tap(element("session.skip"))
             waitForLabel(expected, on: heading)
