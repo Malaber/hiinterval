@@ -237,7 +237,8 @@ rules cover their standard locations.
   model; do not add a network AI fallback by default.
 - Reuse the design system, accessibility identifiers, and semantic labels. Check light/dark mode,
   large Dynamic Type, VoiceOver, iPhone portrait, and iPad rotations/multitasking widths. Settings
-  scrolling and the iOS 26 floating tab bar have prior layout/contrast regressions: verify visible
+  scrolling and the iOS 26 floating tab bar have prior layout/contrast regressions: use shared soft
+  scroll-edge fades, never reserve a fixed opaque strip below Settings, and verify visible
   rows, content insets, and shared scroll-edge treatment on both device families.
 - `App/PrivacyInfo.xcprivacy` declares no tracking/collected data and the app-only UserDefaults
   required-reason API use. Keep the manifest and public privacy page consistent with actual behavior.

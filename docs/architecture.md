@@ -78,3 +78,20 @@ with previews in Settings. Text switches between black and white for contrast.
 sides. The controller emits it only while running, after higher-priority phase speech, and honors
 mute/audio settings. The session keeps phase context accessible without visual Work/Recover labels.
 Pause status overlays the layout; a single measured layout enables scrolling only when content exceeds the available height.
+
+
+### 0.5.1 layout and rendering
+
+Session layout uses available safe-area height to keep the header at the top and transport controls
+at the bottom, with reserved visual slots between them. The pause splash overlays session visuals
+without participating in layout. Content can still scroll when a short window or accessibility text
+size needs more space.
+
+All four tabs use the shared soft native scroll-edge effect on iOS 26. Settings has no fixed bottom
+spacer, and the tab bar uses its native background instead of a forced opaque fill.
+
+Workout logo controls live in a plan-editor submenu. Photo transfer gates navigation/Save until
+completion or explicit cancellation; draft bytes remain in memory until the plan is saved.
+Plans cache duration summaries against complete plan values and prune removed IDs. Logo images
+use a bounded in-memory cache, invalidated when files are removed, avoiding repeated disk reads
+while cards are redrawn. Actual device frame rate remains a physical-device validation concern.

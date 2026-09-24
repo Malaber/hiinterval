@@ -83,3 +83,15 @@ deterministic UI regressions as implementation lands; retain the 99% core covera
 iPhone/iPad suites before delivery. Check VoiceOver, large text, light/dark mode, and iPad widths;
 verify spoken cues and photo selection on a physical device. Follow `AGENTS.md` for push/TestFlight
 delivery and fresh marketing versions. Theme selection applies globally to every workout, not to individual plans.
+
+
+## 0.5.1 visual follow-up
+
+- Anchor session header and controls to opposite screen edges; reserve stable heading/detail space
+  across exercises and retain scrolling only when required for accessibility or short windows.
+- Show a large, readable pause overlay above session visuals without covering transport controls.
+- Remove Settings’ fixed bottom strip and share soft native scroll-edge fades across all four tabs.
+- Remove repeated timeline expansion and logo image loading from Plans scrolling/rendering.
+- Move workout logo customization into a compact editor submenu, retaining draft Save/Cancel behavior.
+- Validate full native gate before Git push and CLI TestFlight delivery; physical-device scrolling
+  smoothness, glass appearance, and photo-picker behavior remain device checks.
