@@ -84,7 +84,8 @@ Pause status overlays the layout; a single measured layout enables scrolling onl
 
 Session layout uses available safe-area height to keep the header at the top and transport controls
 at the bottom, with reserved visual slots between them. The pause splash overlays session visuals
-without participating in layout. Content can still scroll when a short window or accessibility text
+without participating in layout. Notes reserve a three-line region that scrolls independently for long
+text, so a long note cannot push transport controls away on every phase. Content can still scroll when a short window or accessibility text
 size needs more space.
 
 All four tabs use the shared soft native scroll-edge effect on iOS 26. Settings has no fixed bottom

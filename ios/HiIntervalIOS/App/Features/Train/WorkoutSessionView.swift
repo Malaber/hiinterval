@@ -42,6 +42,7 @@ private struct ActiveWorkoutView: View {
     @ObservedObject var controller: WorkoutSessionController
     @State private var confirmExit = false
     @State private var contentHeight: CGFloat = 0
+    @ScaledMetric(relativeTo: .body) private var notesLineHeight: CGFloat = 22
     @State private var timer = Timer.publish(every: 0.2, on: .main, in: .common).autoconnect()
 
     private var phase: WorkoutPhase? { controller.engine.currentPhase }
@@ -240,7 +241,7 @@ private struct ActiveWorkoutView: View {
                 .accessibilityIdentifier("session.exercise")
                 .accessibilityValue("Primary focus")
 
-            if controller.engine.timeline.phases.contains(where: { $0.side != nil }) {
+            if sessionHasSides {
                 ZStack {
                     sideBadge(.left).hidden().accessibilityHidden(true)
                     if let side = phase?.side {
@@ -250,18 +251,15 @@ private struct ActiveWorkoutView: View {
                 }
             }
 
-            let plannedNotes = Array(Set(controller.engine.timeline.phases.compactMap(\.notes))).sorted()
-            if !plannedNotes.isEmpty {
-                ZStack(alignment: .top) {
-                    ForEach(plannedNotes, id: \.self) { notes in
-                        notesCard(notes, compact: compact)
-                            .hidden()
-                            .accessibilityHidden(true)
-                    }
+            if sessionHasNotes {
+                ScrollView {
                     if let notes = phase?.notes {
                         notesCard(notes, compact: compact)
                     }
                 }
+                .frame(height: notesLineHeight * 3 + (compact ? 16 : 24))
+                .scrollBounceBehavior(.basedOnSize)
+                .accessibilityHidden(phase?.notes == nil)
             }
 
             Text(SessionFormat.duration(controller.engine.displayedRemainingSeconds))
@@ -317,6 +315,18 @@ private struct ActiveWorkoutView: View {
                     .accessibilityHidden(true)
             }
         }
+    }
+
+    private var sessionHasNotes: Bool {
+        let plan = controller.plan
+        return [plan.warmUpNotes, plan.recoveryNotes, plan.coolDownNotes, plan.roundRecoveryNotes]
+            .contains { !($0?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) }
+            || plan.exercises.contains { !$0.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
+    private var sessionHasSides: Bool {
+        controller.plan.exercises.contains { $0.sideConfiguration.mode == .leftRight }
+            || controller.plan.roundOverrides.contains { $0.sideConfiguration?.mode == .leftRight }
     }
 
     /// Measure an unscaled two-line slot so shorter or scaled names cannot shift other views.
