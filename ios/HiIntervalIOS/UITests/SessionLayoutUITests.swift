@@ -5,6 +5,7 @@ final class SessionLayoutUITests: HiIntervalUITestCase {
     func testPausedOverlayDoesNotMoveContentAndStandardWorkoutFitsScreen() {
         app = configuredApplication(resetFixture: .glanceableSession)
         app.launchEnvironment["HIINTERVAL_UI_TEST_SPEED"] = "1"
+        app.launchEnvironment["HIINTERVAL_UI_TEST_LAYOUT_NAMES"] = "1"
         launchConfiguredApplication()
         tap(element("train.start"))
         waitForExistence(element("session.screen"))
@@ -22,6 +23,24 @@ final class SessionLayoutUITests: HiIntervalUITestCase {
             XCTAssertEqual(original.minY, paused.minY, accuracy: 1)
             XCTAssertEqual(original.height, paused.height, accuracy: 1)
         }
+        let viewport = app.scrollViews["session.screen"].frame
+        // XCTest scroll frames include the status bar/home-indicator safe areas.
+        XCTAssertLessThan(element("session.close").frame.minY - viewport.minY, viewport.height * 0.15)
+        XCTAssertLessThan(viewport.maxY - pause.frame.maxY, viewport.height * 0.12)
+        XCTAssertFalse(element("session.paused").frame.intersects(pause.frame))
+        capture("session-readable-pause-splash")
+
+        for expected in [
+            "Long exercise heading\nwith a second line",
+            "Recover after Long exercise heading\nwith a second line",
+            "Reverse Lunges",
+        ] {
+            tap(element("session.skip"))
+            waitForLabel(expected, on: heading)
+            XCTAssertEqual(timer.frame.minY, before[1].minY, accuracy: 1)
+            XCTAssertEqual(pause.frame.minY, before[2].minY, accuracy: 1)
+        }
+        capture("session-stable-phase-slots")
         tap(pause)
         waitForDisappearance(element("session.paused"))
         XCTAssertEqual(heading.frame.minY, before[0].minY, accuracy: 1)

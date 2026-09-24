@@ -429,7 +429,7 @@ private extension AppData {
     }
 
     static func uiTestGlanceableSessionFixture(now: Date) -> AppData {
-        let plan = WorkoutPlan(
+        var plan = WorkoutPlan(
             id: fixtureUUID(41),
             name: "Eight Move Session",
             warmUpSeconds: 600,
@@ -462,6 +462,9 @@ private extension AppData {
             createdAt: now,
             updatedAt: now
         )
+        if ProcessInfo.processInfo.environment["HIINTERVAL_UI_TEST_LAYOUT_NAMES"] == "1" {
+            plan.exercises[0].name = "Long exercise heading\nwith a second line"
+        }
         return AppData(plans: [plan], selectedPlanID: plan.id)
     }
 

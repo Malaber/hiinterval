@@ -83,13 +83,15 @@ private struct ActiveWorkoutView: View {
 
             GeometryReader { geometry in
                 ScrollView {
-                    sessionContent(compact: geometry.size.height < 850)
+                    sessionContent(
+                        compact: geometry.size.height < 850,
+                        availableHeight: geometry.size.height
+                    )
                         .background {
                             GeometryReader { content in
                                 Color.clear.preference(key: SessionContentHeightKey.self, value: content.size.height)
                             }
                         }
-                        .frame(minHeight: geometry.size.height)
                 }
                 .scrollDisabled(contentHeight <= geometry.size.height + 1)
                 .scrollBounceBehavior(.basedOnSize)
@@ -97,21 +99,6 @@ private struct ActiveWorkoutView: View {
                 .onPreferenceChange(SessionContentHeightKey.self) { contentHeight = $0 }
                 .accessibilityIdentifier("session.screen")
                 .accessibilityValue(contentHeight <= geometry.size.height + 1 ? "Fits screen" : "Scrollable content")
-            }
-        }
-        .overlay(alignment: .top) {
-            if controller.engine.state == .paused {
-                Text("PAUSED")
-                    .font(.caption.weight(.black))
-                    .tracking(1.1)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 7)
-                    .foregroundStyle(phaseColor)
-                    .background(sessionForeground, in: Capsule())
-                    .shadow(radius: 5, y: 2)
-                    .padding(.top, 66)
-                    .allowsHitTesting(false)
-                    .accessibilityIdentifier("session.paused")
             }
         }
         .foregroundStyle(sessionForeground)
@@ -142,17 +129,35 @@ private struct ActiveWorkoutView: View {
         }
     }
 
-    private func sessionContent(compact: Bool) -> some View {
-        VStack(spacing: compact ? 10 : 18) {
+    private func sessionContent(compact: Bool, availableHeight: CGFloat) -> some View {
+        VStack(spacing: 0) {
             header
+            Spacer(minLength: compact ? 16 : 32)
             phaseRibbon
+                .padding(.bottom, compact ? 10 : 18)
             timerBody(compact: compact)
+                .overlay {
+                    if controller.engine.state == .paused {
+                        Text("PAUSED")
+                            .font(.system(.title, design: .rounded, weight: .black))
+                            .tracking(2)
+                            .padding(.horizontal, 30)
+                            .padding(.vertical, 16)
+                            .foregroundStyle(phaseColor)
+                            .background(sessionForeground, in: Capsule())
+                            .overlay { Capsule().stroke(phaseColor.opacity(0.6), lineWidth: 2) }
+                            .shadow(color: .black.opacity(0.3), radius: 18, y: 8)
+                            .allowsHitTesting(false)
+                            .accessibilityIdentifier("session.paused")
+                    }
+                }
+            Spacer(minLength: compact ? 16 : 32)
             controls
         }
         .padding(.horizontal, compact ? 18 : 24)
         .padding(.vertical, compact ? 8 : 16)
         .frame(maxWidth: .infinity)
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(minHeight: availableHeight)
     }
 
     private var header: some View {
@@ -225,47 +230,38 @@ private struct ActiveWorkoutView: View {
 
     private func timerBody(compact: Bool) -> some View {
         VStack(spacing: compact ? 8 : 18) {
-            Text(currentHeading)
-                .font(
-                    .system(
-                        size: compact ? 34 : CGFloat(headingHierarchy.currentNamePointSize),
-                        weight: .heavy,
-                        design: .rounded
-                    )
-                )
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.62)
+            stableTitle(
+                currentHeading,
+                size: compact ? 34 : CGFloat(headingHierarchy.currentNamePointSize),
+                weight: .heavy,
+                minimumScale: 0.62
+            )
                 .accessibilityLabel(phase?.kind == .recovery ? "Recover after \(currentHeading)" : currentHeading)
                 .accessibilityIdentifier("session.exercise")
                 .accessibilityValue("Primary focus")
 
-            if let side = phase?.side {
-                Text(side == .left ? "LEFT SIDE" : "RIGHT SIDE")
-                    .font(.subheadline.weight(.bold))
-                    .tracking(1.2)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 7)
-                    .background(controlSurface, in: Capsule())
-                    .accessibilityIdentifier("session.side")
+            if controller.engine.timeline.phases.contains(where: { $0.side != nil }) {
+                ZStack {
+                    sideBadge(.left).hidden().accessibilityHidden(true)
+                    if let side = phase?.side {
+                        sideBadge(side)
+                            .accessibilityIdentifier("session.side")
+                    }
+                }
             }
 
-            if let notes = phase?.notes {
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "lightbulb.fill")
-                        .accessibilityHidden(true)
-                    Text(notes)
-                        .font(.body.weight(.semibold))
-                        .fixedSize(horizontal: false, vertical: true)
+            let plannedNotes = Array(Set(controller.engine.timeline.phases.compactMap(\.notes))).sorted()
+            if !plannedNotes.isEmpty {
+                ZStack(alignment: .top) {
+                    ForEach(plannedNotes, id: \.self) { notes in
+                        notesCard(notes, compact: compact)
+                            .hidden()
+                            .accessibilityHidden(true)
+                    }
+                    if let notes = phase?.notes {
+                        notesCard(notes, compact: compact)
+                    }
                 }
-                .foregroundStyle(sessionForeground)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.vertical, compact ? 8 : 12)
-                .background(controlSurface, in: RoundedRectangle(cornerRadius: 14))
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Notes, \(notes)")
-                .accessibilityIdentifier("session.notes")
             }
 
             Text(SessionFormat.duration(controller.engine.displayedRemainingSeconds))
@@ -314,44 +310,93 @@ private struct ActiveWorkoutView: View {
             .foregroundStyle(sessionSecondary)
 
             if let next = controller.engine.nextExercisePhase {
-                VStack(spacing: 6) {
-                    Label("NEXT UP", systemImage: "forward.fill")
-                        .font(.caption.weight(.bold))
-                        .tracking(1.1)
-                        .foregroundStyle(sessionForeground)
-                    Text(next.title + sideSuffix(next.side))
-                        .font(
-                            .system(
-                                size: CGFloat(headingHierarchy.nextNamePointSize),
-                                weight: .semibold,
-                                design: .rounded
-                            )
-                        )
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.75)
-                }
-                .foregroundStyle(sessionForeground)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 18)
-                .padding(.vertical, compact ? 6 : 12)
-                .background(
-                    Color.black.opacity(headingHierarchy.nextSurfaceOpacity),
-                    in: RoundedRectangle(cornerRadius: 16)
-                )
-                .overlay {
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(
-                            sessionForeground.opacity(headingHierarchy.nextStrokeOpacity),
-                            lineWidth: 1
-                        )
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Next up, \(next.title + sideSuffix(next.side))")
-                .accessibilityValue("Secondary preview")
-                .accessibilityIdentifier("session.next")
+                nextPreview(next.title + sideSuffix(next.side), compact: compact)
+            } else {
+                nextPreview("Next exercise", compact: compact)
+                    .hidden()
+                    .accessibilityHidden(true)
             }
         }
+    }
+
+    /// Measure an unscaled two-line slot so shorter or scaled names cannot shift other views.
+    private func stableTitle(
+        _ title: String, size: CGFloat, weight: Font.Weight, minimumScale: CGFloat
+    ) -> some View {
+        Text("Ag\nAg")
+            .font(.system(size: size, weight: weight, design: .rounded))
+            .hidden()
+            .accessibilityHidden(true)
+            .frame(maxWidth: .infinity)
+            .overlay {
+                Text(title)
+                    .font(.system(size: size, weight: weight, design: .rounded))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(minimumScale)
+                    .accessibilityHidden(true)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityHidden(false)
+            .accessibilityLabel(title)
+    }
+
+    private func sideBadge(_ side: WorkoutSide) -> some View {
+        Text(side == .left ? "LEFT SIDE" : "RIGHT SIDE")
+            .font(.subheadline.weight(.bold))
+            .tracking(1.2)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .background(controlSurface, in: Capsule())
+    }
+
+    private func notesCard(_ notes: String, compact: Bool) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "lightbulb.fill")
+                .accessibilityHidden(true)
+            Text(notes)
+                .font(.body.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(sessionForeground)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, compact ? 8 : 12)
+        .background(controlSurface, in: RoundedRectangle(cornerRadius: 14))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Notes, \(notes)")
+        .accessibilityIdentifier("session.notes")
+    }
+
+    private func nextPreview(_ title: String, compact: Bool) -> some View {
+        VStack(spacing: 6) {
+            Label("NEXT UP", systemImage: "forward.fill")
+                .font(.caption.weight(.bold))
+                .tracking(1.1)
+                .foregroundStyle(sessionForeground)
+            stableTitle(
+                title,
+                size: CGFloat(headingHierarchy.nextNamePointSize),
+                weight: .semibold,
+                minimumScale: 0.75
+            )
+        }
+        .foregroundStyle(sessionForeground)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 18)
+        .padding(.vertical, compact ? 6 : 12)
+        .background(
+            Color.black.opacity(headingHierarchy.nextSurfaceOpacity),
+            in: RoundedRectangle(cornerRadius: 16)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(sessionForeground.opacity(headingHierarchy.nextStrokeOpacity), lineWidth: 1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Next up, \(title)")
+        .accessibilityValue("Secondary preview")
+        .accessibilityIdentifier("session.next")
     }
 
     private var controls: some View {
