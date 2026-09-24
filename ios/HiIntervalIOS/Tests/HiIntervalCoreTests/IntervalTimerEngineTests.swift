@@ -240,6 +240,58 @@ final class IntervalTimerEngineTests: XCTestCase {
         XCTAssertEqual(engine.remainingSeconds, 9)
     }
 
+    func testReturnFromFirstExerciseToWarmUpRestoresWarmUpClock() {
+        let warmUp = WorkoutPhase(kind: .warmUp, title: "Get ready", durationSeconds: 8)
+        let firstWork = WorkoutPhase(kind: .work, title: "Squat", durationSeconds: 10)
+        var engine = IntervalTimerEngine(
+            timeline: WorkoutTimeline(
+                planID: UUID(), planName: "Test", phases: [warmUp, firstWork]
+            )
+        )
+        _ = engine.start(at: start)
+        XCTAssertFalse(engine.canReturnToPreviousExercise)
+        _ = engine.skip(at: start)
+        XCTAssertTrue(engine.canReturnToPreviousExercise)
+
+        XCTAssertEqual(
+            engine.returnToPreviousExercise(at: start.addingTimeInterval(2)),
+            [.phaseStarted(warmUp)]
+        )
+        XCTAssertEqual(engine.currentPhaseIndex, 0)
+        XCTAssertEqual(engine.remainingSeconds, 8)
+        XCTAssertFalse(engine.canReturnToPreviousExercise)
+        _ = engine.tick(at: start.addingTimeInterval(3))
+        XCTAssertEqual(engine.remainingSeconds, 7)
+    }
+
+    func testReturnToWarmUpSkipsRecoveryAfterFirstExercise() {
+        let warmUp = WorkoutPhase(kind: .warmUp, title: "Get ready", durationSeconds: 8)
+        let firstWork = WorkoutPhase(kind: .work, title: "Squat", durationSeconds: 10)
+        let recovery = WorkoutPhase(kind: .recovery, title: "Recover", durationSeconds: 4)
+        var engine = IntervalTimerEngine(
+            timeline: WorkoutTimeline(
+                planID: UUID(), planName: "Test", phases: [warmUp, firstWork, recovery]
+            )
+        )
+        _ = engine.start(at: start)
+        _ = engine.skip(at: start)
+        _ = engine.skip(at: start)
+        XCTAssertEqual(engine.returnToPreviousExercise(at: start), [.phaseStarted(firstWork)])
+        XCTAssertEqual(engine.returnToPreviousExercise(at: start), [.phaseStarted(warmUp)])
+        XCTAssertFalse(engine.canReturnToPreviousExercise)
+    }
+
+    func testNoWarmUpHasNoPreviousTargetAtFirstExercise() {
+        let firstWork = WorkoutPhase(kind: .work, title: "Squat", durationSeconds: 10)
+        var engine = IntervalTimerEngine(
+            timeline: WorkoutTimeline(planID: UUID(), planName: "Test", phases: [firstWork])
+        )
+        _ = engine.start(at: start)
+        XCTAssertFalse(engine.canReturnToPreviousExercise)
+        XCTAssertEqual(engine.returnToPreviousExercise(at: start.addingTimeInterval(2)), [])
+        XCTAssertEqual(engine.remainingSeconds, 8)
+    }
+
     func testReturnToPreviousExerciseResolvesClockBoundaryBeforeRewinding() {
         let firstWork = WorkoutPhase(kind: .work, title: "Squat", durationSeconds: 10)
         let recovery = WorkoutPhase(kind: .recovery, title: "Recover", durationSeconds: 5)
