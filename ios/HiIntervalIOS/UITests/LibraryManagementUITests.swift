@@ -2,6 +2,51 @@ import XCTest
 
 @MainActor
 final class LibraryManagementUITests: HiIntervalUITestCase {
+    func testPlanCardDurationRefreshesAfterTimingEdit() {
+        launch()
+        selectTab("plans")
+
+        let card = element("plan.card.\(FixtureID.quickStartPlan)")
+        let duration = card.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH 'Duration, '"))
+            .firstMatch
+        waitForExistence(duration)
+        let originalDuration = duration.label
+
+        tap(
+            planActionButton(
+                planID: FixtureID.quickStartPlan,
+                identifier: "plan.edit.\(FixtureID.quickStartPlan)",
+                fallbackLabel: "Edit"
+            ),
+            scrolls: true
+        )
+        waitForExistence(element("plan.editor.screen"))
+        tap(element("plan.editor.warmup.value"), scrolls: true)
+        waitForExistence(element("plan.editor.warmup.entry.screen"))
+        replaceText(in: element("plan.editor.warmup.entry.seconds"), with: "13")
+        tapToolbarButton("plan.editor.warmup.entry.done", label: "Done")
+        waitForDisappearance(element("plan.editor.warmup.entry.screen"))
+        tapToolbarButton("plan.editor.save", label: "Save")
+        waitForDisappearance(element("plan.editor.screen"), timeout: 8)
+
+        wait(
+            for: NSPredicate(format: "exists == true AND label != %@", originalDuration),
+            on: duration,
+            timeout: 5,
+            message: "Plan duration did not update after editing warm-up"
+        )
+        let editedDuration = duration.label
+
+        relaunchPreservingData()
+        selectTab("plans")
+        let restoredDuration = element("plan.card.\(FixtureID.quickStartPlan)")
+            .descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH 'Duration, '"))
+            .firstMatch
+        waitForLabel(editedDuration, on: restoredDuration)
+    }
+
     func testSelectsDuplicatesAndDeletesPlanThenPersistsResult() {
         launch()
         selectTab("plans")

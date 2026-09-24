@@ -20,9 +20,14 @@ final class WorkoutLogoImageStore {
     private let fileManager: FileManager
     private let directoryURL: URL
     private let maxPixelDimension: CGFloat = 1_024
+    /// Filenames are immutable UUIDs; cache avoids a synchronous file read whenever a
+    /// plan card is recreated during scrolling or selection changes.
+    private let imageCache = NSCache<NSString, UIImage>()
 
     init(fileManager: FileManager = .default, directoryURL: URL? = nil) {
         self.fileManager = fileManager
+        imageCache.countLimit = 24
+        imageCache.totalCostLimit = 24 * 1_024 * 1_024
         if let directoryURL {
             self.directoryURL = directoryURL
         } else {
@@ -68,11 +73,19 @@ final class WorkoutLogoImageStore {
 
     func image(for filename: String?) -> UIImage? {
         guard let filename, isSafeFilename(filename) else { return nil }
-        return UIImage(contentsOfFile: directoryURL.appendingPathComponent(filename).path)
+        let key = filename as NSString
+        if let cached = imageCache.object(forKey: key) { return cached }
+        guard let image = UIImage(contentsOfFile: directoryURL.appendingPathComponent(filename).path) else {
+            return nil
+        }
+        let pixels = image.size.width * image.size.height * image.scale * image.scale
+        imageCache.setObject(image, forKey: key, cost: Int(pixels * 4))
+        return image
     }
 
     func discardUncommittedPhoto(named filename: String?) {
         guard let filename, isSafeFilename(filename) else { return }
+        imageCache.removeObject(forKey: filename as NSString)
         try? fileManager.removeItem(at: directoryURL.appendingPathComponent(filename))
     }
 
@@ -85,6 +98,7 @@ final class WorkoutLogoImageStore {
         ) else { return }
         let retained = Set(filenames.filter(isSafeFilename))
         for file in files where isSafeFilename(file.lastPathComponent) && !retained.contains(file.lastPathComponent) {
+            imageCache.removeObject(forKey: file.lastPathComponent as NSString)
             try? fileManager.removeItem(at: file)
         }
     }
