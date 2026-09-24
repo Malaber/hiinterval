@@ -14,27 +14,17 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                Form {
-                    accessSection
-                    cuesSection
-                    behaviorSection
-                    remindersSection
-                    appearanceSection
-                    workoutThemeSection
-                    aboutSection
-                }
-                .hiStableScrollContrast(hidingBottomEffect: true)
-                .accessibilityIdentifier("settings.form")
-
-                if #available(iOS 26.0, *) {
-                    // Match the floating tab bar footprint so partially covered rows are not
-                    // exposed as visible content or false-positive contrast audit targets.
-                    HITheme.canvas
-                        .frame(height: 72)
-                        .accessibilityHidden(true)
-                }
+            Form {
+                accessSection
+                cuesSection
+                behaviorSection
+                remindersSection
+                appearanceSection
+                workoutThemeSection
+                aboutSection
             }
+            .hiStableScrollContrast()
+            .accessibilityIdentifier("settings.form")
             .background(HITheme.canvas)
             .navigationTitle("Settings")
         }

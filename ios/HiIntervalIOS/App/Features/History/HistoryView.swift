@@ -45,6 +45,7 @@ struct HistoryView: View {
                         .padding(.horizontal, 20)
                         .padding(.bottom, 30)
                     }
+                    .hiStableScrollContrast()
                 }
             }
             .background(Color(uiColor: .systemGroupedBackground))

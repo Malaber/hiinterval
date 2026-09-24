@@ -53,8 +53,6 @@ struct RootView: View {
             .tabItem { tabLabel(.settings) }
         }
         .modifier(UITestDynamicTypeModifier(enabled: usesUITestAccessibilitySize))
-        .toolbarBackground(Color(uiColor: .systemBackground), for: .tabBar)
-        .toolbarBackground(.visible, for: .tabBar)
         .tint(HITheme.accent)
         .preferredColorScheme(store.data.preferences.appearance.colorScheme)
         .task {

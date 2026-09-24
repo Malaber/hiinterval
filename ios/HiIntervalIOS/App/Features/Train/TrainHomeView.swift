@@ -23,6 +23,7 @@ struct TrainHomeView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 32)
             }
+            .hiStableScrollContrast()
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("Train")
             .toolbar {
