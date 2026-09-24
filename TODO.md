@@ -95,3 +95,15 @@ delivery and fresh marketing versions. Theme selection applies globally to every
 - Move workout logo customization into a compact editor submenu, retaining draft Save/Cancel behavior.
 - Validate full native gate before Git push and CLI TestFlight delivery; physical-device scrolling
   smoothness, glass appearance, and photo-picker behavior remain device checks.
+
+## 0.5.2 device feedback
+
+- Let previous-exercise navigation reach warm-up; restart immediately on the first tap and show a
+  back arrow during the short second-tap window. Test explicit clock boundaries without retries.
+- Use native glass workout buttons on iOS 26, standard controls on earlier iOS, preserving hit areas
+  and the approved pause overlay.
+- Show Recovery as the recovery heading and append sides with a middle dot to exercise headings.
+- Let users select a square crop after choosing a photo; retain drafts until Save and enforce square
+  logo rendering for existing photos as well.
+- Fix the iPad duration-entry navigation regression, then run the complete native gate before
+  pushing and uploading the next unique TestFlight version.

@@ -96,3 +96,17 @@ completion or explicit cancellation; draft bytes remain in memory until the plan
 Plans cache duration summaries against complete plan values and prune removed IDs. Logo images
 use a bounded in-memory cache, invalidated when files are removed, avoiding repeated disk reads
 while cards are redrawn. Actual device frame rate remains a physical-device validation concern.
+
+### 0.5.2 session controls
+
+Restart uses an explicit monotonic-time tap policy: the first tap restarts immediately and arms a
+short previous-exercise window; a second tap goes back and clears the window. The back-arrow
+indicator expires independently of accelerated workout time. Other navigation/pause actions and
+phase transitions clear it. Previous navigation includes warm-up before the first work phase.
+Native glass button styles handle touches on iOS 26, with standard bordered fallbacks on older iOS.
+Recovery is an explicit heading, and left/right sides appear inline with a middle dot.
+
+Photo import normalizes the selected image in memory, then presents a square crop with drag, zoom,
+and accessible positioning controls. Crop preview and render share portable, tested geometry.
+Cancelling retains the previous draft; accepting stores square JPEG bytes only in the draft until
+plan Save. Existing uncropped images are clipped to their logo frame at render time.
