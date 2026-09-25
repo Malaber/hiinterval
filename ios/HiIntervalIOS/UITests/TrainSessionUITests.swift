@@ -120,7 +120,15 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         waitForLabel("ROUND RECOVERY", on: element("session.phase-kind"))
         waitForDisappearance(element("session.side"))
 
-        finishBySkippingPausedPhases()
+        // Fixture has two rounds. After the first round rest, each remaining phase is known;
+        // verify every skip advances rather than tapping an arbitrary number of times.
+        skipPausedPhase(expectingExercise: "High Knees")
+        skipPausedPhase(expectingExercise: "Recovery")
+        skipPausedPhase(expectingExercise: "Reverse Lunges · Left")
+        skipPausedPhase(expectingExercise: "Switch sides · Right")
+        skipPausedPhase(expectingExercise: "Reverse Lunges · Right")
+        skipPausedPhase(expectingExercise: "Cool down")
+        tap(element("session.skip"))
         waitForExistence(element("completion.screen"), timeout: 5)
         capture("04-session-complete")
         tap(element("completion.done"))
@@ -235,8 +243,7 @@ final class TrainSessionUITests: HiIntervalUITestCase {
 
         // 5s -> 105s, then relaunch at real time before starting this state-heavy session.
         incrementStepper("plan.editor.work", times: 20)
-        // Ten rounds keep session alive while UI assertions and screenshots are collected.
-        incrementStepper("plan.editor.rounds", times: 8)
+        // The fixture's two rounds suffice: the workout is paused for phase assertions.
         tapToolbarButton("plan.editor.save", label: "Save")
         waitForExistence(element("plans.screen"))
     }
