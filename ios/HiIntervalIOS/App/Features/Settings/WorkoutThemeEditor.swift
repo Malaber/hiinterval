@@ -60,6 +60,10 @@ struct WorkoutThemeEditor: View {
                         .accessibilityIdentifier("settings.workout-theme.recovery")
                     ColorPicker("Transitions", selection: colorBinding(\.transitionColor), supportsOpacity: false)
                         .accessibilityIdentifier("settings.workout-theme.transition")
+                    ColorPicker("Round recovery", selection: colorBinding(\.roundRecoveryColor), supportsOpacity: false)
+                        .accessibilityIdentifier("settings.workout-theme.round-recovery")
+                    ColorPicker("Side switch", selection: colorBinding(\.sideSwitchColor), supportsOpacity: false)
+                        .accessibilityIdentifier("settings.workout-theme.side-switch")
                 }
             }
             .navigationTitle("Workout colors")
@@ -99,10 +103,12 @@ private struct WorkoutThemePreview: View {
     let theme: WorkoutTheme
 
     var body: some View {
-        HStack(spacing: 8) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
             WorkoutThemePreviewPhase(title: "Work", color: theme.workColor, usesDarkText: theme.prefersDarkText(for: theme.workColor))
             WorkoutThemePreviewPhase(title: "Recover", color: theme.recoveryColor, usesDarkText: theme.prefersDarkText(for: theme.recoveryColor))
-            WorkoutThemePreviewPhase(title: "Transition", color: theme.transitionColor, usesDarkText: theme.prefersDarkText(for: theme.transitionColor))
+            WorkoutThemePreviewPhase(title: "Warm-up / cool-down", color: theme.transitionColor, usesDarkText: theme.prefersDarkText(for: theme.transitionColor))
+            WorkoutThemePreviewPhase(title: "Round recovery", color: theme.roundRecoveryColor, usesDarkText: theme.prefersDarkText(for: theme.roundRecoveryColor))
+            WorkoutThemePreviewPhase(title: "Side switch", color: theme.sideSwitchColor, usesDarkText: theme.prefersDarkText(for: theme.sideSwitchColor))
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
@@ -118,8 +124,9 @@ private struct WorkoutThemePreviewPhase: View {
     var body: some View {
         Text(title)
             .font(.caption.weight(.bold))
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(6)
             .foregroundStyle(usesDarkText ? Color.black : Color.white)
             .frame(maxWidth: .infinity, minHeight: 64)
             .background(Color(color), in: RoundedRectangle(cornerRadius: 12))
@@ -134,8 +141,10 @@ private struct WorkoutThemeSwatches: View {
             Circle().fill(Color(theme.workColor))
             Circle().fill(Color(theme.recoveryColor))
             Circle().fill(Color(theme.transitionColor))
+            Circle().fill(Color(theme.roundRecoveryColor))
+            Circle().fill(Color(theme.sideSwitchColor))
         }
-        .frame(width: 44, height: 16)
+        .frame(width: 72, height: 16)
         .accessibilityHidden(true)
     }
 }

@@ -215,7 +215,8 @@ rules cover their standard locations.
   Migrate old string arrays without losing associations. Detaching a label retains it for suggestions;
   saving an exercise commits draft labels atomically, while cancelling must create no records.
   Use removable pills and existing/general suggestions rather than comma-separated entry fields.
-- Global workout phase colors live in `UserPreferences.workoutTheme`, edited in Settings; never
+- Global workout phase colors include distinct work, recovery, round recovery, side switch, and
+  warm-up/cool-down values. Persist them in `UserPreferences.workoutTheme`, edited in Settings; never
   attach themes to individual plans. `WorkoutPlan.logo` is per plan. Use the system photo picker;
   keep photo drafts memory-only until Save and retain assets referenced by history or recovery data.
 - Deleted catalogue IDs remain tombstoned in `AppData.deletedCatalogueExerciseIDs` so retained plan
@@ -224,6 +225,8 @@ rules cover their standard locations.
   Preserve selected-plan normalization, history ordering, and CSV escaping/formula protections.
 - Notes start empty and appear during relevant phases only when nonblank. New exercise entry should
   focus the name field. The current exercise heading must remain more prominent than the next one.
+- Halfway cues honor `halfwayCueEnabled` and cue style: a distinct tone in tones mode, speech in
+  spoken mode, and no sound when disabled, silent, or session-muted.
 - Enabled audio uses the playback session category so it works in Silent Mode. Preserve the app's
   audio-off control and mix/duck preference. Every app-triggered vibration must honor
   `hapticsEnabled` through the haptic policy/player, including pause, resume, countdown, and completion.

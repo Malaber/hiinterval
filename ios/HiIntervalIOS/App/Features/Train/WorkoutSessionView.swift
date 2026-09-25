@@ -80,15 +80,7 @@ private struct ActiveWorkoutView: View {
     }
     private var usesDarkForeground: Bool {
         guard let kind = phase?.kind else { return true }
-        let color: WorkoutLogoColor
-        switch kind {
-        case .work:
-            color = workoutTheme.workColor
-        case .recovery, .roundRecovery:
-            color = workoutTheme.recoveryColor
-        case .warmUp, .sideSwitch, .coolDown:
-            color = workoutTheme.transitionColor
-        }
+        let color = workoutTheme.color(for: kind)
         return workoutTheme.prefersDarkText(for: color)
     }
     private var sessionForeground: Color {
@@ -160,9 +152,9 @@ private struct ActiveWorkoutView: View {
     private func sessionContent(compact: Bool, availableHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
             header
-            Spacer(minLength: compact ? 16 : 32)
             phaseRibbon
-                .padding(.bottom, compact ? 10 : 18)
+                .padding(.top, compact ? 12 : 18)
+            Spacer(minLength: compact ? 16 : 32)
             timerBody(compact: compact)
                 .overlay {
                     if controller.engine.state == .paused {

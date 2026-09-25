@@ -25,7 +25,11 @@ final class SessionLayoutUITests: HiIntervalUITestCase {
         }
         let viewport = app.scrollViews["session.screen"].frame
         // XCTest scroll frames include the status bar/home-indicator safe areas.
-        XCTAssertLessThan(element("session.close").frame.minY - viewport.minY, viewport.height * 0.15)
+        let headerButton = element("session.close").frame
+        let progressPills = element("session.phase-kind").frame
+        XCTAssertLessThan(headerButton.minY - viewport.minY, viewport.height * 0.15)
+        XCTAssertGreaterThanOrEqual(progressPills.minY, headerButton.maxY)
+        XCTAssertLessThan(progressPills.minY - headerButton.maxY, 40)
         XCTAssertLessThan(viewport.maxY - pause.frame.maxY, viewport.height * 0.12)
         XCTAssertFalse(element("session.paused").frame.intersects(pause.frame))
         capture("session-readable-pause-splash")

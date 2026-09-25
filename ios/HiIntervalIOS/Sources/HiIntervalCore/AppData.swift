@@ -306,6 +306,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
     public var duckOtherAudio: Bool
     public var pauseWhenInactive: Bool
     public var countdownEnabled: Bool
+    public var halfwayCueEnabled: Bool
     public var keepScreenAwake: Bool
     public var workoutTheme: WorkoutTheme
     public var appearance: AppearancePreference
@@ -318,6 +319,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
         duckOtherAudio: Bool = false,
         pauseWhenInactive: Bool = true,
         countdownEnabled: Bool = true,
+        halfwayCueEnabled: Bool = true,
         keepScreenAwake: Bool = true,
         appearance: AppearancePreference = .system,
         workoutTheme: WorkoutTheme = .default,
@@ -329,6 +331,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
         self.duckOtherAudio = duckOtherAudio
         self.pauseWhenInactive = pauseWhenInactive
         self.countdownEnabled = countdownEnabled
+        self.halfwayCueEnabled = halfwayCueEnabled
         self.keepScreenAwake = keepScreenAwake
         self.workoutTheme = workoutTheme
         self.appearance = appearance
@@ -342,6 +345,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
         case duckOtherAudio
         case pauseWhenInactive
         case countdownEnabled
+        case halfwayCueEnabled
         case keepScreenAwake
         case appearance
         case workoutTheme
@@ -356,6 +360,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
         duckOtherAudio = try values.decodeIfPresent(Bool.self, forKey: .duckOtherAudio) ?? false
         pauseWhenInactive = try values.decodeIfPresent(Bool.self, forKey: .pauseWhenInactive) ?? true
         countdownEnabled = try values.decodeIfPresent(Bool.self, forKey: .countdownEnabled) ?? true
+        halfwayCueEnabled = try values.decodeIfPresent(Bool.self, forKey: .halfwayCueEnabled) ?? true
         keepScreenAwake = try values.decodeIfPresent(Bool.self, forKey: .keepScreenAwake) ?? true
         workoutTheme = try values.decodeIfPresent(WorkoutTheme.self, forKey: .workoutTheme) ?? .default
         appearance = try values.decodeIfPresent(AppearancePreference.self, forKey: .appearance) ?? .system
@@ -370,6 +375,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
         try values.encode(duckOtherAudio, forKey: .duckOtherAudio)
         try values.encode(pauseWhenInactive, forKey: .pauseWhenInactive)
         try values.encode(countdownEnabled, forKey: .countdownEnabled)
+        try values.encode(halfwayCueEnabled, forKey: .halfwayCueEnabled)
         try values.encode(keepScreenAwake, forKey: .keepScreenAwake)
         try values.encode(workoutTheme, forKey: .workoutTheme)
         try values.encode(appearance, forKey: .appearance)

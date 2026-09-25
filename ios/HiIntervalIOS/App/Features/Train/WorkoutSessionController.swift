@@ -72,7 +72,8 @@ final class WorkoutSessionController: ObservableObject {
             && second != priorSecond
             && second != lastCountdownSecond
 
-        let halfwayCue = events.isEmpty && engine.state == .running && !cuePlayer.isSpeaking
+        let halfwayCue = events.isEmpty && engine.state == .running
+            && preferences.halfwayCueEnabled && !cuePlayer.isSpeaking
             ? halfwayCueTracker.nextCue(
                 in: engine.timeline,
                 currentPhaseIndex: engine.currentPhaseIndex,
@@ -374,18 +375,28 @@ private final class SessionCuePlayer {
         }
     }
 
-    /// Halfway announcements are always spoken, including tone cue mode, so the cue remains useful
-    /// without competing with a tone that has no exercise context.
     func halfway(exerciseName: String, preferences: UserPreferences, muted: Bool) {
-        guard !muted, preferences.cueStyle != .silent else { return }
-        prepareAudio(preferences)
-        let german = usesGerman(preferences)
-        let utterance = AVSpeechUtterance(
-            string: german ? "Halbzeit bei \(exerciseName)" : "Halfway through \(exerciseName)"
+        guard !muted else { return }
+        let output = HalfwayCueAudio.output(
+            enabled: preferences.halfwayCueEnabled,
+            cueStyle: preferences.cueStyle
         )
-        utterance.voice = AVSpeechSynthesisVoice(language: german ? "de-DE" : "en-US")
-        speech.stopSpeaking(at: .immediate)
-        speech.speak(utterance)
+        guard output != .none else { return }
+        prepareAudio(preferences)
+        switch output {
+        case .tone:
+            playTone(.halfway)
+        case .spoken:
+            let german = usesGerman(preferences)
+            let utterance = AVSpeechUtterance(
+                string: german ? "Halbzeit bei \(exerciseName)" : "Halfway through \(exerciseName)"
+            )
+            utterance.voice = AVSpeechSynthesisVoice(language: german ? "de-DE" : "en-US")
+            speech.stopSpeaking(at: .immediate)
+            speech.speak(utterance)
+        case .none:
+            break
+        }
     }
 
     func pause(preferences: UserPreferences, muted: Bool) {

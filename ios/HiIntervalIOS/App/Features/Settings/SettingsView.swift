@@ -92,6 +92,8 @@ struct SettingsView: View {
                 .accessibilityIdentifier("settings.duck-audio")
             Toggle("Final three-second countdown", isOn: preferenceBinding(\.countdownEnabled))
                 .accessibilityIdentifier("settings.countdown")
+            Toggle("Halfway exercise cue", isOn: preferenceBinding(\.halfwayCueEnabled))
+                .accessibilityIdentifier("settings.halfway-cue")
 
             settingsNote("Audio cues play in Silent Mode. Spoken cues can follow device language or use English or German.")
                 .accessibilityIdentifier("settings.cues-note")
@@ -209,7 +211,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Workout colors")
                             .foregroundStyle(settingsTextColor)
-                        Text("Global colors for work, recovery, and transitions")
+                        Text("Global colors for every workout phase")
                             .font(.caption)
                             .foregroundStyle(settingsTextColor.opacity(0.72))
                     }
@@ -358,8 +360,10 @@ private struct WorkoutThemeSettingsSwatches: View {
             Circle().fill(Color(theme.workColor))
             Circle().fill(Color(theme.recoveryColor))
             Circle().fill(Color(theme.transitionColor))
+            Circle().fill(Color(theme.roundRecoveryColor))
+            Circle().fill(Color(theme.sideSwitchColor))
         }
-        .frame(width: 44, height: 16)
+        .frame(width: 72, height: 16)
         .accessibilityHidden(true)
     }
 }

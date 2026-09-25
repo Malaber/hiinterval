@@ -66,14 +66,7 @@ enum HITheme {
     }
 
     static func phaseColor(_ kind: WorkoutPhaseKind, in theme: WorkoutTheme) -> Color {
-        switch kind {
-        case .work:
-            return Color(theme.workColor)
-        case .recovery, .roundRecovery:
-            return Color(theme.recoveryColor)
-        case .warmUp, .sideSwitch, .coolDown:
-            return Color(theme.transitionColor)
-        }
+        Color(theme.color(for: kind))
     }
 
     static func phaseIcon(_ kind: WorkoutPhaseKind) -> String {

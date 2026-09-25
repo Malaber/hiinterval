@@ -32,6 +32,7 @@ final class SettingsUITests: HiIntervalUITestCase {
         XCTAssertTrue(element("settings.free-status").exists)
         setSwitch("settings.haptics", to: false)
         setSwitch("settings.duck-audio", to: true)
+        setSwitch("settings.halfway-cue", to: false)
         setSwitch("settings.pause-background", to: true)
         setSwitch("settings.keep-awake", to: false)
         setSwitch("settings.reminders", to: true)
@@ -61,7 +62,12 @@ final class SettingsUITests: HiIntervalUITestCase {
         tap(theme)
         waitForExistence(element("settings.workout-theme.preview"))
 
-        tap(element("settings.workout-theme.preset.ocean"))
+        for identifier in ["round-recovery", "side-switch"] {
+            let picker = element("settings.workout-theme.\(identifier)")
+            scrollToHittable(picker)
+            XCTAssertTrue(picker.isHittable)
+        }
+        tap(element("settings.workout-theme.preset.ocean"), scrolls: true)
         tapToolbarButton("settings.workout-theme.save", label: "Save")
         waitForExistence(theme)
         relaunchPreservingData()
@@ -81,6 +87,7 @@ final class SettingsUITests: HiIntervalUITestCase {
     private func assertPersistedPreferences() {
         assertSwitch("settings.haptics", value: "0")
         assertSwitch("settings.duck-audio", value: "1")
+        assertSwitch("settings.halfway-cue", value: "0")
         assertSwitch("settings.pause-background", value: "1")
         assertSwitch("settings.keep-awake", value: "0")
         assertSwitch("settings.reminders", value: "1")
