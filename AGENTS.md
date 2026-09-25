@@ -302,6 +302,8 @@ verify physical iPad keyboard behavior; retain that limitation in device validat
 Swipe actions that only open deletion confirmation must use a normal button with red tint, not
 a destructive role: destructive swipe semantics can remove the row before the backing data changes.
 Keep the destructive role on the final confirmation and cover swipe cancellation and confirmation.
+While tests run, wait without live test-log commentary or per-test progress updates. Inspect results
+once the run finishes and report success, failures, or actionable blockers.
 Tests run once; any assertion or infrastructure failure fails the suite. Do not add automatic reruns
 or accept a later pass as evidence of correctness.
 
@@ -322,6 +324,10 @@ hardware Silent Mode audio, or on-device Apple Intelligence availability; those 
 
 - `ci.yml` runs on PRs, `main` pushes, and manual dispatch. `ios-checks.yml` runs core coverage in
   Linux `swift:6.2` and UI suites on macOS 26 with `iPhone 17 Pro` and `iPad Pro 13-inch (M5)`.
+  CI splits each device suite into three disjoint class shards on isolated runners; tests stay serial
+  within each simulator. New test classes join automatically. A 35-minute command deadline fails
+  the test step before the 50-minute job deadline, leaving time to upload evidence. CI concurrency
+  is scoped to a commit so newer pushes do not cancel older revisions. Local full suites stay unsharded.
   Coverage/UI artifacts are retained for 14 days. Use actual job logs when diagnosing failures.
 - App versions belong in `project.yml`; keep the TestFlight workflow fallback and release examples
   consistent when bumping versions. The Python package version in `pyproject.toml` is separate.

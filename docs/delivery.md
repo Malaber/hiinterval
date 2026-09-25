@@ -67,3 +67,24 @@ TestFlight secrets:
 Workflow scopes secrets only to validation and steps that consume them, imports signing material into temporary keychain, archives with manual signing, exports IPA, uploads signed archive evidence for 14 days, sends IPA with Planini's proven `altool --upload-app` and App Store Connect API-key flow, then removes temporary key/profile files.
 
 Superseded CI runs cancel by event/ref. Both automatic and manual delivery verify current `origin/main` before installing signing tools, then fetch and recheck after export immediately before upload. A commit superseded during either checks or archive cannot reach TestFlight.
+
+## UI CI parallelism and timeouts
+
+UI tests run on `macos-26`, with three isolated class shards for each iPhone/iPad
+suite (up to six jobs). Each simulator still runs serially. The shard selector
+balances discovered classes by test-method count and includes new classes automatically;
+each class runs exactly once per device. Artifact names include the shard index.
+
+The command has a 35-minute deadline and exits 124 with an explicit error on timeout.
+The 50-minute job deadline leaves room for setup and uploading failure evidence.
+Different source commits do not cancel one another; duplicate runs of the same commit
+may be superseded. GitHub account concurrency limits can still queue jobs.
+
+Local `invoke check` remains the full unsharded gate. To exercise a CI shard locally:
+
+```bash
+HIINTERVAL_UI_SHARD_INDEX=0 HIINTERVAL_UI_SHARD_COUNT=3 python3 -m invoke ios-ui-e2e \
+  --device-name="iPhone 17 Pro" --artifact-dir=e2e-artifacts/shard-0
+```
+
+Do not run multiple local shards against the same simulator simultaneously.

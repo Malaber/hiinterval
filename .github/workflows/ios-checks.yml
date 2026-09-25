@@ -30,12 +30,18 @@ jobs:
           path: ios/HiIntervalIOS/coverage
 
   ios_ui_e2e:
-    name: XCUITest · ${{ matrix.platform }}
+    name: XCUITest · ${{ matrix.platform }} · shard ${{ matrix.shard }}
     runs-on: macos-26
     timeout-minutes: 50
+    env:
+      HIINTERVAL_UI_SHARD_INDEX: ${{ matrix.shard }}
+      HIINTERVAL_UI_SHARD_COUNT: 3
     strategy:
       fail-fast: false
+      max-parallel: 6
       matrix:
+        platform: [iPhone, iPad]
+        shard: [0, 1, 2]
         include:
           - platform: iPhone
             device_name: iPhone 17 Pro
@@ -55,10 +61,14 @@ jobs:
         run: python -m pip install --disable-pip-version-check -e .
       - name: Install XcodeGen
         run: python -m invoke install-xcodegen
+      - name: Validate CI helpers
+        run: python -m unittest discover -s ios/HiIntervalIOS/Scripts -p 'test_*.py'
       - name: Show native toolchain
         run: xcodebuild -version && xcodegen --version
-      - name: Run serial ${{ matrix.platform }} UI e2e
+      - name: Run serial ${{ matrix.platform }} UI shard ${{ matrix.shard }}
+        id: ui_tests
         run: >-
+          python ios/HiIntervalIOS/Scripts/run_with_timeout.py 2100
           python -m invoke ios-ui-e2e
           --device-name="${{ matrix.device_name }}"
           --artifact-dir="${{ matrix.artifact_dir }}"
@@ -67,13 +77,16 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.artifact_name }}
+          name: ${{ matrix.artifact_name }}-${{ matrix.shard }}
           retention-days: 14
           if-no-files-found: warn
           path: ${{ matrix.artifact_dir }}
       - name: Add ${{ matrix.platform }} result summary
         if: always()
+        env:
+          TEST_OUTCOME: ${{ steps.ui_tests.outcome }}
         run: |
+          echo "UI shard outcome: $TEST_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           if [ -f "${{ matrix.artifact_dir }}/summary.md" ]; then
             cat "${{ matrix.artifact_dir }}/summary.md" >> "$GITHUB_STEP_SUMMARY"
           fi
