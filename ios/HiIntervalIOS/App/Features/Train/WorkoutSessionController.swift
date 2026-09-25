@@ -9,6 +9,9 @@ final class WorkoutSessionController: ObservableObject {
     @Published private(set) var completion: WorkoutHistoryEntry?
     @Published private(set) var extraRoundCount = 0
     @Published var isMuted = false
+    @Published private(set) var isPreviousTapArmed = false
+    private var restartTapPolicy = RestartTapPolicy()
+    private var restartIndicatorTask: Task<Void, Never>?
 
     let plan: WorkoutPlan
     private let plannedTimeline: WorkoutTimeline
@@ -21,6 +24,7 @@ final class WorkoutSessionController: ObservableObject {
     private var activeDuration = ActiveDurationTracker()
     private var lastCountdownSecond: Int?
     private var recoveryStartedAt: Date?
+    private var halfwayCueTracker = HalfwayExerciseCueTracker()
 
     init(plan: WorkoutPlan) {
         self.plan = plan
@@ -52,6 +56,7 @@ final class WorkoutSessionController: ObservableObject {
     }
 
     func tick(preferences: UserPreferences) {
+        refreshRestartTapState()
         let wallDate = Date()
         let clockDate = virtualNow()
         let priorSecond = engine.displayedRemainingSeconds
@@ -59,19 +64,37 @@ final class WorkoutSessionController: ObservableObject {
         handle(events, preferences: preferences, clockDate: clockDate, wallDate: wallDate)
 
         let second = engine.displayedRemainingSeconds
-        if events.isEmpty,
-           engine.state == .running,
-           preferences.countdownEnabled,
-           second > 0,
-           second <= 3,
-           second != priorSecond,
-           second != lastCountdownSecond {
+        let shouldPlayCountdown = events.isEmpty
+            && engine.state == .running
+            && preferences.countdownEnabled
+            && second > 0
+            && second <= 3
+            && second != priorSecond
+            && second != lastCountdownSecond
+
+        let halfwayCue = events.isEmpty && engine.state == .running
+            && preferences.halfwayCueEnabled && !cuePlayer.isSpeaking
+            ? halfwayCueTracker.nextCue(
+                in: engine.timeline,
+                currentPhaseIndex: engine.currentPhaseIndex,
+                elapsedSeconds: engine.totalElapsedSeconds
+            )
+            : nil
+
+        if let halfwayCue {
+            cuePlayer.halfway(
+                exerciseName: halfwayCue.exerciseName,
+                preferences: preferences,
+                muted: isMuted
+            )
+        } else if shouldPlayCountdown {
             lastCountdownSecond = second
             cuePlayer.countdown(second, preferences: preferences, muted: isMuted)
         }
     }
 
     func togglePause(preferences: UserPreferences) {
+        clearRestartTapState()
         let wallDate = Date()
         let clockDate = virtualNow()
         switch engine.state {
@@ -95,6 +118,7 @@ final class WorkoutSessionController: ObservableObject {
     }
 
     func pauseForBackground(preferences: UserPreferences) {
+        clearRestartTapState()
         guard preferences.pauseWhenInactive else { return }
         let wallDate = Date()
         let clockDate = virtualNow()
@@ -107,14 +131,50 @@ final class WorkoutSessionController: ObservableObject {
     }
 
     func skip(preferences: UserPreferences) {
+        clearRestartTapState()
         let wallDate = Date()
         let clockDate = virtualNow()
+        handle(engine.tick(at: clockDate), preferences: preferences, clockDate: clockDate, wallDate: wallDate)
+        halfwayCueTracker.suppressCue(for: engine.currentPhase?.position)
         handle(
             engine.skip(at: clockDate),
             preferences: preferences,
             clockDate: clockDate,
             wallDate: wallDate
         )
+    }
+
+    func restartTapped(preferences: UserPreferences) {
+        let action = restartTapPolicy.tap(
+            at: ProcessInfo.processInfo.systemUptime,
+            canGoBack: engine.canReturnToPreviousExercise
+        )
+        switch action {
+        case .restart: restart(preferences: preferences)
+        case .previous: returnToPreviousExercise(preferences: preferences)
+        }
+        refreshRestartTapState()
+        restartIndicatorTask?.cancel()
+        if isPreviousTapArmed {
+            restartIndicatorTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(RestartTapPolicy.windowDuration))
+                guard !Task.isCancelled else { return }
+                self?.refreshRestartTapState()
+            }
+        }
+    }
+
+    private func refreshRestartTapState() {
+        let armed = restartTapPolicy.isArmed(at: ProcessInfo.processInfo.systemUptime)
+            && engine.canReturnToPreviousExercise
+        if isPreviousTapArmed != armed { isPreviousTapArmed = armed }
+    }
+
+    private func clearRestartTapState() {
+        restartIndicatorTask?.cancel()
+        restartIndicatorTask = nil
+        restartTapPolicy.reset()
+        isPreviousTapArmed = false
     }
 
     func restart(preferences: UserPreferences) {
@@ -129,6 +189,7 @@ final class WorkoutSessionController: ObservableObject {
     }
 
     func returnToPreviousExercise(preferences: UserPreferences) {
+        clearRestartTapState()
         let wallDate = Date()
         let clockDate = virtualNow()
         handle(
@@ -162,6 +223,7 @@ final class WorkoutSessionController: ObservableObject {
         extraRoundCount += 1
         engine = IntervalTimerEngine(timeline: extraTimeline)
         lastCountdownSecond = nil
+        halfwayCueTracker = HalfwayExerciseCueTracker()
 
         let wallDate = Date()
         let clockDate = virtualNow()
@@ -189,6 +251,10 @@ final class WorkoutSessionController: ObservableObject {
         clockDate: Date,
         wallDate: Date
     ) {
+        if events.contains(where: { event in
+            if case .phaseStarted = event { return true }
+            return false
+        }) { clearRestartTapState() }
         let completed = events.contains { event in
             if case .workoutCompleted = event { return true }
             return false
@@ -288,9 +354,12 @@ private final class SessionCuePlayer {
         }
     }
 
+    var isSpeaking: Bool { speech.isSpeaking }
+
     func countdown(_ second: Int, preferences: UserPreferences, muted: Bool) {
         haptics.play(.countdown, enabled: preferences.hapticsEnabled)
         guard !muted, preferences.cueStyle != .silent else { return }
+        guard !speech.isSpeaking else { return }
         prepareAudio(preferences)
         switch preferences.cueStyle {
         case .tones:
@@ -302,6 +371,30 @@ private final class SessionCuePlayer {
             speech.stopSpeaking(at: .immediate)
             speech.speak(utterance)
         case .silent:
+            break
+        }
+    }
+
+    func halfway(exerciseName: String, preferences: UserPreferences, muted: Bool) {
+        guard !muted else { return }
+        let output = HalfwayCueAudio.output(
+            enabled: preferences.halfwayCueEnabled,
+            cueStyle: preferences.cueStyle
+        )
+        guard output != .none else { return }
+        prepareAudio(preferences)
+        switch output {
+        case .tone:
+            playTone(.halfway)
+        case .spoken:
+            let german = usesGerman(preferences)
+            let utterance = AVSpeechUtterance(
+                string: german ? "Halbzeit bei \(exerciseName)" : "Halfway through \(exerciseName)"
+            )
+            utterance.voice = AVSpeechSynthesisVoice(language: german ? "de-DE" : "en-US")
+            speech.stopSpeaking(at: .immediate)
+            speech.speak(utterance)
+        case .none:
             break
         }
     }

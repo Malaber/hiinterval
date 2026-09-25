@@ -2,6 +2,48 @@ import XCTest
 
 @MainActor
 final class LibraryManagementUITests: HiIntervalUITestCase {
+    func testPlanCardDurationRefreshesAfterTimingEdit() {
+        launch()
+        selectTab("plans")
+
+        let card = element("plan.card.\(FixtureID.quickStartPlan)")
+        let duration = card.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH 'Duration, '"))
+            .firstMatch
+        waitForExistence(duration)
+        let originalDuration = duration.label
+
+        tap(
+            planActionButton(
+                planID: FixtureID.quickStartPlan,
+                identifier: "plan.edit.\(FixtureID.quickStartPlan)",
+                fallbackLabel: "Edit"
+            ),
+            scrolls: true
+        )
+        waitForExistence(element("plan.editor.screen"))
+        let workValue = element("plan.editor.work.value")
+        revealFormControl(workValue, identifier: "plan.editor.screen", usesLeadingGutter: true)
+        tap(workValue)
+        waitForExistence(element("plan.editor.work.entry.screen"))
+        replaceText(in: element("plan.editor.work.entry.seconds"), with: "13")
+        tapToolbarButton("plan.editor.work.entry.done", label: "Done")
+        waitForDisappearance(element("plan.editor.work.entry.screen"))
+        tapToolbarButton("plan.editor.save", label: "Save")
+        waitForDisappearance(element("plan.editor.screen"), timeout: 8)
+
+        waitForLabelToChange(from: originalDuration, on: duration, timeout: 5)
+        let editedDuration = duration.label
+
+        relaunchPreservingData()
+        selectTab("plans")
+        let restoredDuration = element("plan.card.\(FixtureID.quickStartPlan)")
+            .descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH 'Duration, '"))
+            .firstMatch
+        waitForLabel(editedDuration, on: restoredDuration)
+    }
+
     func testSelectsDuplicatesAndDeletesPlanThenPersistsResult() {
         launch()
         selectTab("plans")

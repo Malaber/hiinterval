@@ -10,6 +10,7 @@ final class AppDataTests: XCTestCase {
         data.plans[0].roundRecoveryNotes = "Hydrate"
         data.plans[0].coolDownNotes = "Stretch"
         data.preferences.cueStyle = .spoken
+        data.preferences.halfwayCueEnabled = false
         data.preferences.reminders = ReminderSettings(
             enabled: true,
             weekdays: [2, 4, 6],
@@ -74,12 +75,14 @@ final class AppDataTests: XCTestCase {
 
         XCTAssertEqual(preferences.cueStyle, .spoken)
         XCTAssertEqual(preferences.cueLanguage, .system)
+        XCTAssertTrue(preferences.halfwayCueEnabled)
     }
 
     func testPreferencesDecodeMissingFieldsWithSafeDefaults() throws {
         let preferences = try JSONDecoder().decode(UserPreferences.self, from: Data("{}".utf8))
 
         XCTAssertEqual(preferences, UserPreferences())
+        XCTAssertTrue(preferences.halfwayCueEnabled)
     }
 
     private func makeEntry(date: Date, seconds: Int = 60) -> WorkoutHistoryEntry {

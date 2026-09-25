@@ -6,7 +6,16 @@ struct WorkoutGeneratorView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
 
-    @State private var options = WorkoutGenerationOptions()
+    private let replacingPlan: WorkoutPlan?
+    private let onReplace: ((WorkoutPlan) -> Void)?
+    @State private var options: WorkoutGenerationOptions
+
+    init(replacing plan: WorkoutPlan? = nil, onReplace: ((WorkoutPlan) -> Void)? = nil) {
+        replacingPlan = plan
+        self.onReplace = onReplace
+        _options = State(initialValue: plan?.generationOptions
+            ?? WorkoutGenerationOptions(exerciseCount: plan.map { max(1, $0.exercises.count) } ?? 6))
+    }
     @State private var generatedPlan: WorkoutPlan?
     @State private var errorMessage: String?
     @State private var showsCatalogue = false
@@ -71,7 +80,7 @@ struct WorkoutGeneratorView: View {
                 }
             }
         }
-        .navigationTitle("Generate workout")
+        .navigationTitle(replacingPlan == nil ? "Generate workout" : "Shuffle new exercises")
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: tags) { _, availableTags in
             let availableIDs = Set(availableTags.map(\.id))
@@ -97,18 +106,53 @@ struct WorkoutGeneratorView: View {
         }
         .sheet(item: $generatedPlan) { plan in
             NavigationStack {
-                PlanEditorView(plan: plan, isNew: true) { savedPlan in
-                    guard store.savePlan(savedPlan) else {
-                        errorMessage = store.lastErrorMessage
-                        return
+                if replacingPlan != nil {
+                    replacementPreview(plan)
+                } else {
+                    PlanEditorView(plan: plan, isNew: true) { savedPlan, logoDraft in
+                        guard store.savePlan(savedPlan, logoDraft: logoDraft) else {
+                            errorMessage = store.lastErrorMessage
+                            return
+                        }
+                        generatedPlan = nil
+                        dismiss()
                     }
-                    generatedPlan = nil
-                    dismiss()
                 }
             }
             .tint(PlanPalette.accent)
         }
         .accessibilityIdentifier("generator.screen")
+    }
+
+    private func replacementPreview(_ plan: WorkoutPlan) -> some View {
+        List {
+            Section {
+                ForEach(Array(plan.exercises.enumerated()), id: \.element.id) { index, exercise in
+                    Text("\(index + 1). \(exercise.name)")
+                        .accessibilityIdentifier("shuffle.preview.exercise.\(index)")
+                }
+            } header: {
+                Text("New exercises")
+            } footer: {
+                Text("Only exercises change. New exercises use their catalogue timing, sides, and notes; old exercise overrides are replaced. All other workout settings stay unchanged. When choices are limited, some exercises may be reused.")
+            }
+        }
+        .navigationTitle("Preview exercises")
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Back") { generatedPlan = nil }
+                    .accessibilityIdentifier("shuffle.preview.cancel")
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Replace exercises") {
+                    onReplace?(plan)
+                    generatedPlan = nil
+                    dismiss()
+                }
+                .accessibilityIdentifier("shuffle.preview.apply")
+            }
+        }
+        .accessibilityIdentifier("shuffle.preview.screen")
     }
 
     private func tagSection(title: String, selected: Binding<Set<UUID>>) -> some View {
@@ -140,11 +184,22 @@ struct WorkoutGeneratorView: View {
 
     private func generate() {
         do {
-            generatedPlan = try WorkoutGenerator.generate(
-                from: store.data.exerciseCatalogue,
-                labels: store.data.exerciseLabels,
-                options: options
-            )
+            if let replacingPlan {
+                var random = SystemRandomNumberGenerator()
+                generatedPlan = try WorkoutGenerator.replacingExercises(
+                    in: replacingPlan,
+                    from: store.data.exerciseCatalogue,
+                    labels: store.data.exerciseLabels,
+                    options: options,
+                    using: &random
+                )
+            } else {
+                generatedPlan = try WorkoutGenerator.generate(
+                    from: store.data.exerciseCatalogue,
+                    labels: store.data.exerciseLabels,
+                    options: options
+                )
+            }
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription

@@ -2,25 +2,30 @@ import SwiftUI
 import HiIntervalCore
 
 struct PlanEditorView: View {
+    @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
 
     let isNew: Bool
-    let onSave: (WorkoutPlan) -> Void
+    let onSave: (WorkoutPlan, WorkoutLogoDraft) -> Void
 
+    @State private var logoDraft: WorkoutLogoDraft
+    @State private var isLoadingLogoPhoto = false
     @State private var plan: WorkoutPlan
     @State private var exerciseDestination: ExerciseEditorDestination?
     @State private var showsRoundOverrides = false
     @State private var showsNaturalLanguageEditor: Bool
     @State private var exerciseEditMode: EditMode = .inactive
     @State private var showsCatalogue = false
+    @State private var showsShuffle = false
 
     init(
         plan: WorkoutPlan,
         isNew: Bool,
         presentsNaturalLanguageEditor: Bool = false,
-        onSave: @escaping (WorkoutPlan) -> Void
+        onSave: @escaping (WorkoutPlan, WorkoutLogoDraft) -> Void
     ) {
         _plan = State(initialValue: plan)
+        _logoDraft = State(initialValue: WorkoutLogoDraft(logo: plan.logo))
         _showsNaturalLanguageEditor = State(initialValue: presentsNaturalLanguageEditor)
         self.isNew = isNew
         self.onSave = onSave
@@ -39,6 +44,8 @@ struct PlanEditorView: View {
             previewSection
             intelligenceSection
             identitySection
+            logoSection
+            if let message = store.lastErrorMessage { ValidationBanner(message: message) }
             timingSection
             roundsSection
             exercisesSection
@@ -46,6 +53,7 @@ struct PlanEditorView: View {
         }
         .listSectionSpacing(18)
         .scrollDismissesKeyboard(.interactively)
+        .interactiveDismissDisabled(isLoadingLogoPhoto)
         .environment(\.editMode, $exerciseEditMode)
         .navigationTitle(isNew ? "New plan" : "Edit plan")
         .navigationBarTitleDisplayMode(.inline)
@@ -57,7 +65,7 @@ struct PlanEditorView: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save", action: save)
                     .fontWeight(.semibold)
-                    .disabled(validationMessage != nil)
+                    .disabled(validationMessage != nil || isLoadingLogoPhoto)
                     .accessibilityIdentifier("plan.editor.save")
             }
         }
@@ -96,10 +104,22 @@ struct PlanEditorView: View {
             }
             .tint(PlanPalette.accent)
         }
+        .sheet(isPresented: $showsShuffle) {
+            NavigationStack {
+                WorkoutGeneratorView(replacing: plan) { replacement in
+                    plan = replacement
+                }
+            }
+            .tint(PlanPalette.accent)
+        }
         .sheet(isPresented: $showsCatalogue) {
             NavigationStack {
-                ExerciseCatalogueView { catalogueExercise in
-                    saveExercise(catalogueExercise.makeStep(), at: nil)
+                ExerciseChoiceView(
+                    defaultWorkSeconds: plan.defaultWorkSeconds,
+                    defaultRecoverySeconds: plan.defaultRecoverySeconds
+                ) { exercise in
+                    saveExercise(exercise, at: nil)
+                    showsCatalogue = false
                 }
             }
             .tint(PlanPalette.accent)
@@ -128,19 +148,7 @@ struct PlanEditorView: View {
         Section {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .center, spacing: 14) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [PlanPalette.secondary, PlanPalette.accent],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                        Image(systemName: "waveform.path.ecg")
-                            .font(.title2.weight(.semibold))
-                            .foregroundStyle(.white)
-                    }
+                    WorkoutLogoMark(logo: logoDraft.logo, pendingPhotoData: logoDraft.pendingPhotoData)
                     .frame(width: 60, height: 60)
 
                     VStack(alignment: .leading, spacing: 3) {
@@ -180,6 +188,31 @@ struct PlanEditorView: View {
                 .textInputAutocapitalization(.words)
                 .submitLabel(.done)
                 .accessibilityIdentifier("plan.editor.name")
+        }
+    }
+
+    private var logoSection: some View {
+        Section {
+            NavigationLink {
+                WorkoutLogoEditor(draft: $logoDraft, isLoadingPhoto: $isLoadingLogoPhoto)
+            } label: {
+                HStack(spacing: 12) {
+                    WorkoutLogoMark(logo: logoDraft.logo, pendingPhotoData: logoDraft.pendingPhotoData)
+                        .frame(width: 44, height: 44)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Workout logo")
+                        Text(logoDraft.hasPhoto ? "Selected photo" : "Symbol and colors")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                    if isLoadingLogoPhoto {
+                        ProgressView()
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            .accessibilityIdentifier("plan.editor.logo.open")
         }
     }
 
@@ -298,21 +331,15 @@ struct PlanEditorView: View {
                 plan.exercises.remove(atOffsets: offsets)
             }
 
-            Button {
-                exerciseDestination = ExerciseEditorDestination(
-                    exercise: ExerciseStep(name: ""),
-                    index: nil
-                )
-            } label: {
+            Button { showsCatalogue = true } label: {
                 Label("Add exercise", systemImage: "plus.circle.fill")
                     .fontWeight(.semibold)
             }
             .accessibilityIdentifier("plan.editor.exercise.add")
-            Button { showsCatalogue = true } label: {
-                Label("Choose from catalogue", systemImage: "square.stack.3d.up")
-                    .fontWeight(.semibold)
+            Button { showsShuffle = true } label: {
+                Label("Shuffle new exercises", systemImage: "shuffle")
             }
-            .accessibilityIdentifier("plan.editor.exercise.catalogue")
+            .accessibilityIdentifier("plan.editor.exercise.shuffle")
         } header: {
             HStack {
                 Text("Exercises")
@@ -329,7 +356,7 @@ struct PlanEditorView: View {
                 }
             }
         } footer: {
-            Text("Choose catalogue exercises to reuse defaults. Change timing, sides, or notes for this plan. Renaming an exercise here creates a separate catalogue entry; rename it in the catalogue to update all linked plans.")
+            Text("Choose catalogue exercises to reuse defaults. Change timing, sides, or notes for this plan. Renaming an exercise here changes only this plan. Rename it in the catalogue to update all linked plans.")
         }
     }
 
@@ -382,7 +409,7 @@ struct PlanEditorView: View {
     }
 
     private func save() {
-        guard validationMessage == nil else { return }
+        guard validationMessage == nil, !isLoadingLogoPhoto else { return }
         plan.name = plan.name.trimmingCharacters(in: .whitespacesAndNewlines)
         plan.warmUpNotes = normalizedNotes(plan.warmUpNotes)
         plan.recoveryNotes = normalizedNotes(plan.recoveryNotes)
@@ -395,7 +422,8 @@ struct PlanEditorView: View {
             return copy
         }
         plan.updatedAt = Date()
-        onSave(plan)
+        plan.logo = logoDraft.logo
+        onSave(plan, logoDraft)
     }
 
     private func normalizedNotes(_ notes: String?) -> String? {

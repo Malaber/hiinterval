@@ -22,12 +22,13 @@ UI tests launch with deterministic `--ui-testing` fixture mode. Tests must query
 With an Xcode Apple account configured for team `VWKG94374J`, upload a signed archive directly:
 
 ```bash
-.venv/bin/inv upload-testflight --marketing-version=0.4.1 --build-number=1
+.venv/bin/inv upload-testflight --marketing-version=0.5.4 --build-number=1
 ```
 
 Each later upload uses a fresh marketing version, increased by at least one SemVer patch. Never
-upload a marketing version twice. Git pushes should be followed by TestFlight delivery after the
-required checks pass. The task generates the
+upload a marketing version twice. After required local checks pass, pushes containing app changes
+are followed immediately by CLI TestFlight delivery without polling remote CI. Documentation-only
+pushes require no version bump or upload. The task generates the
 Xcode project, archives with automatic signing, exports with
 `ExportOptions.TestFlight.plist`, and uploads to App Store Connect. It deliberately gives Xcode a
 system-only `PATH`: Homebrew `rsync` does not support Apple's extended-attribute option and causes
@@ -50,7 +51,7 @@ TestFlight variables:
 - `TESTFLIGHT_UPLOAD_ENABLED`: `true` for automatic successful-`main` delivery.
 - `APPLE_TEAM_ID`: defaults to `VWKG94374J`.
 - `IOS_BUNDLE_IDENTIFIER`: defaults to `de.malaber.hiinterval`.
-- `IOS_MARKETING_VERSION`: defaults to `0.4.1`.
+- `IOS_MARKETING_VERSION`: defaults to `0.5.4`.
 - `APP_STORE_CONNECT_APP_ID`: numeric App Store Connect app ID.
 
 TestFlight secrets:
@@ -66,3 +67,24 @@ TestFlight secrets:
 Workflow scopes secrets only to validation and steps that consume them, imports signing material into temporary keychain, archives with manual signing, exports IPA, uploads signed archive evidence for 14 days, sends IPA with Planini's proven `altool --upload-app` and App Store Connect API-key flow, then removes temporary key/profile files.
 
 Superseded CI runs cancel by event/ref. Both automatic and manual delivery verify current `origin/main` before installing signing tools, then fetch and recheck after export immediately before upload. A commit superseded during either checks or archive cannot reach TestFlight.
+
+## UI CI parallelism and timeouts
+
+UI tests run on `macos-26`, with three isolated class shards for each iPhone/iPad
+suite (up to six jobs). Each simulator still runs serially. The shard selector
+balances discovered classes by test-method count and includes new classes automatically;
+each class runs exactly once per device. Artifact names include the shard index.
+
+The command has a 35-minute deadline and exits 124 with an explicit error on timeout.
+The 50-minute job deadline leaves room for setup and uploading failure evidence.
+Different source commits do not cancel one another; duplicate runs of the same commit
+may be superseded. GitHub account concurrency limits can still queue jobs.
+
+Local `invoke check` remains the full unsharded gate. To exercise a CI shard locally:
+
+```bash
+HIINTERVAL_UI_SHARD_INDEX=0 HIINTERVAL_UI_SHARD_COUNT=3 python3 -m invoke ios-ui-e2e \
+  --device-name="iPhone 17 Pro" --artifact-dir=e2e-artifacts/shard-0
+```
+
+Do not run multiple local shards against the same simulator simultaneously.

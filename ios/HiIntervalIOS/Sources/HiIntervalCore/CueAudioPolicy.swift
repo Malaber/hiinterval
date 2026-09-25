@@ -21,10 +21,26 @@ public struct CueAudioPolicy: Equatable, Sendable {
     }
 }
 
+public enum HalfwayCueAudio: Equatable, Sendable {
+    case none
+    case tone
+    case spoken
+
+    public static func output(enabled: Bool, cueStyle: CueStyle) -> Self {
+        guard enabled else { return .none }
+        switch cueStyle {
+        case .tones: return .tone
+        case .spoken: return .spoken
+        case .silent: return .none
+        }
+    }
+}
+
 public enum CueToneEvent: CaseIterable, Equatable, Sendable {
     case work
     case transition
     case countdown
+    case halfway
     case pause
     case resume
     case completion
@@ -47,6 +63,8 @@ public struct CueToneSignal: Equatable, Sendable {
             CueToneSignal(frequencyHz: 660, durationSeconds: 0.18)
         case .countdown:
             CueToneSignal(frequencyHz: 1_000, durationSeconds: 0.12)
+        case .halfway:
+            CueToneSignal(frequencyHz: 740, durationSeconds: 0.3)
         case .pause:
             CueToneSignal(frequencyHz: 520, durationSeconds: 0.16)
         case .resume:

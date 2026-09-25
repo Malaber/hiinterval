@@ -185,7 +185,8 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         // Body-area suggestions include a useful starting vocabulary before any labels exist.
         let legsSuggestion = element("catalogue.editor.bodyAreas.suggestion.legs")
         waitForExistence(legsSuggestion)
-        tap(legsSuggestion, scrolls: true)
+        revealPlanningSuggestion(legsSuggestion)
+        tap(legsSuggestion)
         waitForExistence(element("catalogue.editor.bodyAreas.pill.legs"))
 
         addPlanningLabel("Achilles recovery", kind: "tags")
@@ -204,7 +205,9 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
 
         tap(element("catalogue.row.\(CatalogueID.deadBug)"), scrolls: true)
         waitForExistence(element("catalogue.editor.screen"))
-        tap(element("catalogue.editor.tags.suggestion.achilles-recovery"), scrolls: true)
+        let suggestion = element("catalogue.editor.tags.suggestion.achilles-recovery")
+        revealPlanningSuggestion(suggestion)
+        tap(suggestion)
         waitForExistence(element("catalogue.editor.tags.pill.achilles-recovery"))
         tapToolbarButton("catalogue.editor.save", label: "Save")
         waitForDisappearance(element("catalogue.editor.screen"), timeout: 8)
@@ -213,7 +216,9 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         openCatalogue()
         tap(element("catalogue.row.\(CatalogueID.deadBug)"), scrolls: true)
         scrollToVisible(element("catalogue.editor.tags.pill.achilles-recovery"))
-        tap(element("catalogue.editor.tags.remove.achilles-recovery"), scrolls: true)
+        let remove = element("catalogue.editor.tags.remove.achilles-recovery")
+        revealPlanningSuggestion(remove)
+        tap(remove)
         waitForDisappearance(element("catalogue.editor.tags.pill.achilles-recovery"))
         tapToolbarButton("catalogue.editor.save", label: "Save")
         waitForDisappearance(element("catalogue.editor.screen"), timeout: 8)
@@ -272,14 +277,16 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         tap(element("plans.add"))
         waitForExistence(element("plan.editor.screen"))
         replaceText(in: element("plan.editor.name"), with: "Detached catalogue plan")
-        tap(element("plan.editor.exercise.catalogue"), scrolls: true)
+        revealPlanControl(element("plan.editor.exercise.add"))
+        tap(element("plan.editor.exercise.add"))
         waitForExistence(element("catalogue.screen"))
         tap(element("catalogue.row.\(CatalogueID.highKnees)"), scrolls: true)
         waitForDisappearance(element("catalogue.screen"), timeout: 8)
 
         let chosen = element("plan.editor.exercise.1")
         waitForLabel("Exercise 2, High Knees", on: chosen)
-        tap(chosen, scrolls: true)
+        revealPlanControl(chosen)
+        tap(chosen)
         waitForExistence(element("exercise.editor.screen"))
         replaceText(in: element("exercise.editor.name"), with: "Plan-only High Knees")
         tapToolbarButton("exercise.editor.save", label: "Done")
@@ -297,13 +304,34 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         tap(detachedCard.descendants(matching: .button)
             .matching(NSPredicate(format: "identifier BEGINSWITH 'plan.edit.'")).firstMatch, scrolls: true)
         waitForExistence(element("plan.editor.screen"))
-        scrollToVisible(element("plan.editor.exercise.1"))
+        revealPlanControl(element("plan.editor.exercise.1"))
         waitForLabel("Exercise 2, Plan-only High Knees", on: element("plan.editor.exercise.1"))
         tapToolbarButton("plan.editor.cancel", label: "Cancel")
         openCatalogue()
         tap(element("catalogue.row.\(CatalogueID.highKnees)"), scrolls: true)
         waitForValue("High Knees", on: element("catalogue.editor.name"))
         capture("06-plan-only-name-does-not-rename-catalogue")
+    }
+
+    func testTypedNameSuggestsCatalogueAndCancellingPlanCreatesNothing() {
+        launch()
+        selectTab("plans")
+        tap(element("plans.add"))
+        revealPlanControl(element("plan.editor.exercise.add"))
+        tap(element("plan.editor.exercise.add"))
+        tap(element("exercise.choice.create"))
+        let name = element("exercise.editor.name")
+        waitForExistence(app.keyboards.firstMatch)
+        typeText("high knees", intoFocusedField: name)
+        tap(element("exercise.editor.suggestion.\(CatalogueID.highKnees)"), scrolls: true)
+        waitForValue("High Knees", on: name)
+        tapToolbarButton("exercise.editor.save", label: "Done")
+        waitForLabel("Exercise 2, High Knees", on: element("plan.editor.exercise.1"))
+        tapToolbarButton("plan.editor.cancel", label: "Cancel")
+        relaunchPreservingData()
+        openCatalogue()
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'catalogue.row.'")).count, 4)
+        waitForExistence(element("catalogue.row.\(CatalogueID.highKnees)"))
     }
 
     func testCatalogueAndGeneratorRemainUsableAtLargestTextAndIpadLandscape() {
@@ -354,6 +382,23 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
         capture("09-ipad-landscape-generator")
     }
 
+    /// Reveal controls inside the actual sheet, excluding its floating actions and keyboard.
+    /// XCTest can report a clipped control as hittable even when tapping only expands the sheet.
+    private func revealPlanControl(_ target: XCUIElement) {
+        // Scroll the sheet's list gutter, not a text input in the middle of a recycled row.
+        // iPadOS 26 can retain a detached focus guide when a swipe starts on vertical text input.
+        revealFormControl(target, identifier: "plan.editor.screen", usesLeadingGutter: true)
+    }
+
+    private func revealPlanningSuggestion(_ target: XCUIElement) {
+        revealFormControl(
+            target,
+            identifier: "catalogue.editor.screen",
+            usesLeadingGutter: false,
+            obscuringBottomControlID: "catalogue.editor.delete"
+        )
+    }
+
     private func openCatalogue() {
         selectTab("plans")
         tap(element("catalogue.open"))
@@ -377,15 +422,11 @@ final class ExerciseCatalogueUITests: HiIntervalUITestCase {
 
     private func addPlanningLabel(_ label: String, kind: String) {
         let input = element("catalogue.editor.\(kind)")
-        // `replaceText` closes the keyboard. That emits this picker's submit action, which
-        // would add the label before this helper explicitly taps Add. Keep the field focused
-        // so each assertion exercises exactly one add path.
-        if input.exists && input.isHittable {
-            tap(input)
-        } else {
-            tap(input, scrolls: true)
-        }
-        input.tap(withNumberOfTaps: 3, numberOfTouches: 1)
+        // Every Add clears this field. Focus once; no triple-tap selection can fall under the
+        // keyboard while the Form scrolls the newly focused row into view.
+        revealPlanningSuggestion(input)
+        tap(input)
+        waitForExistence(app.keyboards.firstMatch)
         typeText(label, intoFocusedField: input)
         tap(element("catalogue.editor.\(kind).add"), scrolls: true)
     }

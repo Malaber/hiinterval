@@ -14,6 +14,8 @@ struct ExerciseCatalogueView: View {
     @State private var selectedIDs = Set<UUID>()
     @State private var selectionMode = false
     @State private var showsMergeConfirmation = false
+    @State private var exercisePendingDeletion: CatalogueExercise?
+    @State private var deletionAfterEditorDismissal: CatalogueExercise?
     private let onChoose: ((CatalogueExercise) -> Void)?
 
     init(onChoose: ((CatalogueExercise) -> Void)? = nil) {
@@ -90,11 +92,17 @@ struct ExerciseCatalogueView: View {
                 }
             }
         }
-        .sheet(item: $editor) { destination in
+        .sheet(item: $editor, onDismiss: {
+            if let exercise = deletionAfterEditorDismissal {
+                deletionAfterEditorDismissal = nil
+                exercisePendingDeletion = exercise
+            }
+        }) { destination in
             NavigationStack {
                 CatalogueExerciseEditorView(
                     exercise: destination.exercise,
-                    labels: destination.exercise.map { store.data.labels(for: $0) } ?? []
+                    labels: destination.exercise.map { store.data.labels(for: $0) } ?? [],
+                    onDelete: { requestDeletion($0) }
                 ) { saved, labels in
                     if store.saveCatalogueExercise(saved, labels: labels) { editor = nil }
                 }
@@ -119,6 +127,33 @@ struct ExerciseCatalogueView: View {
         } message: {
             Text("Choose the name and defaults to keep. Tags and body areas are combined. Existing plan timing, notes, and workout history stay exactly as they are.")
                 .accessibilityIdentifier("catalogue.merge.confirm")
+        }
+        .sheet(item: $exercisePendingDeletion) { exercise in
+            NavigationStack {
+                Form {
+                    Section {
+                        Text(deletionMessage)
+                            .accessibilityIdentifier("catalogue.delete.warning")
+                    }
+                    Section {
+                        Button("Delete exercise", role: .destructive) {
+                            if store.deleteCatalogueExercise(id: exercise.id) {
+                                selectedIDs.remove(exercise.id)
+                                exercisePendingDeletion = nil
+                            }
+                        }
+                        .accessibilityIdentifier("catalogue.delete.confirm")
+                    }
+                }
+                .navigationTitle("Delete \(exercise.name)?")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { exercisePendingDeletion = nil }
+                            .accessibilityIdentifier("catalogue.delete.cancel")
+                    }
+                }
+            }
         }
         .onAppear { store.clearError() }
         .accessibilityIdentifier("catalogue.screen")
@@ -184,6 +219,27 @@ struct ExerciseCatalogueView: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier(selectionMode ? "catalogue.select.\(exercise.id.uuidString)" : "catalogue.row.\(exercise.id.uuidString)")
         .accessibilityValue(selectionMode ? (selectedIDs.contains(exercise.id) ? "Selected for merge" : "Not selected for merge") : "")
+        .contextMenu {
+            if onChoose == nil, !selectionMode {
+                Button(role: .destructive) {
+                    requestDeletion(exercise)
+                } label: {
+                    Label("Delete exercise", systemImage: "trash")
+                }
+                .accessibilityIdentifier("catalogue.delete.\(exercise.id.uuidString)")
+            }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if onChoose == nil, !selectionMode {
+                // A destructive swipe optimistically removes its row. This action only
+                // presents confirmation, so keep the row until the user actually deletes it.
+                Button { requestDeletion(exercise) } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+                .tint(.red)
+                .accessibilityIdentifier("catalogue.delete.\(exercise.id.uuidString)")
+            }
+        }
     }
 
     private func toggleSelection(_ id: UUID) {
@@ -221,6 +277,24 @@ struct ExerciseCatalogueView: View {
         let context = plans.isEmpty ? "Catalogue only" : plans.joined(separator: ", ")
         return "Keep \(exercise.name) · \(context)"
     }
+
+    private func requestDeletion(_ exercise: CatalogueExercise) {
+        if editor != nil {
+            deletionAfterEditorDismissal = exercise
+            editor = nil
+        } else {
+            exercisePendingDeletion = exercise
+        }
+    }
+
+    private var deletionMessage: String {
+        guard let exercise = exercisePendingDeletion else { return "" }
+        let plans = linkedPlans(for: exercise.id).map(\.name)
+        guard !plans.isEmpty else {
+            return "This removes the exercise from the catalogue. Existing workout steps and completed workout history stay unchanged."
+        }
+        return "Used in \(plans.joined(separator: ", ")). Its steps keep their timing, sides, notes, and name. Completed workout history stays unchanged."
+    }
 }
 
 private struct CatalogueEditorDestination: Identifiable {
@@ -235,6 +309,7 @@ struct CatalogueExerciseEditorView: View {
     @EnvironmentObject private var store: AppStore
     @FocusState private var focusedField: Field?
     let onSave: (CatalogueExercise, [ExerciseLabel]) -> Void
+    let onDelete: ((CatalogueExercise) -> Void)?
     private let isNew: Bool
     @State private var exercise: CatalogueExercise
     @State private var selectedLabels: [ExerciseLabel]
@@ -245,12 +320,14 @@ struct CatalogueExerciseEditorView: View {
     init(
         exercise: CatalogueExercise?,
         labels: [ExerciseLabel] = [],
+        onDelete: ((CatalogueExercise) -> Void)? = nil,
         onSave: @escaping (CatalogueExercise, [ExerciseLabel]) -> Void
     ) {
         let entry = exercise ?? CatalogueExercise(name: "")
         _exercise = State(initialValue: entry)
         _selectedLabels = State(initialValue: labels)
         self.isNew = exercise == nil
+        self.onDelete = onDelete
         self.onSave = onSave
     }
 
@@ -306,6 +383,12 @@ struct CatalogueExerciseEditorView: View {
                 Button("Save", action: save).fontWeight(.semibold).disabled(!isValid)
                     .accessibilityIdentifier("catalogue.editor.save")
             }
+            if !isNew, let onDelete {
+                ToolbarItem(placement: .bottomBar) {
+                    Button("Delete exercise", role: .destructive) { onDelete(exercise) }
+                        .accessibilityIdentifier("catalogue.editor.delete")
+                }
+            }
         }
         .task {
             guard isNew else { return }
@@ -318,7 +401,8 @@ struct CatalogueExerciseEditorView: View {
                     exercise: exercise.makeStep(),
                     defaultWorkSeconds: 40,
                     defaultRecoverySeconds: 20,
-                    isNew: false
+                    isNew: false,
+                    suggestsCatalogue: false
                 ) { edited in
                     exercise.name = edited.name
                     exercise.duration = edited.duration

@@ -6,12 +6,14 @@ struct ExerciseEditorView: View {
         case name
     }
 
+    @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focusedField: Field?
 
     let defaultWorkSeconds: Int
     let defaultRecoverySeconds: Int
     let isNew: Bool
+    let suggestsCatalogue: Bool
     let onSave: (ExerciseStep) -> Void
 
     @State private var exercise: ExerciseStep
@@ -21,12 +23,14 @@ struct ExerciseEditorView: View {
         defaultWorkSeconds: Int,
         defaultRecoverySeconds: Int,
         isNew: Bool,
+        suggestsCatalogue: Bool = true,
         onSave: @escaping (ExerciseStep) -> Void
     ) {
         _exercise = State(initialValue: exercise)
         self.defaultWorkSeconds = defaultWorkSeconds
         self.defaultRecoverySeconds = defaultRecoverySeconds
         self.isNew = isNew
+        self.suggestsCatalogue = suggestsCatalogue
         self.onSave = onSave
     }
 
@@ -129,7 +133,32 @@ struct ExerciseEditorView: View {
                 .submitLabel(.done)
                 .focused($focusedField, equals: .name)
                 .accessibilityIdentifier("exercise.editor.name")
+            if suggestsCatalogue {
+                ForEach(matchingExercises) { match in
+                    Button {
+                        let stepID = exercise.id
+                        exercise = match.makeStep()
+                        exercise.id = stepID
+                        focusedField = nil
+                    } label: {
+                        Label("Use \(match.name) from catalogue", systemImage: "square.stack.3d.up")
+                    }
+                    .accessibilityIdentifier("exercise.editor.suggestion.\(match.id.uuidString)")
+                }
+                if exercise.catalogueExerciseID != nil {
+                    Text("Linked to catalogue. Timing and notes apply to this plan only.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
         }
+    }
+
+    private var matchingExercises: [CatalogueExercise] {
+        let query = ExerciseLabel.normalizedName(exercise.name)
+        guard !query.isEmpty else { return [] }
+        return Array(store.data.exerciseCatalogue.filter {
+            $0.id != exercise.catalogueExerciseID && ExerciseLabel.normalizedName($0.name).contains(query)
+        }.prefix(5))
     }
 
     private var durationSection: some View {

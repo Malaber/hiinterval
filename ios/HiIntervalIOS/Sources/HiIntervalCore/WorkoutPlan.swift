@@ -15,6 +15,8 @@ public struct WorkoutPlan: Codable, Equatable, Identifiable, Sendable {
     public var roundCount: Int
     public var exercises: [ExerciseStep]
     public var roundOverrides: [WorkoutRoundOverride]
+    public var logo: WorkoutLogo
+    public var generationOptions: WorkoutGenerationOptions?
     public var createdAt: Date
     public var updatedAt: Date
 
@@ -33,6 +35,8 @@ public struct WorkoutPlan: Codable, Equatable, Identifiable, Sendable {
         roundCount: Int = 3,
         exercises: [ExerciseStep],
         roundOverrides: [WorkoutRoundOverride] = [],
+        logo: WorkoutLogo = .default,
+        generationOptions: WorkoutGenerationOptions? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -50,8 +54,60 @@ public struct WorkoutPlan: Codable, Equatable, Identifiable, Sendable {
         self.roundCount = roundCount
         self.exercises = exercises
         self.roundOverrides = roundOverrides
+        self.logo = logo
+        self.generationOptions = generationOptions
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, warmUpSeconds, warmUpNotes, defaultWorkSeconds, defaultRecoverySeconds
+        case recoveryNotes, roundRecoverySeconds, roundRecoveryNotes, coolDownSeconds, coolDownNotes
+        case roundCount, exercises, roundOverrides, logo, generationOptions, createdAt, updatedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(UUID.self, forKey: .id)
+        name = try values.decode(String.self, forKey: .name)
+        warmUpSeconds = try values.decode(Int.self, forKey: .warmUpSeconds)
+        warmUpNotes = try values.decodeIfPresent(String.self, forKey: .warmUpNotes)
+        defaultWorkSeconds = try values.decode(Int.self, forKey: .defaultWorkSeconds)
+        defaultRecoverySeconds = try values.decode(Int.self, forKey: .defaultRecoverySeconds)
+        recoveryNotes = try values.decodeIfPresent(String.self, forKey: .recoveryNotes)
+        roundRecoverySeconds = try values.decode(Int.self, forKey: .roundRecoverySeconds)
+        roundRecoveryNotes = try values.decodeIfPresent(String.self, forKey: .roundRecoveryNotes)
+        coolDownSeconds = try values.decode(Int.self, forKey: .coolDownSeconds)
+        coolDownNotes = try values.decodeIfPresent(String.self, forKey: .coolDownNotes)
+        roundCount = try values.decode(Int.self, forKey: .roundCount)
+        exercises = try values.decode([ExerciseStep].self, forKey: .exercises)
+        roundOverrides = try values.decodeIfPresent([WorkoutRoundOverride].self, forKey: .roundOverrides) ?? []
+        logo = try values.decodeIfPresent(WorkoutLogo.self, forKey: .logo) ?? .default
+        generationOptions = try values.decodeIfPresent(WorkoutGenerationOptions.self, forKey: .generationOptions)
+        createdAt = try values.decode(Date.self, forKey: .createdAt)
+        updatedAt = try values.decode(Date.self, forKey: .updatedAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(id, forKey: .id)
+        try values.encode(name, forKey: .name)
+        try values.encode(warmUpSeconds, forKey: .warmUpSeconds)
+        try values.encodeIfPresent(warmUpNotes, forKey: .warmUpNotes)
+        try values.encode(defaultWorkSeconds, forKey: .defaultWorkSeconds)
+        try values.encode(defaultRecoverySeconds, forKey: .defaultRecoverySeconds)
+        try values.encodeIfPresent(recoveryNotes, forKey: .recoveryNotes)
+        try values.encode(roundRecoverySeconds, forKey: .roundRecoverySeconds)
+        try values.encodeIfPresent(roundRecoveryNotes, forKey: .roundRecoveryNotes)
+        try values.encode(coolDownSeconds, forKey: .coolDownSeconds)
+        try values.encodeIfPresent(coolDownNotes, forKey: .coolDownNotes)
+        try values.encode(roundCount, forKey: .roundCount)
+        try values.encode(exercises, forKey: .exercises)
+        try values.encode(roundOverrides, forKey: .roundOverrides)
+        try values.encode(logo, forKey: .logo)
+        try values.encodeIfPresent(generationOptions, forKey: .generationOptions)
+        try values.encode(createdAt, forKey: .createdAt)
+        try values.encode(updatedAt, forKey: .updatedAt)
     }
 
     public static func starter(now: Date = Date()) -> WorkoutPlan {

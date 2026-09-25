@@ -14,13 +14,8 @@ final class SettingsUITests: HiIntervalUITestCase {
             on: element("settings.cues-note")
         )
 
-        let maximumReservedHeight: CGFloat
-        if #available(iOS 26.0, *) {
-            // The floating tab bar needs its safe-area footprint plus a clear scroll boundary.
-            maximumReservedHeight = 160
-        } else {
-            maximumReservedHeight = 80
-        }
+        // Native tab-bar/safe-area space only; an extra fixed strip must not shorten the Form.
+        let maximumReservedHeight: CGFloat = 100
 
         XCTAssertLessThanOrEqual(
             screen.frame.maxY - form.frame.maxY,
@@ -37,6 +32,7 @@ final class SettingsUITests: HiIntervalUITestCase {
         XCTAssertTrue(element("settings.free-status").exists)
         setSwitch("settings.haptics", to: false)
         setSwitch("settings.duck-audio", to: true)
+        setSwitch("settings.halfway-cue", to: false)
         setSwitch("settings.pause-background", to: true)
         setSwitch("settings.keep-awake", to: false)
         setSwitch("settings.reminders", to: true)
@@ -57,9 +53,41 @@ final class SettingsUITests: HiIntervalUITestCase {
         capture("02-settings-after-relaunch")
     }
 
+    func testWorkoutThemePresetSavesGlobally() {
+        launch()
+        selectTab("settings")
+
+        let theme = element("settings.workout-theme")
+        scrollToHittable(theme)
+        tap(theme)
+        waitForExistence(element("settings.workout-theme.preview"))
+
+        for identifier in ["round-recovery", "side-switch"] {
+            let picker = element("settings.workout-theme.\(identifier)")
+            scrollToHittable(picker)
+            XCTAssertTrue(picker.isHittable)
+        }
+        tap(element("settings.workout-theme.preset.ocean"), scrolls: true)
+        tapToolbarButton("settings.workout-theme.save", label: "Save")
+        waitForExistence(theme)
+        relaunchPreservingData()
+        selectTab("settings")
+        tap(theme, scrolls: true)
+        let ocean = element("settings.workout-theme.preset.ocean")
+        scrollToHittable(ocean)
+        waitForValue("Selected", on: ocean)
+        tap(element("settings.workout-theme.preset.forest"), scrolls: true)
+        tapToolbarButton("settings.workout-theme.cancel", label: "Cancel")
+        tap(theme, scrolls: true)
+        waitForValue("Selected", on: ocean)
+        tap(app.buttons["settings.workout-theme.reset"])
+        tapToolbarButton("settings.workout-theme.save", label: "Save")
+    }
+
     private func assertPersistedPreferences() {
         assertSwitch("settings.haptics", value: "0")
         assertSwitch("settings.duck-audio", value: "1")
+        assertSwitch("settings.halfway-cue", value: "0")
         assertSwitch("settings.pause-background", value: "1")
         assertSwitch("settings.keep-awake", value: "0")
         assertSwitch("settings.reminders", value: "1")

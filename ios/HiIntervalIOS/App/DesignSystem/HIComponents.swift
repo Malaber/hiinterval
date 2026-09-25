@@ -218,14 +218,9 @@ extension View {
     }
 
     @ViewBuilder
-    func hiStableScrollContrast(hidingBottomEffect: Bool = false) -> some View {
+    func hiStableScrollContrast() -> some View {
         if #available(iOS 26.0, *) {
-            if hidingBottomEffect {
-                scrollEdgeEffectStyle(.hard, for: .top)
-                    .scrollEdgeEffectHidden(true, for: .bottom)
-            } else {
-                scrollEdgeEffectStyle(.hard, for: .all)
-            }
+            scrollEdgeEffectStyle(.soft, for: .all)
         } else {
             self
         }

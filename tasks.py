@@ -67,7 +67,7 @@ def ios_ui_e2e(
     artifact_dir="e2e-artifacts/ios-iphone",
     only_testing="HiIntervalUITests",
 ) -> None:
-    """Run serial, isolated XCUITest with configurable failed-test retries."""
+    """Run serial, isolated XCUITest once; failures fail the suite."""
     command = " ".join(
         [
             shlex.quote(str(IOS_DIR / "Scripts" / "run_ui_e2e.sh")),
@@ -124,7 +124,7 @@ def check_ios_ci(c) -> None:
 
 @task(
     help={
-        "marketing_version": "Three-part App Store version, for example 0.4.1.",
+        "marketing_version": "Three-part App Store version, for example 0.5.4.",
         "build_number": "Positive App Store build number.",
     }
 )

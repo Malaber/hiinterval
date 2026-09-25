@@ -40,7 +40,14 @@ public struct IntervalTimerEngine: Equatable, Sendable {
 
     public var canReturnToPreviousExercise: Bool {
         guard state == .running || state == .paused, currentPhaseIndex > 0 else { return false }
-        return timeline.phases[..<currentPhaseIndex].contains { $0.kind == .work }
+        return previousExerciseIndex != nil
+    }
+
+    private var previousExerciseIndex: Int? {
+        guard currentPhaseIndex > 0 else { return nil }
+        let previousPhases = timeline.phases[..<currentPhaseIndex]
+        return previousPhases.lastIndex { $0.kind == .work }
+            ?? previousPhases.lastIndex { $0.kind == .warmUp }
     }
 
     public var displayedRemainingSeconds: Int {
@@ -170,7 +177,8 @@ public struct IntervalTimerEngine: Equatable, Sendable {
         return events
     }
 
-    /// Returns to the most recent work phase and restores its full duration.
+    /// Returns to the most recent work phase, or warm-up before the first exercise,
+    /// and restores its full duration.
     /// Recovery and side-switch phases are intentionally skipped because this action repairs an
     /// accidentally skipped exercise rather than navigating the expanded phase timeline.
     public mutating func returnToPreviousExercise(at date: Date) -> [TimerEvent] {
@@ -180,10 +188,7 @@ public struct IntervalTimerEngine: Equatable, Sendable {
             events = tick(at: date)
             guard state == .running else { return events }
         }
-        guard currentPhaseIndex > 0,
-              let previousIndex = timeline.phases[..<currentPhaseIndex].lastIndex(where: {
-                  $0.kind == .work
-              }) else {
+        guard let previousIndex = previousExerciseIndex else {
             return events
         }
 

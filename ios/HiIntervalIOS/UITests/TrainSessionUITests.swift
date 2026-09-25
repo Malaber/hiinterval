@@ -86,6 +86,17 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         waitForLabelToChange(from: pausedLabel, on: remaining)
         XCUIDevice.shared.press(.home)
         app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20))
+        let homeIcon = XCUIApplication(bundleIdentifier: "com.apple.springboard").icons["HiInterval"]
+        let foreground = NSPredicate { [app] _, _ in
+            app!.state == .runningForeground && app!.windows.firstMatch.isHittable
+                && (!homeIcon.exists || !homeIcon.isHittable)
+        }
+        if !foreground.evaluate(with: app) {
+            let ready = XCTNSPredicateExpectation(predicate: foreground, object: app)
+            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 20), .completed,
+                           "Workout must be visibly foreground before tapping its controls")
+        }
         waitForLabel("Resume workout", on: element("session.pause"))
 
         tap(element("session.mute"))
@@ -95,23 +106,29 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         tap(element("session.mute"))
         waitForLabel("Mute cues", on: element("session.mute"))
 
-        seekPausedPhase(exercise: "Reverse Lunges", phase: "WORK", side: "LEFT SIDE")
+        seekPausedPhase(exercise: "Reverse Lunges · Left", phase: "WORK")
         capture("02-left-side")
 
-        skipPausedPhase(expectingExercise: "Switch sides")
+        skipPausedPhase(expectingExercise: "Switch sides · Right")
         waitForLabel("SWITCH", on: element("session.phase-kind"))
-        waitForLabel("RIGHT SIDE", on: element("session.side"))
 
-        skipPausedPhase(expectingExercise: "Reverse Lunges")
+        skipPausedPhase(expectingExercise: "Reverse Lunges · Right")
         waitForLabel("WORK", on: element("session.phase-kind"))
-        waitForLabel("RIGHT SIDE", on: element("session.side"))
         capture("03-right-side")
 
         skipPausedPhase(expectingExercise: "Round recovery")
         waitForLabel("ROUND RECOVERY", on: element("session.phase-kind"))
         waitForDisappearance(element("session.side"))
 
-        finishBySkippingPausedPhases()
+        // Fixture has two rounds. After the first round rest, each remaining phase is known;
+        // verify every skip advances rather than tapping an arbitrary number of times.
+        skipPausedPhase(expectingExercise: "High Knees")
+        skipPausedPhase(expectingExercise: "Recovery")
+        skipPausedPhase(expectingExercise: "Reverse Lunges · Left")
+        skipPausedPhase(expectingExercise: "Switch sides · Right")
+        skipPausedPhase(expectingExercise: "Reverse Lunges · Right")
+        skipPausedPhase(expectingExercise: "Cool down")
+        tap(element("session.skip"))
         waitForExistence(element("completion.screen"), timeout: 5)
         capture("04-session-complete")
         tap(element("completion.done"))
@@ -140,6 +157,8 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         waitForLabel("Next up, Reverse Lunges · Left", on: element("session.next"))
         waitForValue("Primary focus", on: element("session.exercise"))
         waitForValue("Secondary preview", on: element("session.next"))
+        XCTAssertFalse(app.staticTexts["WORK"].exists)
+        XCTAssertFalse(app.staticTexts["RECOVER"].exists)
         capture("01-running-eight-exercise-work")
 
         waitForLabel("Resume workout", on: element("session.pause"))
@@ -156,8 +175,8 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         waitForRemainingSeconds(600, on: remaining)
         capture("02-single-reset-restored-time")
 
-        // Recovery stays visually current for exercise one; next-up skips it entirely.
-        skipPausedPhase(expectingExercise: "Recover")
+        // Recovery has its own heading; next-up points to the next work phase.
+        skipPausedPhase(expectingExercise: "Recovery")
         waitForLabel("Notes, Breathe and reset", on: element("session.notes"))
         waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
         waitForLabel("Next up, Reverse Lunges · Left", on: element("session.next"))
@@ -175,8 +194,16 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         waitForLabel("Exercise 1 of 8", on: element("session.exercise-progress"))
         capture("04-double-back-restored-exercise")
 
-        skipPausedPhase(expectingExercise: "Recover")
-        skipPausedPhase(expectingExercise: "Reverse Lunges")
+        // The first exercise can return to warm-up, not just earlier work phases.
+        element("session.restart").doubleTap()
+        waitForLabel("Get ready", on: element("session.exercise"))
+        waitForLabel("WARM UP", on: element("session.phase-kind"))
+        waitForRemainingSeconds(600, on: remaining)
+        waitForValue("Restart available", on: element("session.restart"))
+        skipPausedPhase(expectingExercise: "High Knees")
+
+        skipPausedPhase(expectingExercise: "Recovery")
+        skipPausedPhase(expectingExercise: "Reverse Lunges · Left")
         waitForLabel("Exercise 2 of 8", on: element("session.exercise-progress"))
         waitForLabel("Next up, Reverse Lunges · Right", on: element("session.next"))
         capture("05-second-exercise-selected")
@@ -216,32 +243,9 @@ final class TrainSessionUITests: HiIntervalUITestCase {
 
         // 5s -> 105s, then relaunch at real time before starting this state-heavy session.
         incrementStepper("plan.editor.work", times: 20)
-        // Ten rounds keep session alive while UI assertions and screenshots are collected.
-        incrementStepper("plan.editor.rounds", times: 8)
+        // The fixture's two rounds suffice: the workout is paused for phase assertions.
         tapToolbarButton("plan.editor.save", label: "Save")
         waitForExistence(element("plans.screen"))
-    }
-
-    private func seekPausedPhase(exercise: String, phase: String, side: String) {
-        let exerciseElement = element("session.exercise")
-        let phaseElement = element("session.phase-kind")
-        let sideElement = element("session.side")
-
-        for _ in 0..<12 {
-            if exerciseElement.label == exercise,
-               phaseElement.label == phase,
-               sideElement.exists,
-               sideElement.label == side {
-                return
-            }
-            let previous = exerciseElement.label
-            tap(element("session.skip"))
-            waitForLabelToChange(from: previous, on: exerciseElement)
-        }
-        XCTFail(
-            "Could not reach paused phase \(phase) / \(exercise) / \(side). "
-                + "Current: \(phaseElement.label) / \(exerciseElement.label) / \(sideElement.label)"
-        )
     }
 
     private func seekPausedPhase(exercise: String, phase: String, attempts: Int = 12) {
@@ -287,16 +291,13 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        let expectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label BEGINSWITH %@", "\(seconds) seconds remaining"),
-            object: element
-        )
-        XCTAssertEqual(
-            XCTWaiter.wait(for: [expectation], timeout: timeout),
-            .completed,
-            "Expected \(seconds) seconds remaining, got '\(element.label)'",
-            file: file,
-            line: line
-        )
+        let predicate = NSPredicate(format: "label BEGINSWITH %@", "\(seconds) seconds remaining")
+        // A synchronous snapshot may outlast the waiter on hosted iPad simulators.
+        // Check the current state first and only fetch diagnostic text on actual failure.
+        if predicate.evaluate(with: element) { return }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        if XCTWaiter.wait(for: [expectation], timeout: timeout) != .completed {
+            XCTFail("Expected \(seconds) seconds remaining, got '\(element.label)'", file: file, line: line)
+        }
     }
 }

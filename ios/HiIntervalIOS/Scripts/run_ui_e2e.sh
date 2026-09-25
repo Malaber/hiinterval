@@ -7,6 +7,23 @@ device_name=${1:-"iPhone 17 Pro"}
 artifact_dir=${2:-"e2e-artifacts/ios-iphone"}
 only_testing=${3:-"HiIntervalUITests"}
 
+selections=("$only_testing")
+if [[ -n "${HIINTERVAL_UI_SHARD_INDEX:-}${HIINTERVAL_UI_SHARD_COUNT:-}" ]]; then
+  if [[ "$only_testing" != "HiIntervalUITests" ]]; then
+    echo "Sharding requires the full UI target selection" >&2
+    exit 2
+  fi
+  selected=$(python3 "$package_dir/Scripts/select_ui_tests.py" "$package_dir/UITests" \
+    "${HIINTERVAL_UI_SHARD_INDEX:-}" "${HIINTERVAL_UI_SHARD_COUNT:-}")
+  selections=()
+  while IFS= read -r selection; do selections+=("$selection"); done <<< "$selected"
+fi
+test_arguments=()
+for selection in "${selections[@]}"; do
+  test_arguments+=("-only-testing:$selection")
+done
+only_testing="${selections[*]}"
+
 if [[ "$artifact_dir" = /* ]]; then
   artifact_candidate="$artifact_dir"
 else
@@ -59,7 +76,7 @@ xcodebuild \
   -destination-timeout 120 \
   -parallel-testing-enabled NO \
   -maximum-parallel-testing-workers 1 \
-  -only-testing:"$only_testing" \
+  "${test_arguments[@]}" \
   CODE_SIGNING_ALLOWED=NO \
   build-for-testing \
   2>&1 | tee "$build_log"
@@ -99,7 +116,7 @@ xcodebuild \
   -collect-test-diagnostics never \
   -parallel-testing-enabled NO \
   -maximum-parallel-testing-workers 1 \
-  -only-testing:"$only_testing" \
+  "${test_arguments[@]}" \
   CODE_SIGNING_ALLOWED=NO \
   test-without-building \
   2>&1 | tee "$test_log"

@@ -13,9 +13,19 @@ final class CueAudioPolicyTests: XCTestCase {
     func testEveryCueEventHasAUsableToneSignal() {
         let signals = CueToneEvent.allCases.map(CueToneSignal.signal(for:))
 
-        XCTAssertEqual(signals.count, 6)
-        XCTAssertEqual(signals.map(\.frequencyHz), [880, 660, 1_000, 520, 780, 1_047])
+        XCTAssertEqual(signals.count, 7)
+        XCTAssertEqual(signals.map(\.frequencyHz), [880, 660, 1_000, 740, 520, 780, 1_047])
         XCTAssertTrue(signals.allSatisfy { $0.durationSeconds > 0 })
+        XCTAssertEqual(Set(signals.map(\.frequencyHz)).count, signals.count)
+    }
+
+    func testHalfwayCueRespectsAudioModeAndWarningPreference() {
+        XCTAssertEqual(HalfwayCueAudio.output(enabled: true, cueStyle: .tones), .tone)
+        XCTAssertEqual(HalfwayCueAudio.output(enabled: true, cueStyle: .spoken), .spoken)
+        XCTAssertEqual(HalfwayCueAudio.output(enabled: true, cueStyle: .silent), .none)
+        for style in CueStyle.allCases {
+            XCTAssertEqual(HalfwayCueAudio.output(enabled: false, cueStyle: style), .none)
+        }
     }
 
     func testToneSignalProducesValidMonoPCMHeaderAndSamples() {

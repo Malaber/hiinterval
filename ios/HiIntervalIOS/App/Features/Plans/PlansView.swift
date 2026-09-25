@@ -8,6 +8,7 @@ struct PlansView: View {
     @State private var planPendingDeletion: WorkoutPlan?
     @State private var showsCatalogue = false
     @State private var showsGenerator = false
+    @State private var durationCache = PlanDurationCache()
 
     var body: some View {
         NavigationStack {
@@ -49,14 +50,17 @@ struct PlansView: View {
         }
         .tint(PlanPalette.accent)
         .accessibilityIdentifier("plans.screen")
+        .onChange(of: store.data.plans.map(\.id)) { _, currentIDs in
+            durationCache.retain(currentIDs)
+        }
         .sheet(item: $editorDestination) { destination in
             NavigationStack {
                 PlanEditorView(
                     plan: destination.plan,
                     isNew: destination.isNew,
                     presentsNaturalLanguageEditor: destination.presentsNaturalLanguageEditor
-                ) { savedPlan in
-                    store.savePlan(savedPlan)
+                ) { savedPlan, logoDraft in
+                    guard store.savePlan(savedPlan, logoDraft: logoDraft) else { return }
                     store.selectPlan(id: savedPlan.id)
                     editorDestination = nil
                 }
@@ -111,6 +115,7 @@ struct PlansView: View {
                 ForEach(store.data.plans) { plan in
                     PlanCard(
                         plan: plan,
+                        duration: durationCache.duration(for: plan),
                         isSelected: store.data.selectedPlanID == plan.id,
                         onSelect: { store.selectPlan(id: plan.id) },
                         onEdit: { edit(plan) },
@@ -231,33 +236,50 @@ private struct PlanEditorDestination: Identifiable {
     let presentsNaturalLanguageEditor: Bool
 }
 
+/// A selected-plan change redraws every visible card. Duration depends on plan content,
+/// not selection, so keep the expanded timeline result until that exact plan changes.
+@MainActor
+private final class PlanDurationCache {
+    private struct Entry {
+        let plan: WorkoutPlan
+        let value: String
+    }
+
+    private var entries: [UUID: Entry] = [:]
+
+    func duration(for plan: WorkoutPlan) -> String {
+        if let entry = entries[plan.id], entry.plan == plan {
+            return entry.value
+        }
+        let value = PlanFormatting.totalDuration(for: plan)
+            .map(PlanFormatting.duration) ?? "Needs review"
+        entries[plan.id] = Entry(plan: plan, value: value)
+        return value
+    }
+
+    func retain(_ ids: [UUID]) {
+        let ids = Set(ids)
+        entries = entries.filter { ids.contains($0.key) }
+    }
+}
+
 private struct PlanCard: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .headline) private var titleSize = 17
 
     let plan: WorkoutPlan
+    let duration: String
     let isSelected: Bool
     let onSelect: () -> Void
     let onEdit: () -> Void
     let onDuplicate: () -> Void
     let onDelete: () -> Void
 
-    private var duration: String {
-        guard let seconds = PlanFormatting.totalDuration(for: plan) else { return "Needs review" }
-        return PlanFormatting.duration(seconds)
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(colorScheme == .dark ? Color.white : Color.black)
-                    Image(systemName: isSelected ? "waveform.path.ecg" : "figure.highintensity.intervaltraining")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
-                }
+                WorkoutLogoMark(logo: plan.logo)
                 .frame(width: 48, height: 48)
                 .overlay {
                     if isSelected {

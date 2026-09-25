@@ -62,14 +62,11 @@ enum HITheme {
     )
 
     static func phaseColor(_ kind: WorkoutPhaseKind) -> Color {
-        switch kind {
-        case .work:
-            return work
-        case .recovery, .roundRecovery:
-            return recovery
-        case .warmUp, .sideSwitch, .coolDown:
-            return transition
-        }
+        phaseColor(kind, in: .default)
+    }
+
+    static func phaseColor(_ kind: WorkoutPhaseKind, in theme: WorkoutTheme) -> Color {
+        Color(theme.color(for: kind))
     }
 
     static func phaseIcon(_ kind: WorkoutPhaseKind) -> String {
@@ -93,6 +90,17 @@ enum HITheme {
         Color(uiColor: UIColor { traits in
             traits.userInterfaceStyle == .dark ? dark : light
         })
+    }
+}
+
+extension Color {
+    init(_ workoutColor: WorkoutLogoColor) {
+        self.init(
+            red: workoutColor.red,
+            green: workoutColor.green,
+            blue: workoutColor.blue,
+            opacity: workoutColor.opacity
+        )
     }
 }
 

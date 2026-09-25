@@ -215,10 +215,18 @@ rules cover their standard locations.
   Migrate old string arrays without losing associations. Detaching a label retains it for suggestions;
   saving an exercise commits draft labels atomically, while cancelling must create no records.
   Use removable pills and existing/general suggestions rather than comma-separated entry fields.
+- Global workout phase colors include distinct work, recovery, round recovery, side switch, and
+  warm-up/cool-down values. Persist them in `UserPreferences.workoutTheme`, edited in Settings; never
+  attach themes to individual plans. `WorkoutPlan.logo` is per plan. Use the system photo picker;
+  keep photo drafts memory-only until Save and retain assets referenced by history or recovery data.
+- Deleted catalogue IDs remain tombstoned in `AppData.deletedCatalogueExerciseIDs` so retained plan
+  steps cannot recreate removed entries. Saved `generationOptions` support exercise-only reshuffling.
 - History includes a plan snapshot so editing a saved plan does not rewrite completed workouts.
   Preserve selected-plan normalization, history ordering, and CSV escaping/formula protections.
 - Notes start empty and appear during relevant phases only when nonblank. New exercise entry should
   focus the name field. The current exercise heading must remain more prominent than the next one.
+- Halfway cues honor `halfwayCueEnabled` and cue style: a distinct tone in tones mode, speech in
+  spoken mode, and no sound when disabled, silent, or session-muted.
 - Enabled audio uses the playback session category so it works in Silent Mode. Preserve the app's
   audio-off control and mix/duck preference. Every app-triggered vibration must honor
   `hapticsEnabled` through the haptic policy/player, including pause, resume, countdown, and completion.
@@ -232,7 +240,8 @@ rules cover their standard locations.
   model; do not add a network AI fallback by default.
 - Reuse the design system, accessibility identifiers, and semantic labels. Check light/dark mode,
   large Dynamic Type, VoiceOver, iPhone portrait, and iPad rotations/multitasking widths. Settings
-  scrolling and the iOS 26 floating tab bar have prior layout/contrast regressions: verify visible
+  scrolling and the iOS 26 floating tab bar have prior layout/contrast regressions: use shared soft
+  scroll-edge fades, never reserve a fixed opaque strip below Settings, and verify visible
   rows, content insets, and shared scroll-edge treatment on both device families.
 - `App/PrivacyInfo.xcprivacy` declares no tracking/collected data and the app-only UserDefaults
   required-reason API use. Keep the manifest and public privacy page consistent with actual behavior.
@@ -276,6 +285,9 @@ require live nondeterministic model generation on a simulator.
 Wait for observable state and reuse the existing launch/hittability helpers. Avoid arbitrary sleeps
 and aggressive accessibility polling. Successful waits should not fetch extra snapshots just to
 format failure messages. Focus tests type without refocusing and complete any interrupted prefix.
+On iPadOS, native tabs expose nested duplicate buttons. Select the leaf button once, verify its
+selected state, then wait for destination content (Settings uses its concrete Form). Failed tab
+transitions must retain a hierarchy and screenshot; never hide missed taps with automatic retries.
 The foreground/background completion test uses `HIINTERVAL_UI_TEST_MANUAL_CELEBRATION=1` together
 with `--ui-testing` to pause cosmetic fireworks animation and advance the existing timeline boundary
 on demand: continuous rendering can starve hosted iPad accessibility snapshots, and wall-clock waits
@@ -283,6 +295,15 @@ can miss the five-second foreground window. Automatic transition
 uses a deterministic test duration while core tests retain and verify the five-second default.
 Switch helpers must reveal the entire row within its containing Form's visible bounds; requiring a
 fixed central band of the application window fails for short sheets with no remaining scroll range.
+Catalogue plan-editor tests scroll within the sheet list’s leading gutter, avoiding text-entry targets.
+Whole-window swipes across multiline notes triggered an iPadOS 26 UIKit focus-guide assertion
+(`parentEnvironment != nil`) with a simulated hardware keyboard. This gesture constraint does not
+verify physical iPad keyboard behavior; retain that limitation in device validation.
+Swipe actions that only open deletion confirmation must use a normal button with red tint, not
+a destructive role: destructive swipe semantics can remove the row before the backing data changes.
+Keep the destructive role on the final confirmation and cover swipe cancellation and confirmation.
+While tests run, wait without live test-log commentary or per-test progress updates. Inspect results
+once the run finishes and report success, failures, or actionable blockers.
 Tests run once; any assertion or infrastructure failure fails the suite. Do not add automatic reruns
 or accept a later pass as evidence of correctness.
 
@@ -303,12 +324,19 @@ hardware Silent Mode audio, or on-device Apple Intelligence availability; those 
 
 - `ci.yml` runs on PRs, `main` pushes, and manual dispatch. `ios-checks.yml` runs core coverage in
   Linux `swift:6.2` and UI suites on macOS 26 with `iPhone 17 Pro` and `iPad Pro 13-inch (M5)`.
+  CI splits each device suite into three disjoint class shards on isolated runners; tests stay serial
+  within each simulator. New test classes join automatically. A 35-minute command deadline fails
+  the test step before the 50-minute job deadline, leaving time to upload evidence. CI concurrency
+  is scoped to a commit so newer pushes do not cancel older revisions. Local full suites stay unsharded.
   Coverage/UI artifacts are retained for 14 days. Use actual job logs when diagnosing failures.
 - App versions belong in `project.yml`; keep the TestFlight workflow fallback and release examples
   consistent when bumping versions. The Python package version in `pyproject.toml` is separate.
-  Before each Git push, check the latest version actually uploaded to App Store Connect and ensure
-  the version for the next TestFlight upload is at least one SemVer patch higher. Never upload a
-  marketing version twice, even with a different build number; do not blindly reuse examples.
+  Before each Git push containing app changes, check the latest version actually uploaded to App
+  Store Connect and ensure the next TestFlight version is at least one SemVer patch higher. Never
+  upload a marketing version twice, even with a different build number; do not blindly reuse examples.
+- Documentation/planning-only pushes, including TODO updates, require neither an app version bump
+  nor a TestFlight upload. Including already released app code as a planning branch's base does not
+  count as a new app change. Resume version bumps and uploads when implementation changes the app.
 - Run required local checks before every Git push of app changes. Immediately after each push,
   upload that exact pushed source to TestFlight through the local CLI; do not wait for or poll remote
   CI unless the user specifically asks. If local checks fail, fix them before pushing. If later CI

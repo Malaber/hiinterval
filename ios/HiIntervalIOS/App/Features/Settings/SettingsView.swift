@@ -6,6 +6,7 @@ struct SettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var reminderMessage: String?
     @State private var reminderTask: Task<Void, Never>?
+    @State private var isWorkoutThemeEditorPresented = false
 
     private let weekdays: [(Int, String)] = [
         (2, "M"), (3, "T"), (4, "W"), (5, "T"), (6, "F"), (7, "S"), (1, "S"),
@@ -13,30 +14,28 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                Form {
-                    accessSection
-                    cuesSection
-                    behaviorSection
-                    remindersSection
-                    appearanceSection
-                    aboutSection
-                }
-                .hiStableScrollContrast(hidingBottomEffect: true)
-                .accessibilityIdentifier("settings.form")
-
-                if #available(iOS 26.0, *) {
-                    // Match the floating tab bar footprint so partially covered rows are not
-                    // exposed as visible content or false-positive contrast audit targets.
-                    HITheme.canvas
-                        .frame(height: 72)
-                        .accessibilityHidden(true)
-                }
+            Form {
+                accessSection
+                cuesSection
+                behaviorSection
+                remindersSection
+                appearanceSection
+                workoutThemeSection
+                aboutSection
             }
+            .hiStableScrollContrast()
+            .accessibilityIdentifier("settings.form")
             .background(HITheme.canvas)
             .navigationTitle("Settings")
         }
         .accessibilityIdentifier("settings.screen")
+        .sheet(isPresented: $isWorkoutThemeEditorPresented) {
+            WorkoutThemeEditor(initialTheme: store.data.preferences.workoutTheme) { theme in
+                var preferences = store.data.preferences
+                preferences.workoutTheme = theme
+                store.updatePreferences(preferences)
+            }
+        }
     }
 
     private var accessSection: some View {
@@ -93,6 +92,8 @@ struct SettingsView: View {
                 .accessibilityIdentifier("settings.duck-audio")
             Toggle("Final three-second countdown", isOn: preferenceBinding(\.countdownEnabled))
                 .accessibilityIdentifier("settings.countdown")
+            Toggle("Halfway exercise cue", isOn: preferenceBinding(\.halfwayCueEnabled))
+                .accessibilityIdentifier("settings.halfway-cue")
 
             settingsNote("Audio cues play in Silent Mode. Spoken cues can follow device language or use English or German.")
                 .accessibilityIdentifier("settings.cues-note")
@@ -198,6 +199,33 @@ struct SettingsView: View {
             .accessibilityIdentifier("settings.appearance")
         } header: {
             settingsHeader("Appearance")
+        }
+    }
+
+    private var workoutThemeSection: some View {
+        Section {
+            Button {
+                isWorkoutThemeEditorPresented = true
+            } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Workout colors")
+                            .foregroundStyle(settingsTextColor)
+                        Text("Global colors for every workout phase")
+                            .font(.caption)
+                            .foregroundStyle(settingsTextColor.opacity(0.72))
+                    }
+                    Spacer()
+                    WorkoutThemeSettingsSwatches(theme: store.data.preferences.workoutTheme)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(settingsTextColor.opacity(0.55))
+                }
+            }
+            .accessibilityIdentifier("settings.workout-theme")
+            .accessibilityHint("Choose global colors for running workouts")
+        } header: {
+            settingsHeader("Workout appearance")
         }
     }
 
@@ -321,5 +349,21 @@ struct SettingsView: View {
         let symbols = Calendar.current.weekdaySymbols
         guard (1...symbols.count).contains(weekday) else { return "Day" }
         return symbols[weekday - 1]
+    }
+}
+
+private struct WorkoutThemeSettingsSwatches: View {
+    let theme: WorkoutTheme
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Circle().fill(Color(theme.workColor))
+            Circle().fill(Color(theme.recoveryColor))
+            Circle().fill(Color(theme.transitionColor))
+            Circle().fill(Color(theme.roundRecoveryColor))
+            Circle().fill(Color(theme.sideSwitchColor))
+        }
+        .frame(width: 72, height: 16)
+        .accessibilityHidden(true)
     }
 }
