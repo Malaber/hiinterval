@@ -302,8 +302,12 @@ verify physical iPad keyboard behavior; retain that limitation in device validat
 Swipe actions that only open deletion confirmation must use a normal button with red tint, not
 a destructive role: destructive swipe semantics can remove the row before the backing data changes.
 Keep the destructive role on the final confirmation and cover swipe cancellation and confirmation.
-While tests run, wait without live test-log commentary or per-test progress updates. Inspect results
-once the run finishes and report success, failures, or actionable blockers.
+While tests run, wait quietly for process completion using a process wait or bounded sleeps;
+do not repeatedly tail/read logs, count passed tests, or send live test-log commentary or per-test
+progress updates. Once the process finishes, check its exit status and read the final log lines or
+result summary. If it failed, inspect the relevant failure logs/artifacts and investigate the cause.
+Report the completed result or an actionable blocker. Inspect a running process only when needed
+to diagnose a suspected hang, respond to a user status request, or handle an interruption.
 Tests run once; any assertion or infrastructure failure fails the suite. Do not add automatic reruns
 or accept a later pass as evidence of correctness.
 
