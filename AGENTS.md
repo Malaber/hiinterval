@@ -323,7 +323,7 @@ hardware Silent Mode audio, or on-device Apple Intelligence availability; those 
 ## CI and releases
 
 - `ci.yml` runs on PRs, `main` pushes, and manual dispatch. `ios-checks.yml` runs core coverage in
-  Linux `swift:6.2` and UI suites on macOS 26 with `iPhone 17 Pro` and `iPad Pro 13-inch (M5)`.
+  Linux `swift:6.2` and UI suites on macOS 26 with `iPhone 17 Pro Max` and `iPad Pro 13-inch (M5)`.
   CI splits each device suite into three disjoint class shards on isolated runners; tests stay serial
   within each simulator. New test classes join automatically. A 35-minute command deadline fails
   the test step before the 50-minute job deadline, leaving time to upload evidence. CI concurrency
@@ -368,6 +368,13 @@ hardware Silent Mode audio, or on-device Apple Intelligence availability; those 
   provisioning profiles, or distribution logs containing account data.
 - Distinguish upload acceptance from Apple processing and tester availability. Report only the
   state actually verified; retain the requested version, build number, and source commit in handoff.
+
+- `release.yml` publishes a GitHub release only after successful main-push CI, using the exact
+  tested merge commit and `project.yml` marketing version. Use PR `Release title:` and
+  `## Release notes` for customer-facing metadata; see `docs/github-releases.md`.
+  Keep published versions immutable. Marketing screenshot assets must come from the same CI run,
+  contain both device families, and pass dimension/opaque-PNG validation. No App Store submission
+  is performed by this workflow.
 
 ## Website
 
