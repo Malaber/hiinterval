@@ -391,6 +391,12 @@ class HiIntervalUITestCase: XCTestCase {
                 viewport.size.height = bottom - viewport.minY
             }
         }
+        // Floating tab bars overlay scroll content without reducing the Form's frame.
+        for bar in app.tabBars.allElementsBoundByIndex where bar.isHittable {
+            if bar.frame.intersects(viewport), bar.frame.minY > viewport.midY {
+                viewport.size.height = max(0, bar.frame.minY - viewport.minY)
+            }
+        }
         let keyboard = app.keyboards.firstMatch
         if keyboard.exists, keyboard.frame.intersects(viewport) {
             viewport.size.height = max(0, keyboard.frame.minY - viewport.minY)
@@ -626,6 +632,12 @@ class HiIntervalUITestCase: XCTestCase {
                 let bottom = viewport.maxY
                 viewport.origin.y = overlap.maxY
                 viewport.size.height = bottom - overlap.maxY
+            }
+        }
+        // Floating tab bars overlay scroll content without reducing the Form's frame.
+        for bar in app.tabBars.allElementsBoundByIndex where bar.isHittable {
+            if bar.frame.intersects(viewport), bar.frame.minY > viewport.midY {
+                viewport.size.height = max(0, bar.frame.minY - viewport.minY)
             }
         }
         let keyboard = app.keyboards.firstMatch
