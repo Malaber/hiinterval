@@ -231,9 +231,12 @@ struct ExerciseCatalogueView: View {
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if onChoose == nil, !selectionMode {
-                Button(role: .destructive) { requestDeletion(exercise) } label: {
+                // A destructive swipe optimistically removes its row. This action only
+                // presents confirmation, so keep the row until the user actually deletes it.
+                Button { requestDeletion(exercise) } label: {
                     Label("Delete", systemImage: "trash")
                 }
+                .tint(.red)
                 .accessibilityIdentifier("catalogue.delete.\(exercise.id.uuidString)")
             }
         }

@@ -296,6 +296,9 @@ Catalogue plan-editor tests scroll within the sheet list’s leading gutter, avo
 Whole-window swipes across multiline notes triggered an iPadOS 26 UIKit focus-guide assertion
 (`parentEnvironment != nil`) with a simulated hardware keyboard. This gesture constraint does not
 verify physical iPad keyboard behavior; retain that limitation in device validation.
+Swipe actions that only open deletion confirmation must use a normal button with red tint, not
+a destructive role: destructive swipe semantics can remove the row before the backing data changes.
+Keep the destructive role on the final confirmation and cover swipe cancellation and confirmation.
 Tests run once; any assertion or infrastructure failure fails the suite. Do not add automatic reruns
 or accept a later pass as evidence of correctness.
 

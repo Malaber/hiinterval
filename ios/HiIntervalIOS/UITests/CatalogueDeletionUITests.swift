@@ -19,15 +19,27 @@ final class CatalogueDeletionUITests: HiIntervalUITestCase {
         waitForExistence(element("catalogue.row.\(CatalogueID.deadBug)"))
     }
 
+    func testCancellingSwipeDeletionKeepsExerciseAcrossReload() {
+        launch()
+        openCatalogue()
+
+        requestSwipeDeletion(of: CatalogueID.deadBug)
+        waitForExistence(element("catalogue.delete.warning"))
+        tapToolbarButton("catalogue.delete.cancel", label: "Cancel")
+        waitForExistence(element("catalogue.row.\(CatalogueID.deadBug)"))
+
+        relaunchPreservingData()
+        openCatalogue()
+        waitForExistence(element("catalogue.row.\(CatalogueID.deadBug)"))
+    }
+
     func testDeletingUsedCatalogueExerciseRetainsPlansAndHistoryAcrossReload() {
         launch()
         openCatalogue()
 
-        tap(element("catalogue.row.\(CatalogueID.deadBug)"), scrolls: true)
-        waitForExistence(element("catalogue.editor.screen"))
-        tapToolbarButton("catalogue.editor.delete", label: "Delete exercise")
+        requestSwipeDeletion(of: CatalogueID.deadBug)
         waitForLabel("Used in Core Focus. Its steps keep their timing, sides, notes, and name. Completed workout history stays unchanged.", on: element("catalogue.delete.warning"))
-        tapVisibleButton("Delete exercise")
+        tap(element("catalogue.delete.confirm"))
         waitForDisappearance(element("catalogue.row.\(CatalogueID.deadBug)"))
 
         closeCatalogue()
@@ -57,6 +69,13 @@ final class CatalogueDeletionUITests: HiIntervalUITestCase {
         selectTab("plans")
         tap(element("catalogue.open"))
         waitForExistence(element("catalogue.screen"))
+    }
+
+    private func requestSwipeDeletion(of id: String) {
+        let row = element("catalogue.row.\(id)")
+        scrollToHittable(row)
+        row.swipeLeft()
+        tap(element("catalogue.delete.\(id)"))
     }
 
     private func closeCatalogue() {
