@@ -284,12 +284,14 @@ require live nondeterministic model generation on a simulator.
 
 Wait for observable state and reuse the existing launch/hittability helpers. Avoid arbitrary sleeps
 and aggressive accessibility polling. Successful waits should not fetch extra snapshots just to
-format failure messages. Focus tests type without refocusing and complete any interrupted prefix.
+format failure messages. Focus tests type once without refocusing, then assert the complete value;
+do not resume interrupted prefixes or repeat input actions.
 On iPadOS, native tabs expose nested duplicate buttons. Select the leaf button once, verify its
 selected state, then wait for destination content (Settings uses its concrete Form). Failed tab
 transitions must retain a hierarchy and screenshot; never hide missed taps with automatic retries.
-Fresh iOS simulators can show the QuickPath introduction after typing; the shared typing helper
-dismisses that exact system prompt before continuing. Do not mistake its overlay for an app focus bug.
+Fresh iOS simulators can show the QuickPath introduction after typing; dismiss that exact prompt
+when no app alert is active. Leave it alone while editing an alert field so XCTest cannot dismiss
+the app alert through interruption handling.
 Pause/resume geometry assertions must compare the same phase's heading; compare timer/control
 positions separately across phases because wrapped headings have different accessibility bounds.
 The foreground/background completion test uses `HIINTERVAL_UI_TEST_MANUAL_CELEBRATION=1` together

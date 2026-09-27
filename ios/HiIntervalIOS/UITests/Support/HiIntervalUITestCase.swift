@@ -512,54 +512,45 @@ class HiIntervalUITestCase: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
+        let previousValue = field.value as? String ?? ""
         if field.exists && field.isHittable {
             tap(field, file: file, line: line)
         } else {
             tap(field, scrolls: true, file: file, line: line)
         }
-        // Hardware-key shortcuts and delete events are ignored intermittently by iOS 26 when a
-        // SwiftUI TextField has just become first responder. Triple-tap uses the real touch
-        // selection path and selects the complete value.
-        field.tap(withNumberOfTaps: 3, numberOfTouches: 1)
-        typeText(text, intoFocusedField: field, file: file, line: line)
+        waitForExistence(app.keyboards.firstMatch, file: file, line: line)
+        // Place the caret at the trailing edge, then clear and enter the replacement in one
+        // explicit keyboard event. Triple-tap only selects a word on system alert fields.
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
+        let deleteKeys = String(
+            repeating: XCUIKeyboardKey.delete.rawValue,
+            count: previousValue.count
+        )
+        typeText(deleteKeys + text, intoFocusedField: field, expecting: text, file: file, line: line)
         let keyboardDone = app.keyboards.buttons["Done"]
         if keyboardDone.exists && keyboardDone.isHittable {
             keyboardDone.tap()
         }
     }
 
-    /// Keeps the initial focus assertion meaningful: type without tapping or refocusing the
-    /// field, then finish any prefix interrupted by SwiftUI rebuilding the text input.
+    /// Keeps the initial focus assertion meaningful: type once without tapping or refocusing,
+    /// then fail with the observed value if the event was interrupted.
     func typeText(
         _ text: String,
         intoFocusedField field: XCUIElement,
+        expecting expectedValue: String? = nil,
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
         dismissQuickPathIntroductionIfPresent(file: file, line: line)
         field.typeText(text)
         dismissQuickPathIntroductionIfPresent(file: file, line: line)
-
-        // A SwiftUI TextField can be recreated after its first characters on hosted iPhone
-        // and iPad simulators, cutting the in-flight typing event short. Resume the observed
-        // prefix until the complete value is present; normal fields finish on the first event.
-        var observed = field.value as? String ?? ""
-        var attempts = 0
-        while observed != text && attempts < max(3, text.count) {
-            if text.hasPrefix(observed) {
-                field.typeText(String(text.dropFirst(observed.count)))
-            } else {
-                field.tap(withNumberOfTaps: 3, numberOfTouches: 1)
-                field.typeText(text)
-            }
-            dismissQuickPathIntroductionIfPresent(file: file, line: line)
-            observed = field.value as? String ?? ""
-            attempts += 1
-        }
+        let expectedValue = expectedValue ?? text
+        let observed = field.value as? String ?? ""
         XCTAssertEqual(
             observed,
-            text,
-            "Text replacement did not produce the requested value",
+            expectedValue,
+            "One typing event did not produce the requested value",
             file: file,
             line: line
         )
@@ -575,7 +566,10 @@ class HiIntervalUITestCase: XCTestCase {
         let explanation = app.staticTexts[
             "Speed up your typing by sliding your finger across the letters to compose a word."
         ]
-        guard explanation.exists else { return }
+        // A QuickPath prompt can remain in a secondary system window while the app presents
+        // an alert-backed text field. Tapping through the prompt would invoke XCTest's default
+        // interruption handler and dismiss the app alert being edited.
+        guard explanation.exists, !app.alerts.firstMatch.exists else { return }
         tap(app.buttons["Continue"], file: file, line: line)
         waitForDisappearance(explanation, file: file, line: line)
     }
