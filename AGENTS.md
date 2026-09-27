@@ -288,6 +288,10 @@ format failure messages. Focus tests type without refocusing and complete any in
 On iPadOS, native tabs expose nested duplicate buttons. Select the leaf button once, verify its
 selected state, then wait for destination content (Settings uses its concrete Form). Failed tab
 transitions must retain a hierarchy and screenshot; never hide missed taps with automatic retries.
+Fresh iOS simulators can show the QuickPath introduction after typing; the shared typing helper
+dismisses that exact system prompt before continuing. Do not mistake its overlay for an app focus bug.
+Pause/resume geometry assertions must compare the same phase's heading; compare timer/control
+positions separately across phases because wrapped headings have different accessibility bounds.
 The foreground/background completion test uses `HIINTERVAL_UI_TEST_MANUAL_CELEBRATION=1` together
 with `--ui-testing` to pause cosmetic fireworks animation and advance the existing timeline boundary
 on demand: continuous rendering can starve hosted iPad accessibility snapshots, and wall-clock waits

@@ -45,9 +45,15 @@ final class SessionLayoutUITests: HiIntervalUITestCase {
             XCTAssertEqual(pause.frame.minY, before[2].minY, accuracy: 1)
         }
         capture("session-stable-phase-slots")
+        // Compare pause/resume within the same phase. Text accessibility bounds can differ
+        // between the warm-up and a wrapped exercise name inside the fixed title slot.
+        let beforeResume = [heading.frame, timer.frame, pause.frame]
         tap(pause)
         waitForDisappearance(element("session.paused"))
-        XCTAssertEqual(heading.frame.minY, before[0].minY, accuracy: 1)
+        for (paused, resumed) in zip(beforeResume, [heading.frame, timer.frame, pause.frame]) {
+            XCTAssertEqual(paused.minY, resumed.minY, accuracy: 1)
+            XCTAssertEqual(paused.height, resumed.height, accuracy: 1)
+        }
         capture("session-pause-overlay-stable")
     }
 }

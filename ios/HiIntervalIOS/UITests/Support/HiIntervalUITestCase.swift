@@ -399,7 +399,14 @@ class HiIntervalUITestCase: XCTestCase {
         }
         let keyboard = app.keyboards.firstMatch
         if keyboard.exists, keyboard.frame.intersects(viewport) {
-            viewport.size.height = max(0, keyboard.frame.minY - viewport.minY)
+            var obscuredFromY = keyboard.frame.minY
+            // iOS 26 places its prediction bar above the keyboard. A Form field can lie in
+            // that bar while still being above the Keyboard accessibility element itself.
+            let inputAssistant = app.otherElements["SystemInputAssistantView"]
+            if inputAssistant.exists, inputAssistant.frame.intersects(viewport) {
+                obscuredFromY = min(obscuredFromY, inputAssistant.frame.minY)
+            }
+            viewport.size.height = max(0, obscuredFromY - viewport.minY)
         }
         if let obscuringBottomControlID {
             let control = app.buttons[obscuringBottomControlID]
@@ -529,7 +536,9 @@ class HiIntervalUITestCase: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
+        dismissQuickPathIntroductionIfPresent(file: file, line: line)
         field.typeText(text)
+        dismissQuickPathIntroductionIfPresent(file: file, line: line)
 
         // A SwiftUI TextField can be recreated after its first characters on hosted iPhone
         // and iPad simulators, cutting the in-flight typing event short. Resume the observed
@@ -543,6 +552,7 @@ class HiIntervalUITestCase: XCTestCase {
                 field.tap(withNumberOfTaps: 3, numberOfTouches: 1)
                 field.typeText(text)
             }
+            dismissQuickPathIntroductionIfPresent(file: file, line: line)
             observed = field.value as? String ?? ""
             attempts += 1
         }
@@ -553,6 +563,21 @@ class HiIntervalUITestCase: XCTestCase {
             file: file,
             line: line
         )
+    }
+
+    /// A freshly erased iOS simulator may introduce QuickPath over the keyboard after the first
+    /// typing event. Its sheet covers Form fields even though their accessibility frames are
+    /// visible. Dismiss this specific system prompt before the test continues to another field.
+    private func dismissQuickPathIntroductionIfPresent(
+        file: StaticString,
+        line: UInt
+    ) {
+        let explanation = app.staticTexts[
+            "Speed up your typing by sliding your finger across the letters to compose a word."
+        ]
+        guard explanation.exists else { return }
+        tap(app.buttons["Continue"], file: file, line: line)
+        waitForDisappearance(explanation, file: file, line: line)
     }
 
     func selectSegment(
