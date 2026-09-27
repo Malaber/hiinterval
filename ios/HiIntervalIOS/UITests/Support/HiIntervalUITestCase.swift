@@ -80,17 +80,16 @@ class HiIntervalUITestCase: XCTestCase {
             return
         }
         tab.tap()
-        let selected = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "selected == true"), object: tab
-        )
-        guard XCTWaiter.wait(for: [selected], timeout: 8) == .completed else {
-            captureFailedTabTransition(name)
-            XCTFail("Tab was not selected after one tap: \(name)", file: file, line: line)
-            return
-        }
         guard destination.waitForExistence(timeout: 8) else {
             captureFailedTabTransition(name)
             XCTFail("Element did not appear: \(destination)", file: file, line: line)
+            return
+        }
+        // SwiftUI can replace the tab accessibility element during navigation. Resolve it
+        // after the destination appears; never repeat the tap to repair a missed transition.
+        guard let selectedTab = hittableTab(name), selectedTab.isSelected else {
+            captureFailedTabTransition(name)
+            XCTFail("Tab was not selected after one tap: \(name)", file: file, line: line)
             return
         }
     }
@@ -512,13 +511,14 @@ class HiIntervalUITestCase: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        let previousValue = field.value as? String ?? ""
         if field.exists && field.isHittable {
             tap(field, file: file, line: line)
         } else {
             tap(field, scrolls: true, file: file, line: line)
         }
         waitForExistence(app.keyboards.firstMatch, file: file, line: line)
+        // Lazy form rows have no accessibility value until revealed and focused.
+        let previousValue = field.value as? String ?? ""
         // Place the caret at the trailing edge, then clear and enter the replacement in one
         // explicit keyboard event. Triple-tap only selects a word on system alert fields.
         field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()

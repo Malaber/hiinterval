@@ -285,9 +285,11 @@ require live nondeterministic model generation on a simulator.
 Wait for observable state and reuse the existing launch/hittability helpers. Avoid arbitrary sleeps
 and aggressive accessibility polling. Successful waits should not fetch extra snapshots just to
 format failure messages. Focus tests type once without refocusing, then assert the complete value;
-do not resume interrupted prefixes or repeat input actions.
-On iPadOS, native tabs expose nested duplicate buttons. Select the leaf button once, verify its
-selected state, then wait for destination content (Settings uses its concrete Form). Failed tab
+do not resume interrupted prefixes or repeat input actions. Reveal and focus lazy form fields before
+reading their existing value for replacement; offscreen rows may not exist in accessibility yet.
+On iPadOS, native tabs expose nested duplicate buttons. Select the leaf button once, wait for
+destination content (Settings uses its concrete Form), then resolve the current leaf again and
+verify its selected state; SwiftUI can replace tab accessibility elements during navigation. Failed tab
 transitions must retain a hierarchy and screenshot; never hide missed taps with automatic retries.
 Fresh iOS simulators can show the QuickPath introduction after typing; dismiss that exact prompt
 when no app alert is active. Leave it alone while editing an alert field so XCTest cannot dismiss
