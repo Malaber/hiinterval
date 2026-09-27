@@ -518,42 +518,61 @@ class HiIntervalUITestCase: XCTestCase {
         }
         waitForExistence(app.keyboards.firstMatch, file: file, line: line)
         // Lazy form rows have no accessibility value until revealed and focused.
-        let previousValue = field.value as? String ?? ""
-        // Place the caret at the trailing edge, then clear and enter the replacement in one
-        // explicit keyboard event. Triple-tap only selects a word on system alert fields.
+        let rawValue = field.value as? String ?? ""
+        let previousValue = rawValue == field.placeholderValue ? "" : rawValue
+        // Place the caret at the trailing edge before clearing the existing value.
+        // Triple-tap only selects a word on system alert fields.
         field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
         let deleteKeys = String(
             repeating: XCUIKeyboardKey.delete.rawValue,
             count: previousValue.count
         )
-        typeText(deleteKeys + text, intoFocusedField: field, expecting: text, file: file, line: line)
+        typeText(
+            deleteKeys + text, intoFocusedField: field, startingValue: previousValue,
+            expecting: text, file: file, line: line
+        )
         let keyboardDone = app.keyboards.buttons["Done"]
         if keyboardDone.exists && keyboardDone.isHittable {
             keyboardDone.tap()
         }
     }
 
-    /// Keeps the initial focus assertion meaningful: type once without tapping or refocusing,
-    /// then fail with the observed value if the event was interrupted.
+    /// Each planned key is sent exactly once. Observe its result before sending the next key:
+    /// long XCTest keyboard events can lose their suffix on loaded hosted simulators.
+    /// A dropped key fails at that key; no input is repeated, repaired, or refocused.
     func typeText(
         _ text: String,
         intoFocusedField field: XCUIElement,
+        startingValue: String = "",
         expecting expectedValue: String? = nil,
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
         dismissQuickPathIntroductionIfPresent(file: file, line: line)
-        field.typeText(text)
-        dismissQuickPathIntroductionIfPresent(file: file, line: line)
-        let expectedValue = expectedValue ?? text
-        let observed = field.value as? String ?? ""
-        XCTAssertEqual(
-            observed,
-            expectedValue,
-            "One typing event did not produce the requested value",
-            file: file,
-            line: line
-        )
+        var expected = startingValue
+        for character in text {
+            if String(character) == XCUIKeyboardKey.delete.rawValue {
+                if !expected.isEmpty { expected.removeLast() }
+            } else {
+                expected.append(character)
+            }
+            field.typeText(String(character))
+            dismissQuickPathIntroductionIfPresent(file: file, line: line)
+            let valueAfterKey = expected
+            let applied = NSPredicate { _, _ in
+                guard field.exists else { return false }
+                let observed = field.value as? String ?? ""
+                // Empty SwiftUI fields expose their placeholder as the accessibility value.
+                return observed == valueAfterKey
+                    || (valueAfterKey.isEmpty && observed == field.placeholderValue)
+            }
+            guard wait(
+                for: applied, on: field, timeout: 5,
+                message: "Keyboard event did not produce '\(valueAfterKey)': '\(field.value ?? "")'",
+                file: file, line: line
+            ) else { return }
+        }
+        XCTAssertEqual(expected, expectedValue ?? text, file: file, line: line)
     }
 
     /// A freshly erased iOS simulator may introduce QuickPath over the keyboard after the first

@@ -284,9 +284,12 @@ require live nondeterministic model generation on a simulator.
 
 Wait for observable state and reuse the existing launch/hittability helpers. Avoid arbitrary sleeps
 and aggressive accessibility polling. Successful waits should not fetch extra snapshots just to
-format failure messages. Focus tests type once without refocusing, then assert the complete value;
-do not resume interrupted prefixes or repeat input actions. Reveal and focus lazy form fields before
-reading their existing value for replacement; offscreen rows may not exist in accessibility yet.
+format failure messages. Text entry sends each planned character exactly once without refocusing
+and waits for its exact result before sending the next. Long XCTest keyboard events can lose suffixes on hosted runners.
+A missing character fails immediately; never repair interrupted prefixes or repeat input actions.
+Treat a placeholder accessibility value as empty before calculating replacement backspaces. Reveal
+and focus lazy form fields before reading their existing value for replacement; offscreen rows may
+not exist in accessibility yet.
 On iPadOS, native tabs expose nested duplicate buttons. Select the leaf button once, wait for
 destination content (Settings uses its concrete Form), then resolve the current leaf again and
 verify its selected state; SwiftUI can replace tab accessibility elements during navigation. Failed tab
