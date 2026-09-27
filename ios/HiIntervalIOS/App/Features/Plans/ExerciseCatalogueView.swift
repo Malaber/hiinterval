@@ -132,7 +132,7 @@ struct ExerciseCatalogueView: View {
             NavigationStack {
                 Form {
                     Section {
-                        Text(deletionMessage)
+                        Text(deletionMessage(for: exercise))
                             .accessibilityIdentifier("catalogue.delete.warning")
                     }
                     Section {
@@ -287,8 +287,7 @@ struct ExerciseCatalogueView: View {
         }
     }
 
-    private var deletionMessage: String {
-        guard let exercise = exercisePendingDeletion else { return "" }
+    private func deletionMessage(for exercise: CatalogueExercise) -> String {
         let plans = linkedPlans(for: exercise.id).map(\.name)
         guard !plans.isEmpty else {
             return "This removes the exercise from the catalogue. Existing workout steps and completed workout history stay unchanged."

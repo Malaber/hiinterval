@@ -296,11 +296,12 @@ when no app alert is active. Leave it alone while editing an alert field so XCTe
 the app alert through interruption handling.
 Pause/resume geometry assertions must compare the same phase's heading; compare timer/control
 positions separately across phases because wrapped headings have different accessibility bounds.
-The foreground/background completion test uses `HIINTERVAL_UI_TEST_MANUAL_CELEBRATION=1` together
+Completion phase and One More Round UI tests use `HIINTERVAL_UI_TEST_MANUAL_CELEBRATION=1` together
 with `--ui-testing` to pause cosmetic fireworks animation and advance the existing timeline boundary
 on demand: continuous rendering can starve hosted iPad accessibility snapshots, and wall-clock waits
-can miss the five-second foreground window. Automatic transition
-uses a deterministic test duration while core tests retain and verify the five-second default.
+can miss the five-second foreground window. A zero-duration foreground phase still leaves continuous
+background fireworks rendering; it does not make button interaction deterministic. Core tests retain
+and verify the five-second default.
 Switch helpers must reveal the entire row within its containing Form's visible bounds; requiring a
 fixed central band of the application window fails for short sheets with no remaining scroll range.
 Catalogue plan-editor tests scroll within the sheet list’s leading gutter, avoiding text-entry targets.
@@ -310,6 +311,8 @@ verify physical iPad keyboard behavior; retain that limitation in device validat
 Swipe actions that only open deletion confirmation must use a normal button with red tint, not
 a destructive role: destructive swipe semantics can remove the row before the backing data changes.
 Keep the destructive role on the final confirmation and cover swipe cancellation and confirmation.
+Derive deletion warnings from the exercise passed into the item sheet, not by rereading optional
+presentation state; assert the complete warning for both editor and swipe entry paths.
 While tests run, wait quietly for process completion using a process wait or bounded sleeps;
 do not repeatedly tail/read logs, count passed tests, or send live test-log commentary or per-test
 progress updates. Once the process finishes, check its exit status and read the final log lines or

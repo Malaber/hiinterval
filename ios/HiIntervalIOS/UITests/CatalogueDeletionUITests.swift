@@ -13,7 +13,7 @@ final class CatalogueDeletionUITests: HiIntervalUITestCase {
         tap(element("catalogue.row.\(CatalogueID.deadBug)"), scrolls: true)
         waitForExistence(element("catalogue.editor.screen"))
         tapToolbarButton("catalogue.editor.delete", label: "Delete exercise")
-        waitForExistence(element("catalogue.delete.warning"))
+        assertUsedExerciseWarning()
         tapVisibleButton("Cancel")
 
         waitForExistence(element("catalogue.row.\(CatalogueID.deadBug)"))
@@ -24,7 +24,7 @@ final class CatalogueDeletionUITests: HiIntervalUITestCase {
         openCatalogue()
 
         requestSwipeDeletion(of: CatalogueID.deadBug)
-        waitForExistence(element("catalogue.delete.warning"))
+        assertUsedExerciseWarning()
         tapToolbarButton("catalogue.delete.cancel", label: "Cancel")
         waitForExistence(element("catalogue.row.\(CatalogueID.deadBug)"))
 
@@ -38,7 +38,7 @@ final class CatalogueDeletionUITests: HiIntervalUITestCase {
         openCatalogue()
 
         requestSwipeDeletion(of: CatalogueID.deadBug)
-        waitForLabel("Used in Core Focus. Its steps keep their timing, sides, notes, and name. Completed workout history stays unchanged.", on: element("catalogue.delete.warning"))
+        assertUsedExerciseWarning()
         tap(element("catalogue.delete.confirm"))
         waitForDisappearance(element("catalogue.row.\(CatalogueID.deadBug)"))
 
@@ -63,6 +63,15 @@ final class CatalogueDeletionUITests: HiIntervalUITestCase {
         let retainedPlan = element("plan.card.\(FixtureID.coreFocusPlan)")
         scrollToVisible(retainedPlan)
         XCTAssertTrue(retainedPlan.staticTexts["Exercise: Dead Bug"].exists)
+    }
+
+    private func assertUsedExerciseWarning(file: StaticString = #filePath, line: UInt = #line) {
+        waitForLabel(
+            "Used in Core Focus. Its steps keep their timing, sides, notes, and name. Completed workout history stays unchanged.",
+            on: element("catalogue.delete.warning"),
+            file: file,
+            line: line
+        )
     }
 
     private func openCatalogue() {
