@@ -290,7 +290,8 @@ A missing character fails immediately; never repair interrupted prefixes or repe
 Treat a placeholder accessibility value as empty before calculating replacement backspaces. Reveal
 and focus lazy form fields before reading their existing value for replacement; offscreen rows may
 not exist in accessibility yet.
-On iPadOS, native tabs expose nested duplicate buttons. Select the leaf button once, wait for
+On iPadOS, native tabs expose nested duplicate buttons. Resolve the hittable leaf and tap its
+element-relative centre once; implicit accessibility activation can miss the visible tab. Wait for
 destination content (Settings uses its concrete Form), then resolve the current leaf again and
 verify its selected state; SwiftUI can replace tab accessibility elements during navigation. Failed tab
 transitions must retain a hierarchy and screenshot; never hide missed taps with automatic retries.

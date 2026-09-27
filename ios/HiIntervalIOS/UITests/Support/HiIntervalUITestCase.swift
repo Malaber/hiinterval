@@ -79,7 +79,10 @@ class HiIntervalUITestCase: XCTestCase {
             XCTFail("Could not find hittable tab labeled '\(name.capitalized)'", file: file, line: line)
             return
         }
-        tab.tap()
+        // iPad's nested native tab proxies can report hittable while XCTest's implicit
+        // activation point misses the visible control. Use the resolved leaf's centre,
+        // not an absolute screen coordinate, and still send exactly one physical tap.
+        tab.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         guard destination.waitForExistence(timeout: 8) else {
             captureFailedTabTransition(name)
             XCTFail("Element did not appear: \(destination)", file: file, line: line)
