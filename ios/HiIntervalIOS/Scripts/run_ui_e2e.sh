@@ -49,6 +49,7 @@ rm -rf "$artifact_path" "$derived_data"
 mkdir -p "$artifact_path" "$package_dir/.clang-module-cache"
 cleanup() {
   if [[ -n "${device_udid:-}" ]]; then
+    xcrun simctl status_bar "$device_udid" clear >/dev/null 2>&1 || true
     xcrun simctl shutdown "$device_udid" >/dev/null 2>&1 || true
   fi
   rm -rf "$derived_data"
@@ -102,6 +103,8 @@ fi
 xcrun simctl boot "$device_udid" >/dev/null 2>&1 || true
 xcrun simctl bootstatus "$device_udid" -b
 xcrun simctl ui "$device_udid" appearance light
+xcrun simctl status_bar "$device_udid" override --time '9:41' --dataNetwork wifi \
+  --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
 xcrun simctl uninstall "$device_udid" de.malaber.hiinterval >/dev/null 2>&1 || true
 
 test_log="$artifact_path/test.log"

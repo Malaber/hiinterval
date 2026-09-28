@@ -284,15 +284,28 @@ require live nondeterministic model generation on a simulator.
 
 Wait for observable state and reuse the existing launch/hittability helpers. Avoid arbitrary sleeps
 and aggressive accessibility polling. Successful waits should not fetch extra snapshots just to
-format failure messages. Focus tests type without refocusing and complete any interrupted prefix.
-On iPadOS, native tabs expose nested duplicate buttons. Select the leaf button once, verify its
-selected state, then wait for destination content (Settings uses its concrete Form). Failed tab
+format failure messages. Text entry sends each planned character exactly once without refocusing
+and waits for its exact result before sending the next. Long XCTest keyboard events can lose suffixes on hosted runners.
+A missing character fails immediately; never repair interrupted prefixes or repeat input actions.
+Treat a placeholder accessibility value as empty before calculating replacement backspaces. Reveal
+and focus lazy form fields before reading their existing value for replacement; offscreen rows may
+not exist in accessibility yet.
+On iPadOS, native tabs expose nested duplicate buttons. Resolve the hittable leaf and tap its
+element-relative centre once; implicit accessibility activation can miss the visible tab. Wait for
+destination content (Settings uses its concrete Form), then resolve the current leaf again and
+verify its selected state; SwiftUI can replace tab accessibility elements during navigation. Failed tab
 transitions must retain a hierarchy and screenshot; never hide missed taps with automatic retries.
-The foreground/background completion test uses `HIINTERVAL_UI_TEST_MANUAL_CELEBRATION=1` together
+Fresh iOS simulators can show the QuickPath introduction after typing; dismiss that exact prompt
+when no app alert is active. Leave it alone while editing an alert field so XCTest cannot dismiss
+the app alert through interruption handling.
+Pause/resume geometry assertions must compare the same phase's heading; compare timer/control
+positions separately across phases because wrapped headings have different accessibility bounds.
+Completion phase and One More Round UI tests use `HIINTERVAL_UI_TEST_MANUAL_CELEBRATION=1` together
 with `--ui-testing` to pause cosmetic fireworks animation and advance the existing timeline boundary
 on demand: continuous rendering can starve hosted iPad accessibility snapshots, and wall-clock waits
-can miss the five-second foreground window. Automatic transition
-uses a deterministic test duration while core tests retain and verify the five-second default.
+can miss the five-second foreground window. A zero-duration foreground phase still leaves continuous
+background fireworks rendering; it does not make button interaction deterministic. Core tests retain
+and verify the five-second default.
 Switch helpers must reveal the entire row within its containing Form's visible bounds; requiring a
 fixed central band of the application window fails for short sheets with no remaining scroll range.
 Catalogue plan-editor tests scroll within the sheet list’s leading gutter, avoiding text-entry targets.
@@ -302,8 +315,14 @@ verify physical iPad keyboard behavior; retain that limitation in device validat
 Swipe actions that only open deletion confirmation must use a normal button with red tint, not
 a destructive role: destructive swipe semantics can remove the row before the backing data changes.
 Keep the destructive role on the final confirmation and cover swipe cancellation and confirmation.
-While tests run, wait without live test-log commentary or per-test progress updates. Inspect results
-once the run finishes and report success, failures, or actionable blockers.
+Derive deletion warnings from the exercise passed into the item sheet, not by rereading optional
+presentation state; assert the complete warning for both editor and swipe entry paths.
+While tests run, wait quietly for process completion using a process wait or bounded sleeps;
+do not repeatedly tail/read logs, count passed tests, or send live test-log commentary or per-test
+progress updates. Once the process finishes, check its exit status and read the final log lines or
+result summary. If it failed, inspect the relevant failure logs/artifacts and investigate the cause.
+Report the completed result or an actionable blocker. Inspect a running process only when needed
+to diagnose a suspected hang, respond to a user status request, or handle an interruption.
 Tests run once; any assertion or infrastructure failure fails the suite. Do not add automatic reruns
 or accept a later pass as evidence of correctness.
 
@@ -323,7 +342,7 @@ hardware Silent Mode audio, or on-device Apple Intelligence availability; those 
 ## CI and releases
 
 - `ci.yml` runs on PRs, `main` pushes, and manual dispatch. `ios-checks.yml` runs core coverage in
-  Linux `swift:6.2` and UI suites on macOS 26 with `iPhone 17 Pro` and `iPad Pro 13-inch (M5)`.
+  Linux `swift:6.2` and UI suites on macOS 26 with `iPhone 17 Pro Max` and `iPad Pro 13-inch (M5)`.
   CI splits each device suite into three disjoint class shards on isolated runners; tests stay serial
   within each simulator. New test classes join automatically. A 35-minute command deadline fails
   the test step before the 50-minute job deadline, leaving time to upload evidence. CI concurrency
@@ -368,6 +387,13 @@ hardware Silent Mode audio, or on-device Apple Intelligence availability; those 
   provisioning profiles, or distribution logs containing account data.
 - Distinguish upload acceptance from Apple processing and tester availability. Report only the
   state actually verified; retain the requested version, build number, and source commit in handoff.
+
+- `release.yml` publishes a GitHub release only after successful main-push CI, using the exact
+  tested merge commit and `project.yml` marketing version. Use PR `Release title:` and
+  `## Release notes` for customer-facing metadata; see `docs/github-releases.md`.
+  Keep published versions immutable. Marketing screenshot assets must come from the same CI run,
+  contain both device families, and pass dimension/opaque-PNG validation. No App Store submission
+  is performed by this workflow.
 
 ## Website
 

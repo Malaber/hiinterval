@@ -40,7 +40,7 @@ final class TrainSessionUITests: HiIntervalUITestCase {
     func testOneMoreRoundCompletesAndCongratulatesExtraEffort() {
         app = configuredApplication(resetFixture: .glanceableSession)
         app.launchEnvironment["HIINTERVAL_UI_TEST_SPEED"] = "1"
-        app.launchEnvironment["HIINTERVAL_UI_TEST_CELEBRATION_DURATION"] = "0"
+        app.launchEnvironment["HIINTERVAL_UI_TEST_MANUAL_CELEBRATION"] = "1"
         launchConfiguredApplication()
         tap(element("train.start"))
         waitForExistence(element("session.screen"), timeout: 20)
@@ -48,7 +48,9 @@ final class TrainSessionUITests: HiIntervalUITestCase {
         waitForLabel("Resume workout", on: element("session.pause"))
         finishBySkippingPausedPhases()
         waitForExistence(element("completion.screen"), timeout: 20)
-        // Automatic task path still runs; zero-duration test configuration makes boundary exact.
+        // Pause cosmetic fireworks and cross the existing timeline boundary explicitly. On iPad,
+        // continuous fireworks rendering can starve the One More Round button's hosted tap.
+        tap(element("completion.advance-fireworks"))
         waitForValue("Background fireworks", on: element("completion.screen"), timeout: 20)
 
         tap(element("completion.one-more-round"), scrolls: true)

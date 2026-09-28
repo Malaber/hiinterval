@@ -79,18 +79,20 @@ class HiIntervalUITestCase: XCTestCase {
             XCTFail("Could not find hittable tab labeled '\(name.capitalized)'", file: file, line: line)
             return
         }
-        tab.tap()
-        let selected = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "selected == true"), object: tab
-        )
-        guard XCTWaiter.wait(for: [selected], timeout: 8) == .completed else {
-            captureFailedTabTransition(name)
-            XCTFail("Tab was not selected after one tap: \(name)", file: file, line: line)
-            return
-        }
+        // iPad's nested native tab proxies can report hittable while XCTest's implicit
+        // activation point misses the visible control. Use the resolved leaf's centre,
+        // not an absolute screen coordinate, and still send exactly one physical tap.
+        tab.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         guard destination.waitForExistence(timeout: 8) else {
             captureFailedTabTransition(name)
             XCTFail("Element did not appear: \(destination)", file: file, line: line)
+            return
+        }
+        // SwiftUI can replace the tab accessibility element during navigation. Resolve it
+        // after the destination appears; never repeat the tap to repair a missed transition.
+        guard let selectedTab = hittableTab(name), selectedTab.isSelected else {
+            captureFailedTabTransition(name)
+            XCTFail("Tab was not selected after one tap: \(name)", file: file, line: line)
             return
         }
     }
@@ -399,7 +401,14 @@ class HiIntervalUITestCase: XCTestCase {
         }
         let keyboard = app.keyboards.firstMatch
         if keyboard.exists, keyboard.frame.intersects(viewport) {
-            viewport.size.height = max(0, keyboard.frame.minY - viewport.minY)
+            var obscuredFromY = keyboard.frame.minY
+            // iOS 26 places its prediction bar above the keyboard. A Form field can lie in
+            // that bar while still being above the Keyboard accessibility element itself.
+            let inputAssistant = app.otherElements["SystemInputAssistantView"]
+            if inputAssistant.exists, inputAssistant.frame.intersects(viewport) {
+                obscuredFromY = min(obscuredFromY, inputAssistant.frame.minY)
+            }
+            viewport.size.height = max(0, obscuredFromY - viewport.minY)
         }
         if let obscuringBottomControlID {
             let control = app.buttons[obscuringBottomControlID]
@@ -510,49 +519,81 @@ class HiIntervalUITestCase: XCTestCase {
         } else {
             tap(field, scrolls: true, file: file, line: line)
         }
-        // Hardware-key shortcuts and delete events are ignored intermittently by iOS 26 when a
-        // SwiftUI TextField has just become first responder. Triple-tap uses the real touch
-        // selection path and selects the complete value.
-        field.tap(withNumberOfTaps: 3, numberOfTouches: 1)
-        typeText(text, intoFocusedField: field, file: file, line: line)
+        waitForExistence(app.keyboards.firstMatch, file: file, line: line)
+        // Lazy form rows have no accessibility value until revealed and focused.
+        let rawValue = field.value as? String ?? ""
+        let previousValue = rawValue == field.placeholderValue ? "" : rawValue
+        // Place the caret at the trailing edge before clearing the existing value.
+        // Triple-tap only selects a word on system alert fields.
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
+        let deleteKeys = String(
+            repeating: XCUIKeyboardKey.delete.rawValue,
+            count: previousValue.count
+        )
+        typeText(
+            deleteKeys + text, intoFocusedField: field, startingValue: previousValue,
+            expecting: text, file: file, line: line
+        )
         let keyboardDone = app.keyboards.buttons["Done"]
         if keyboardDone.exists && keyboardDone.isHittable {
             keyboardDone.tap()
         }
     }
 
-    /// Keeps the initial focus assertion meaningful: type without tapping or refocusing the
-    /// field, then finish any prefix interrupted by SwiftUI rebuilding the text input.
+    /// Each planned key is sent exactly once. Observe its result before sending the next key:
+    /// long XCTest keyboard events can lose their suffix on loaded hosted simulators.
+    /// A dropped key fails at that key; no input is repeated, repaired, or refocused.
     func typeText(
         _ text: String,
         intoFocusedField field: XCUIElement,
+        startingValue: String = "",
+        expecting expectedValue: String? = nil,
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        field.typeText(text)
-
-        // A SwiftUI TextField can be recreated after its first characters on hosted iPhone
-        // and iPad simulators, cutting the in-flight typing event short. Resume the observed
-        // prefix until the complete value is present; normal fields finish on the first event.
-        var observed = field.value as? String ?? ""
-        var attempts = 0
-        while observed != text && attempts < max(3, text.count) {
-            if text.hasPrefix(observed) {
-                field.typeText(String(text.dropFirst(observed.count)))
+        dismissQuickPathIntroductionIfPresent(file: file, line: line)
+        var expected = startingValue
+        for character in text {
+            if String(character) == XCUIKeyboardKey.delete.rawValue {
+                if !expected.isEmpty { expected.removeLast() }
             } else {
-                field.tap(withNumberOfTaps: 3, numberOfTouches: 1)
-                field.typeText(text)
+                expected.append(character)
             }
-            observed = field.value as? String ?? ""
-            attempts += 1
+            field.typeText(String(character))
+            dismissQuickPathIntroductionIfPresent(file: file, line: line)
+            let valueAfterKey = expected
+            let applied = NSPredicate { _, _ in
+                guard field.exists else { return false }
+                let observed = field.value as? String ?? ""
+                // Empty SwiftUI fields expose their placeholder as the accessibility value.
+                return observed == valueAfterKey
+                    || (valueAfterKey.isEmpty && observed == field.placeholderValue)
+            }
+            guard wait(
+                for: applied, on: field, timeout: 5,
+                message: "Keyboard event did not produce '\(valueAfterKey)': '\(field.value ?? "")'",
+                file: file, line: line
+            ) else { return }
         }
-        XCTAssertEqual(
-            observed,
-            text,
-            "Text replacement did not produce the requested value",
-            file: file,
-            line: line
-        )
+        XCTAssertEqual(expected, expectedValue ?? text, file: file, line: line)
+    }
+
+    /// A freshly erased iOS simulator may introduce QuickPath over the keyboard after the first
+    /// typing event. Its sheet covers Form fields even though their accessibility frames are
+    /// visible. Dismiss this specific system prompt before the test continues to another field.
+    private func dismissQuickPathIntroductionIfPresent(
+        file: StaticString,
+        line: UInt
+    ) {
+        let explanation = app.staticTexts[
+            "Speed up your typing by sliding your finger across the letters to compose a word."
+        ]
+        // A QuickPath prompt can remain in a secondary system window while the app presents
+        // an alert-backed text field. Tapping through the prompt would invoke XCTest's default
+        // interruption handler and dismiss the app alert being edited.
+        guard explanation.exists, !app.alerts.firstMatch.exists else { return }
+        tap(app.buttons["Continue"], file: file, line: line)
+        waitForDisappearance(explanation, file: file, line: line)
     }
 
     func selectSegment(

@@ -44,7 +44,7 @@ jobs:
         shard: [0, 1, 2]
         include:
           - platform: iPhone
-            device_name: iPhone 17 Pro
+            device_name: iPhone 17 Pro Max
             artifact_dir: e2e-artifacts/ios-iphone
             artifact_name: ios-ui-e2e-iphone
           - platform: iPad
@@ -81,6 +81,14 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
           path: ${{ matrix.artifact_dir }}
+      - name: Upload App Store marketing screenshots
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-store-screenshots-${{ matrix.platform }}-${{ matrix.shard }}
+          path: ${{ matrix.artifact_dir }}/marketing/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Add ${{ matrix.platform }} result summary
         if: always()
         env:
