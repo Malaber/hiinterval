@@ -6,7 +6,6 @@ struct SettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var reminderMessage: String?
     @State private var reminderTask: Task<Void, Never>?
-    @State private var isWorkoutThemeEditorPresented = false
 
     private let weekdays: [(Int, String)] = [
         (2, "M"), (3, "T"), (4, "W"), (5, "T"), (6, "F"), (7, "S"), (1, "S"),
@@ -16,11 +15,10 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 accessSection
-                cuesSection
+                customizationSection
                 behaviorSection
                 remindersSection
                 appearanceSection
-                workoutThemeSection
                 aboutSection
             }
             .hiStableScrollContrast()
@@ -29,13 +27,6 @@ struct SettingsView: View {
             .navigationTitle("Settings")
         }
         .accessibilityIdentifier("settings.screen")
-        .sheet(isPresented: $isWorkoutThemeEditorPresented) {
-            WorkoutThemeEditor(initialTheme: store.data.preferences.workoutTheme) { theme in
-                var preferences = store.data.preferences
-                preferences.workoutTheme = theme
-                store.updatePreferences(preferences)
-            }
-        }
     }
 
     private var accessSection: some View {
@@ -62,43 +53,15 @@ struct SettingsView: View {
         }
     }
 
-    private var cuesSection: some View {
+    private var customizationSection: some View {
         Section {
-            Picker(selection: preferenceBinding(\.cueStyle)) {
-                Text("Tones").tag(CueStyle.tones)
-                Text("Spoken").tag(CueStyle.spoken)
-                Text("Silent").tag(CueStyle.silent)
+            NavigationLink {
+                CustomizationView()
             } label: {
-                Text("Audio cues")
+                Text("Customization")
                     .foregroundStyle(settingsTextColor)
             }
-            .pickerStyle(.navigationLink)
-            .tint(.primary)
-            .accessibilityIdentifier("settings.cues")
-
-            if store.data.preferences.cueStyle == .spoken {
-                Picker("Spoken language", selection: preferenceBinding(\.cueLanguage)) {
-                    Text("System").tag(CueLanguage.system)
-                    Text("English").tag(CueLanguage.english)
-                    Text("Deutsch").tag(CueLanguage.german)
-                }
-                .tint(.primary)
-                .accessibilityIdentifier("settings.cue-language")
-            }
-
-            Toggle("Haptic cues", isOn: preferenceBinding(\.hapticsEnabled))
-                .accessibilityIdentifier("settings.haptics")
-            Toggle("Lower other audio during cues", isOn: preferenceBinding(\.duckOtherAudio))
-                .accessibilityIdentifier("settings.duck-audio")
-            Toggle("Final three-second countdown", isOn: preferenceBinding(\.countdownEnabled))
-                .accessibilityIdentifier("settings.countdown")
-            Toggle("Halfway exercise cue", isOn: preferenceBinding(\.halfwayCueEnabled))
-                .accessibilityIdentifier("settings.halfway-cue")
-
-            settingsNote("Audio cues play in Silent Mode. Spoken cues can follow device language or use English or German.")
-                .accessibilityIdentifier("settings.cues-note")
-        } header: {
-            settingsHeader("Cues")
+            .accessibilityIdentifier("settings.customization")
         }
     }
 
@@ -199,33 +162,6 @@ struct SettingsView: View {
             .accessibilityIdentifier("settings.appearance")
         } header: {
             settingsHeader("Appearance")
-        }
-    }
-
-    private var workoutThemeSection: some View {
-        Section {
-            Button {
-                isWorkoutThemeEditorPresented = true
-            } label: {
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Workout colors")
-                            .foregroundStyle(settingsTextColor)
-                        Text("Global colors for every workout phase")
-                            .font(.caption)
-                            .foregroundStyle(settingsTextColor.opacity(0.72))
-                    }
-                    Spacer()
-                    WorkoutThemeSettingsSwatches(theme: store.data.preferences.workoutTheme)
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(settingsTextColor.opacity(0.55))
-                }
-            }
-            .accessibilityIdentifier("settings.workout-theme")
-            .accessibilityHint("Choose global colors for running workouts")
-        } header: {
-            settingsHeader("Workout appearance")
         }
     }
 
@@ -349,6 +285,147 @@ struct SettingsView: View {
         let symbols = Calendar.current.weekdaySymbols
         guard (1...symbols.count).contains(weekday) else { return "Day" }
         return symbols[weekday - 1]
+    }
+}
+
+private struct CustomizationView: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isWorkoutThemeEditorPresented = false
+    @State private var isToneEditorPresented = false
+
+    var body: some View {
+        Form {
+            audioAndHapticsSection
+            workoutAppearanceSection
+        }
+        .hiStableScrollContrast()
+        .accessibilityIdentifier("settings.customization.screen")
+        .background(HITheme.canvas)
+        .navigationTitle("Customization")
+        .sheet(isPresented: $isWorkoutThemeEditorPresented) {
+            WorkoutThemeEditor(
+                initialTheme: store.data.preferences.workoutTheme,
+                hapticsEnabled: store.data.preferences.hapticsEnabled
+            ) { theme in
+                var preferences = store.data.preferences
+                preferences.workoutTheme = theme
+                store.updatePreferences(preferences)
+            }
+        }
+        .sheet(isPresented: $isToneEditorPresented) {
+            ToneCustomizationView(
+                initialConfiguration: store.data.preferences.toneConfiguration,
+                theme: store.data.preferences.workoutTheme,
+                hapticsEnabled: store.data.preferences.hapticsEnabled,
+                duckOtherAudio: store.data.preferences.duckOtherAudio
+            ) { configuration in
+                var preferences = store.data.preferences
+                preferences.toneConfiguration = configuration
+                store.updatePreferences(preferences)
+            }
+        }
+    }
+
+    private var audioAndHapticsSection: some View {
+        Section {
+            Picker(selection: preferenceBinding(\.cueStyle)) {
+                Text("Tones").tag(CueStyle.tones)
+                Text("Spoken").tag(CueStyle.spoken)
+                Text("Silent").tag(CueStyle.silent)
+            } label: {
+                Text("Audio cues")
+                    .foregroundStyle(settingsTextColor)
+            }
+            .pickerStyle(.navigationLink)
+            .tint(.primary)
+            .accessibilityIdentifier("settings.cues")
+
+            if store.data.preferences.cueStyle == .spoken {
+                Picker("Spoken language", selection: preferenceBinding(\.cueLanguage)) {
+                    Text("System").tag(CueLanguage.system)
+                    Text("English").tag(CueLanguage.english)
+                    Text("Deutsch").tag(CueLanguage.german)
+                }
+                .tint(.primary)
+                .accessibilityIdentifier("settings.cue-language")
+            }
+
+            Toggle("Haptic cues", isOn: preferenceBinding(\.hapticsEnabled))
+                .accessibilityIdentifier("settings.haptics")
+            Toggle("Lower other audio during cues", isOn: preferenceBinding(\.duckOtherAudio))
+                .accessibilityIdentifier("settings.duck-audio")
+            Toggle("Final three-second countdown", isOn: preferenceBinding(\.countdownEnabled))
+                .accessibilityIdentifier("settings.countdown")
+            Toggle("Halfway exercise cue", isOn: preferenceBinding(\.halfwayCueEnabled))
+                .accessibilityIdentifier("settings.halfway-cue")
+
+            Button {
+                isToneEditorPresented = true
+            } label: {
+                Label("Workout tones", systemImage: "waveform")
+                    .foregroundStyle(settingsTextColor)
+            }
+            .accessibilityIdentifier("settings.tone-customization")
+
+            Text("Audio cues play in Silent Mode. Spoken cues can follow device language or use English or German.")
+                .font(.footnote.weight(.bold))
+                .foregroundStyle(settingsTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(1)
+                .padding(.vertical, 2)
+                .accessibilityIdentifier("settings.cues-note")
+        } header: {
+            Text("Audio & haptics")
+                .font(.headline)
+                .textCase(nil)
+                .foregroundStyle(settingsTextColor)
+        }
+    }
+
+    private var workoutAppearanceSection: some View {
+        Section {
+            Button {
+                isWorkoutThemeEditorPresented = true
+            } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Workout colors")
+                            .foregroundStyle(settingsTextColor)
+                        Text("Global colors for every workout phase")
+                            .font(.caption)
+                            .foregroundStyle(settingsTextColor.opacity(0.72))
+                    }
+                    Spacer()
+                    WorkoutThemeSettingsSwatches(theme: store.data.preferences.workoutTheme)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(settingsTextColor.opacity(0.55))
+                }
+            }
+            .accessibilityIdentifier("settings.workout-theme")
+            .accessibilityHint("Choose global colors for running workouts")
+        } header: {
+            Text("Workout appearance")
+                .font(.headline)
+                .textCase(nil)
+                .foregroundStyle(settingsTextColor)
+        }
+    }
+
+    private var settingsTextColor: Color {
+        colorScheme == .dark ? .white : .black
+    }
+
+    private func preferenceBinding<Value>(_ keyPath: WritableKeyPath<UserPreferences, Value>) -> Binding<Value> {
+        Binding(
+            get: { store.data.preferences[keyPath: keyPath] },
+            set: { value in
+                var preferences = store.data.preferences
+                preferences[keyPath: keyPath] = value
+                store.updatePreferences(preferences)
+            }
+        )
     }
 }
 

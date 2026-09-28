@@ -65,14 +65,14 @@ final class WorkoutSessionController: ObservableObject {
 
         let second = engine.displayedRemainingSeconds
         let shouldPlayCountdown = events.isEmpty
-            && engine.state == .running
+            && CueDispatchPolicy.isEligible(.countdown, state: engine.state)
             && preferences.countdownEnabled
             && second > 0
             && second <= 3
             && second != priorSecond
             && second != lastCountdownSecond
 
-        let halfwayCue = events.isEmpty && engine.state == .running
+        let halfwayCue = events.isEmpty && CueDispatchPolicy.isEligible(.halfway, state: engine.state)
             && preferences.halfwayCueEnabled && !cuePlayer.isSpeaking
             ? halfwayCueTracker.nextCue(
                 in: engine.timeline,
@@ -205,6 +205,10 @@ final class WorkoutSessionController: ObservableObject {
         cuePlayer.setMuted(isMuted)
     }
 
+    func stopCues() {
+        cuePlayer.stop()
+    }
+
     func startOneMoreRound(preferences: UserPreferences) {
         guard completion != nil, let recoveryStartedAt else { return }
         let recoverySeconds = OneMoreRoundRecovery().remainingSeconds(
@@ -269,7 +273,8 @@ final class WorkoutSessionController: ObservableObject {
         for (index, event) in events.enumerated() {
             switch event {
             case let .phaseStarted(phase), let .phaseRestarted(phase):
-                guard !completed, index == lastPhaseEventIndex else { continue }
+                guard !completed, index == lastPhaseEventIndex,
+                      CueDispatchPolicy.isEligible(.phase, state: engine.state) else { continue }
                 lastCountdownSecond = nil
                 cuePlayer.phase(phase, preferences: preferences, muted: isMuted)
             case .workoutCompleted:
@@ -277,10 +282,14 @@ final class WorkoutSessionController: ObservableObject {
                 finish(preferences: preferences, finishedAt: wallDate)
             case .paused:
                 activeDuration.pause(at: clockDate)
-                cuePlayer.pause(preferences: preferences, muted: isMuted)
+                if CueDispatchPolicy.isEligible(.pause, state: engine.state) {
+                    cuePlayer.pause(preferences: preferences, muted: isMuted)
+                }
             case .resumed:
                 activeDuration.start(at: clockDate)
-                cuePlayer.resume(preferences: preferences, muted: isMuted)
+                if CueDispatchPolicy.isEligible(.resume, state: engine.state) {
+                    cuePlayer.resume(preferences: preferences, muted: isMuted)
+                }
             case .workoutStarted:
                 activeDuration.start(at: clockDate)
             }
@@ -289,7 +298,9 @@ final class WorkoutSessionController: ObservableObject {
 
     private func finish(preferences: UserPreferences, finishedAt: Date) {
         guard completion == nil else { return }
-        cuePlayer.complete(preferences: preferences, muted: isMuted)
+        if CueDispatchPolicy.isEligible(.completion, state: engine.state) {
+            cuePlayer.complete(preferences: preferences, muted: isMuted)
+        }
         let started = startedAt ?? finishedAt
         recoveryStartedAt = finishedAt
         completion = WorkoutHistoryEntry(
@@ -315,17 +326,16 @@ private final class SessionCuePlayer {
     private var audioDeactivationTask: Task<Void, Never>?
 
     func setMuted(_ muted: Bool) {
-        if muted, speech.isSpeaking {
-            speech.stopSpeaking(at: .immediate)
-        }
-        if muted {
-            tonePlayer?.stop()
-            audioDeactivationTask?.cancel()
-            try? AVAudioSession.sharedInstance().setActive(
-                false,
-                options: .notifyOthersOnDeactivation
-            )
-        }
+        if muted { stop() }
+    }
+
+    func stop() {
+        speech.stopSpeaking(at: .immediate)
+        tonePlayer?.stop()
+        tonePlayer = nil
+        audioDeactivationTask?.cancel()
+        audioDeactivationTask = nil
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
     func phase(_ phase: WorkoutPhase, preferences: UserPreferences, muted: Bool) {
@@ -334,7 +344,7 @@ private final class SessionCuePlayer {
         prepareAudio(preferences)
         switch preferences.cueStyle {
         case .tones:
-            playTone(phase.kind == .work ? .work : .transition)
+            playTone(phase.kind == .work ? .work : .transition, configuration: preferences.toneConfiguration)
         case .spoken:
             let german = usesGerman(preferences)
             var words = localizedTitle(for: phase, german: german)
@@ -363,7 +373,7 @@ private final class SessionCuePlayer {
         prepareAudio(preferences)
         switch preferences.cueStyle {
         case .tones:
-            playTone(.countdown)
+            playTone(.countdown, configuration: preferences.toneConfiguration)
         case .spoken:
             let german = usesGerman(preferences)
             let utterance = AVSpeechUtterance(string: String(second))
@@ -385,7 +395,7 @@ private final class SessionCuePlayer {
         prepareAudio(preferences)
         switch output {
         case .tone:
-            playTone(.halfway)
+            playTone(.halfway, configuration: preferences.toneConfiguration)
         case .spoken:
             let german = usesGerman(preferences)
             let utterance = AVSpeechUtterance(
@@ -405,7 +415,7 @@ private final class SessionCuePlayer {
         prepareAudio(preferences)
         switch preferences.cueStyle {
         case .tones:
-            playTone(.pause)
+            playTone(.pause, configuration: preferences.toneConfiguration)
         case .spoken:
             let german = usesGerman(preferences)
             let utterance = AVSpeechUtterance(string: german ? "Pausiert" : "Paused")
@@ -422,7 +432,7 @@ private final class SessionCuePlayer {
         prepareAudio(preferences)
         switch preferences.cueStyle {
         case .tones:
-            playTone(.resume)
+            playTone(.resume, configuration: preferences.toneConfiguration)
         case .spoken:
             let german = usesGerman(preferences)
             let utterance = AVSpeechUtterance(string: german ? "Weiter" : "Resume")
@@ -437,7 +447,9 @@ private final class SessionCuePlayer {
         haptics.play(.completion, enabled: preferences.hapticsEnabled)
         guard !muted, preferences.cueStyle != .silent else { return }
         prepareAudio(preferences)
-        if preferences.cueStyle == .tones { playTone(.completion) }
+        if preferences.cueStyle == .tones {
+            playTone(.completion, configuration: preferences.toneConfiguration)
+        }
         if preferences.cueStyle == .spoken {
             let german = usesGerman(preferences)
             let utterance = AVSpeechUtterance(
@@ -475,8 +487,8 @@ private final class SessionCuePlayer {
         }
     }
 
-    private func playTone(_ event: CueToneEvent) {
-        let signal = CueToneSignal.signal(for: event)
+    private func playTone(_ event: CueToneEvent, configuration: CueToneConfiguration) {
+        let signal = CueToneSignal.signal(for: event, configuration: configuration)
         guard let player = try? AVAudioPlayer(data: signal.pcmWAVData()) else { return }
         tonePlayer = player
         player.prepareToPlay()

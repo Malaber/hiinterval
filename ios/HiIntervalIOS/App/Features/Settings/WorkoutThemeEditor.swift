@@ -4,13 +4,20 @@ import UIKit
 
 struct WorkoutThemeEditor: View {
     let initialTheme: WorkoutTheme
+    let hapticsEnabled: Bool
     let save: (WorkoutTheme) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var draft: WorkoutTheme
+    @State private var selectedPreviewPhase: PreviewPhase = .work
 
-    init(initialTheme: WorkoutTheme, save: @escaping (WorkoutTheme) -> Void) {
+    init(
+        initialTheme: WorkoutTheme,
+        hapticsEnabled: Bool,
+        save: @escaping (WorkoutTheme) -> Void
+    ) {
         self.initialTheme = initialTheme
+        self.hapticsEnabled = hapticsEnabled
         self.save = save
         _draft = State(initialValue: initialTheme)
     }
@@ -19,8 +26,20 @@ struct WorkoutThemeEditor: View {
         NavigationStack {
             Form {
                 Section {
-                    WorkoutThemePreview(theme: draft)
-                        .accessibilityIdentifier("settings.workout-theme.preview")
+                    Picker("Phase", selection: $selectedPreviewPhase) {
+                        ForEach(PreviewPhase.allCases, id: \.self) { phase in
+                            Text(phase.title).tag(phase)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .accessibilityIdentifier("settings.workout-theme.preview-phase")
+
+                    WorkoutSessionPreview(
+                        scenario: selectedPreviewPhase.scenario,
+                        theme: draft,
+                        hapticsEnabled: hapticsEnabled,
+                        accessibilityIdentifier: "settings.workout-theme.preview"
+                    )
                 } header: {
                     Text("Preview")
                 } footer: {
@@ -97,39 +116,33 @@ struct WorkoutThemeEditor: View {
             set: { draft[keyPath: keyPath] = WorkoutLogoColor($0) }
         )
     }
-}
 
-private struct WorkoutThemePreview: View {
-    let theme: WorkoutTheme
+    private enum PreviewPhase: String, CaseIterable, Hashable {
+        case work
+        case recovery
+        case warmUp
+        case roundRecovery
+        case sideSwitch
 
-    var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
-            WorkoutThemePreviewPhase(title: "Work", color: theme.workColor, usesDarkText: theme.prefersDarkText(for: theme.workColor))
-            WorkoutThemePreviewPhase(title: "Recover", color: theme.recoveryColor, usesDarkText: theme.prefersDarkText(for: theme.recoveryColor))
-            WorkoutThemePreviewPhase(title: "Warm-up / cool-down", color: theme.transitionColor, usesDarkText: theme.prefersDarkText(for: theme.transitionColor))
-            WorkoutThemePreviewPhase(title: "Round recovery", color: theme.roundRecoveryColor, usesDarkText: theme.prefersDarkText(for: theme.roundRecoveryColor))
-            WorkoutThemePreviewPhase(title: "Side switch", color: theme.sideSwitchColor, usesDarkText: theme.prefersDarkText(for: theme.sideSwitchColor))
+        var title: String {
+            switch self {
+            case .work: "Work"
+            case .recovery: "Recovery"
+            case .warmUp: "Warm-up / cool-down"
+            case .roundRecovery: "Round recovery"
+            case .sideSwitch: "Side switch"
+            }
         }
-        .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Workout color preview")
-    }
-}
 
-private struct WorkoutThemePreviewPhase: View {
-    let title: String
-    let color: WorkoutLogoColor
-    let usesDarkText: Bool
-
-    var body: some View {
-        Text(title)
-            .font(.caption.weight(.bold))
-            .multilineTextAlignment(.center)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(6)
-            .foregroundStyle(usesDarkText ? Color.black : Color.white)
-            .frame(maxWidth: .infinity, minHeight: 64)
-            .background(Color(color), in: RoundedRectangle(cornerRadius: 12))
+        var scenario: WorkoutSessionPreviewScenario {
+            switch self {
+            case .work: .work
+            case .recovery: .recovery
+            case .warmUp: .warmUp
+            case .roundRecovery: .roundRecovery
+            case .sideSwitch: .sideSwitch
+            }
+        }
     }
 }
 

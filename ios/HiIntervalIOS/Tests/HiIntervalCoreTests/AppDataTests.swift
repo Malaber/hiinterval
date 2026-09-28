@@ -75,7 +75,22 @@ final class AppDataTests: XCTestCase {
 
         XCTAssertEqual(preferences.cueStyle, .spoken)
         XCTAssertEqual(preferences.cueLanguage, .system)
+        XCTAssertEqual(preferences.toneConfiguration, CueToneConfiguration())
         XCTAssertTrue(preferences.halfwayCueEnabled)
+    }
+
+    func testPreferencesRoundTripIndependentTonePresets() throws {
+        var preferences = UserPreferences()
+        preferences.toneConfiguration.setPreset(.bright, for: .work)
+        preferences.toneConfiguration.setPreset(.mellow, for: .completion)
+
+        let encoded = try JSONEncoder().encode(preferences)
+        let decoded = try JSONDecoder().decode(UserPreferences.self, from: encoded)
+
+        XCTAssertEqual(decoded, preferences)
+        XCTAssertEqual(decoded.toneConfiguration.preset(for: .work), .bright)
+        XCTAssertEqual(decoded.toneConfiguration.preset(for: .completion), .mellow)
+        XCTAssertEqual(decoded.toneConfiguration.preset(for: .countdown), .classic)
     }
 
     func testPreferencesDecodeMissingFieldsWithSafeDefaults() throws {

@@ -2,10 +2,60 @@ import XCTest
 
 @MainActor
 final class TrainSessionUITests: HiIntervalUITestCase {
+    func testCloseConfirmationKeepsOrEndsPausedWorkout() {
+        launchAtRealtimeSpeed(fixture: .glanceableSession)
+        tap(element("train.start"))
+        waitForExistence(element("session.screen"), timeout: 5)
+        tap(element("session.pause"), scrolls: true)
+        waitForLabel("Resume workout", on: element("session.pause"))
+
+        let phase = element("session.exercise")
+        let remaining = element("session.remaining")
+        let pausedPhase = phase.label
+        let pausedRemaining = remaining.label
+
+        tap(element("session.close"))
+        let exitAlert = app.alerts["End this workout?"]
+        waitForExistence(exitAlert)
+        waitForExistence(exitAlert.buttons["Keep training"])
+        waitForExistence(exitAlert.buttons["End workout"])
+        tapLeafAlertButton("session.keep-training", in: exitAlert)
+
+        waitForExistence(element("session.screen"))
+        waitForLabel("Resume workout", on: element("session.pause"))
+        waitForLabel(pausedPhase, on: phase)
+        waitForLabel(pausedRemaining, on: remaining)
+        assertLabelRemainsStable(on: remaining)
+
+        tap(element("session.close"))
+        waitForExistence(exitAlert)
+        waitForExistence(exitAlert.buttons["Keep training"])
+        waitForExistence(exitAlert.buttons["End workout"])
+        tapLeafAlertButton("session.confirm-end", in: exitAlert)
+        waitForExistence(element("train.screen"))
+        selectTab("history")
+        waitForExistence(app.staticTexts["No sessions yet"])
+    }
+
+    private func tapLeafAlertButton(_ identifier: String, in alert: XCUIElement) {
+        let buttons = alert.buttons.matching(identifier: identifier)
+        waitForExistence(buttons.firstMatch)
+        let matches = buttons.allElementsBoundByIndex
+        guard let leaf = matches.last else {
+            XCTFail("Expected alert button with identifier '\(identifier)'")
+            return
+        }
+        leaf.tap()
+    }
+
     func testDisabledHapticsApplyToEntireSession() {
         launchAtRealtimeSpeed(fixture: .glanceableSession)
         selectTab("settings")
+        tap(element("settings.customization"), scrolls: true)
+        waitForExistence(element("settings.customization.screen"))
         setSwitch("settings.haptics", to: false)
+        tap(app.navigationBars.buttons["Settings"])
+        waitForExistence(element("settings.form"))
         selectTab("train")
 
         tap(element("train.start"))

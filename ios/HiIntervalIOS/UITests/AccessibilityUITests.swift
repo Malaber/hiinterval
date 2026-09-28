@@ -24,8 +24,15 @@ final class AccessibilityUITests: HiIntervalUITestCase {
         capture("accessibility-light-history")
 
         selectTab("settings")
+        assertAccessibleControl("settings.customization", scrolls: true)
+        tap(element("settings.customization"))
+        waitForExistence(element("settings.customization.screen"))
         assertAccessibleControl("settings.cues", scrolls: true)
         assertAccessibleControl("settings.haptics", scrolls: true)
+        assertAccessibleControl("settings.workout-theme", scrolls: true)
+        assertAccessibleControl("settings.tone-customization", scrolls: true)
+        tap(app.navigationBars.buttons["Settings"])
+        waitForExistence(element("settings.form"))
         selectSegment(control: "settings.appearance", option: "Dark")
         capture("accessibility-dark-settings")
 
