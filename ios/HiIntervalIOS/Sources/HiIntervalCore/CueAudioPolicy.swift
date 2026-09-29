@@ -62,12 +62,20 @@ public enum CueTonePreset: String, Codable, CaseIterable, Hashable, Sendable {
     case classic
     case bright
     case mellow
+    case chime
+    case bell
+    case pulse
+    case sweep
 
     public var displayName: String {
         switch self {
         case .classic: "Classic"
         case .bright: "Bright"
         case .mellow: "Mellow"
+        case .chime: "Chime"
+        case .bell: "Bell"
+        case .pulse: "Pulse"
+        case .sweep: "Sweep"
         }
     }
 }
@@ -169,13 +177,23 @@ public enum CueDispatchPolicy {
     }
 }
 
+public enum CueToneVoice: Equatable, Sendable {
+    case sine
+    case chime
+    case bell
+    case pulse
+    case sweep
+}
+
 public struct CueToneSignal: Equatable, Sendable {
     public let frequencyHz: Double
     public let durationSeconds: TimeInterval
+    public let voice: CueToneVoice
 
-    public init(frequencyHz: Double, durationSeconds: TimeInterval) {
+    public init(frequencyHz: Double, durationSeconds: TimeInterval, voice: CueToneVoice = .sine) {
         self.frequencyHz = frequencyHz
         self.durationSeconds = durationSeconds
+        self.voice = voice
     }
 
     public static func signal(for event: CueToneEvent) -> CueToneSignal {
@@ -214,6 +232,30 @@ public struct CueToneSignal: Equatable, Sendable {
                 frequencyHz: classic.frequencyHz * 0.8,
                 durationSeconds: classic.durationSeconds * 1.15
             )
+        case .chime:
+            return CueToneSignal(
+                frequencyHz: classic.frequencyHz * 1.1,
+                durationSeconds: max(0.22, classic.durationSeconds * 1.2),
+                voice: .chime
+            )
+        case .bell:
+            return CueToneSignal(
+                frequencyHz: classic.frequencyHz * 0.75,
+                durationSeconds: max(0.3, classic.durationSeconds * 1.5),
+                voice: .bell
+            )
+        case .pulse:
+            return CueToneSignal(
+                frequencyHz: classic.frequencyHz * 0.9,
+                durationSeconds: max(0.22, classic.durationSeconds),
+                voice: .pulse
+            )
+        case .sweep:
+            return CueToneSignal(
+                frequencyHz: classic.frequencyHz,
+                durationSeconds: max(0.24, classic.durationSeconds),
+                voice: .sweep
+            )
         }
     }
 
@@ -239,8 +281,31 @@ public struct CueToneSignal: Equatable, Sendable {
         for sampleIndex in 0..<sampleCount {
             let progress = Double(sampleIndex) / Double(max(1, sampleCount - 1))
             let envelope = min(1, progress * 12) * min(1, (1 - progress) * 12)
-            let wave = sin(2 * .pi * frequencyHz * Double(sampleIndex) / Double(sampleRate))
-            let amplitude = wave * envelope * Double(Int16.max) * 0.24
+            let time = Double(sampleIndex) / Double(sampleRate)
+            let phase = 2 * Double.pi * frequencyHz * time
+            let wave: Double
+            let decay: Double
+            switch voice {
+            case .sine:
+                wave = sin(phase)
+                decay = 1
+            case .chime:
+                wave = (sin(phase) + 0.35 * sin(2 * phase) + 0.12 * sin(3 * phase)) / 1.47
+                decay = exp(-2.3 * progress)
+            case .bell:
+                wave = (sin(phase) + 0.32 * sin(2.4 * phase) + 0.2 * sin(3.1 * phase)) / 1.52
+                decay = exp(-3.2 * progress)
+            case .pulse:
+                let harmonics = (sin(phase) + sin(3 * phase) / 3 + sin(5 * phase) / 5) / 1.53
+                let beat = 0.25 + 0.75 * pow(max(0, sin(2 * .pi * 11 * time)), 2)
+                wave = harmonics * beat
+                decay = 1
+            case .sweep:
+                let sweptPhase = phase * (1.5 - 0.5 * progress)
+                wave = sin(sweptPhase)
+                decay = 1
+            }
+            let amplitude = wave * envelope * decay * Double(Int16.max) * 0.24
             append(Int16(amplitude), to: &data)
         }
 

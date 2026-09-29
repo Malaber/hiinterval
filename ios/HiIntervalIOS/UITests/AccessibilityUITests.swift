@@ -53,7 +53,15 @@ final class AccessibilityUITests: HiIntervalUITestCase {
         launchConfiguredApplication()
 
         tap(element("train.start"), scrolls: true)
-        waitForExistence(element("session.screen"), timeout: 20)
+        guard element("session.screen").waitForExistence(timeout: 20) else {
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = "Failed Start workout transition"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+            capture("failed-start-workout")
+            XCTFail("Session did not appear after one Start tap")
+            return
+        }
         tap(element("session.pause"), scrolls: true)
         waitForLabel("Resume workout", on: element("session.pause"))
 

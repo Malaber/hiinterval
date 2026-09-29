@@ -53,7 +53,10 @@ final class CueAudioPolicyTests: XCTestCase {
             CueToneEvent.allCases.map(\.displayName),
             ["Work", "Transition", "Countdown", "Halfway", "Pause", "Resume", "Completion"]
         )
-        XCTAssertEqual(CueTonePreset.allCases.map(\.displayName), ["Classic", "Bright", "Mellow"])
+        XCTAssertEqual(
+            CueTonePreset.allCases.map(\.displayName),
+            ["Classic", "Bright", "Mellow", "Chime", "Bell", "Pulse", "Sweep"]
+        )
     }
 
     func testTonePresetsCanBeSelectedIndependentlyForEveryEvent() {
@@ -78,6 +81,28 @@ final class CueAudioPolicyTests: XCTestCase {
             XCTAssertEqual(mellow.frequencyHz, classic.frequencyHz * 0.8)
             XCTAssertEqual(mellow.durationSeconds, classic.durationSeconds * 1.15)
         }
+    }
+
+    func testEveryTonePresetMakesDistinctAudioAndSurvivesConfigurationEncoding() throws {
+        var renderedSounds = Set<Data>()
+        let encoder = JSONEncoder()
+        let decoder = JSONDecoder()
+
+        for preset in CueTonePreset.allCases {
+            var configuration = CueToneConfiguration()
+            configuration.setPreset(preset, for: .work)
+            let decoded = try decoder.decode(
+                CueToneConfiguration.self,
+                from: encoder.encode(configuration)
+            )
+            XCTAssertEqual(decoded.preset(for: .work), preset)
+            XCTAssertEqual(decoded.preset(for: .transition), .classic)
+
+            let signal = CueToneSignal.signal(for: .work, configuration: decoded)
+            XCTAssertTrue(renderedSounds.insert(signal.pcmWAVData(sampleRate: 8_000)).inserted)
+        }
+
+        XCTAssertEqual(renderedSounds.count, CueTonePreset.allCases.count)
     }
 
     func testCueDispatchEligibilityForEveryEventAndTimerState() {

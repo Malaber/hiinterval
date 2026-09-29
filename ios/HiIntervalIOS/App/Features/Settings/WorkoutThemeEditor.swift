@@ -3,20 +3,20 @@ import SwiftUI
 import UIKit
 
 struct WorkoutThemeEditor: View {
-    let initialTheme: WorkoutTheme
     let hapticsEnabled: Bool
     let save: (WorkoutTheme) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: AppStore
     @State private var draft: WorkoutTheme
     @State private var selectedPreviewPhase: PreviewPhase = .work
+    @State private var isTrainingPreviewPresented = false
 
     init(
         initialTheme: WorkoutTheme,
         hapticsEnabled: Bool,
         save: @escaping (WorkoutTheme) -> Void
     ) {
-        self.initialTheme = initialTheme
         self.hapticsEnabled = hapticsEnabled
         self.save = save
         _draft = State(initialValue: initialTheme)
@@ -34,16 +34,59 @@ struct WorkoutThemeEditor: View {
                     .pickerStyle(.menu)
                     .accessibilityIdentifier("settings.workout-theme.preview-phase")
 
-                    WorkoutSessionPreview(
-                        scenario: selectedPreviewPhase.scenario,
-                        theme: draft,
-                        hapticsEnabled: hapticsEnabled,
-                        accessibilityIdentifier: "settings.workout-theme.preview"
-                    )
+                    HStack(spacing: 3) {
+                        ForEach(PreviewPhase.allCases, id: \.self) { phase in
+                            Button {
+                                selectedPreviewPhase = phase
+                            } label: {
+                                Rectangle()
+                                    .fill(Color(draft.color(for: phase.kind)))
+                                    .frame(height: selectedPreviewPhase == phase ? 18 : 12)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 44)
+                                    .overlay {
+                                        if selectedPreviewPhase == phase {
+                                            RoundedRectangle(cornerRadius: 3)
+                                                .strokeBorder(.primary, lineWidth: 2)
+                                                .frame(height: 18)
+                                        }
+                                    }
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(phase.title)
+                            .accessibilityValue(selectedPreviewPhase == phase ? "Selected" : "Not selected")
+                            .accessibilityIdentifier("settings.workout-theme.preview-phase.\(phase.rawValue)")
+                        }
+                    }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("settings.workout-theme.phase-bar")
+
+                    HStack {
+                        Text(selectedPreviewPhase.title)
+                            .font(.headline)
+                        Spacer(minLength: 8)
+                        Text("0:30")
+                            .font(.title2.monospacedDigit().weight(.semibold))
+                    }
+                    .foregroundStyle(previewForeground)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, minHeight: 58)
+                    .background(Color(selectedPreviewColor), in: RoundedRectangle(cornerRadius: 12))
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("settings.workout-theme.preview")
+
+                    Button {
+                        isTrainingPreviewPresented = true
+                    } label: {
+                        Label("Try with a real training", systemImage: "play.circle")
+                    }
+                    .accessibilityIdentifier("settings.workout-theme.try-training")
                 } header: {
                     Text("Preview")
                 } footer: {
-                    Text("These colors apply to every running workout. Text color adapts for contrast.")
+                    Text("These colors apply to every running workout. Preview sessions never save history. Changes are saved only when you tap Save.")
                 }
 
                 Section("Presets") {
@@ -108,6 +151,25 @@ struct WorkoutThemeEditor: View {
                 }
             }
         }
+        .fullScreenCover(isPresented: $isTrainingPreviewPresented) {
+            WorkoutSessionFlow(plan: WorkoutPreviewPlan.plan, previewPreferences: previewPreferences)
+                .environmentObject(store)
+        }
+    }
+
+    private var selectedPreviewColor: WorkoutLogoColor {
+        draft.color(for: selectedPreviewPhase.kind)
+    }
+
+    private var previewForeground: Color {
+        draft.prefersDarkText(for: selectedPreviewColor) ? .black : .white
+    }
+
+    private var previewPreferences: UserPreferences {
+        var preferences = store.data.preferences
+        preferences.workoutTheme = draft
+        preferences.hapticsEnabled = hapticsEnabled
+        return preferences
     }
 
     private func colorBinding(_ keyPath: WritableKeyPath<WorkoutTheme, WorkoutLogoColor>) -> Binding<Color> {
@@ -134,7 +196,7 @@ struct WorkoutThemeEditor: View {
             }
         }
 
-        var scenario: WorkoutSessionPreviewScenario {
+        var kind: WorkoutPhaseKind {
             switch self {
             case .work: .work
             case .recovery: .recovery

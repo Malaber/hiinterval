@@ -219,6 +219,10 @@ rules cover their standard locations.
   warm-up/cool-down values. Persist them in `UserPreferences.workoutTheme`, edited in Settings; never
   attach themes to individual plans. `WorkoutPlan.logo` is per plan. Use the system photo picker;
   keep photo drafts memory-only until Save and retain assets referenced by history or recovery data.
+- Customization trials use `WorkoutSessionFlow` with copied draft preferences and `WorkoutPreviewPlan.plan`.
+  Use the production timer and controls, never save preview completions to history (including extra
+  rounds), and keep preference changes local until Save. Session contrast must not force the
+  presenting sheet into light mode.
 - Deleted catalogue IDs remain tombstoned in `AppData.deletedCatalogueExerciseIDs` so retained plan
   steps cannot recreate removed entries. Saved `generationOptions` support exercise-only reshuffling.
 - History includes a plan snapshot so editing a saved plan does not rewrite completed workouts.

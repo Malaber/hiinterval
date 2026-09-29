@@ -8,7 +8,12 @@ struct WorkoutSessionFlow: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var controller: WorkoutSessionController
 
-    init(plan: WorkoutPlan) {
+    private let previewPreferences: UserPreferences?
+
+    private var preferences: UserPreferences { previewPreferences ?? store.data.preferences }
+
+    init(plan: WorkoutPlan, previewPreferences: UserPreferences? = nil) {
+        self.previewPreferences = previewPreferences
         _controller = StateObject(wrappedValue: WorkoutSessionController(plan: plan))
     }
 
@@ -18,18 +23,29 @@ struct WorkoutSessionFlow: View {
                 WorkoutCompletionView(
                     entry: completion,
                     didExceedPlan: controller.didExceedPlan,
+                    isPreview: previewPreferences != nil,
                     oneMoreRound: {
-                        controller.startOneMoreRound(preferences: store.data.preferences)
+                        controller.startOneMoreRound(preferences: preferences)
                     },
                     done: { dismiss() }
                 )
             } else {
-                ActiveWorkoutView(controller: controller)
+                ActiveWorkoutView(controller: controller, preferences: preferences)
+            }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if previewPreferences != nil {
+                Text("Preview · Nothing saved to History")
+                    .font(.footnote.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(8)
+                    .background(.regularMaterial)
+                    .accessibilityIdentifier("session.preview-notice")
             }
         }
         .environmentObject(store)
         .onChange(of: controller.completion) { _, completion in
-            guard let completion else { return }
+            guard previewPreferences == nil, let completion else { return }
             store.addHistory(completion)
         }
         .onDisappear { controller.stopCues() }
@@ -64,43 +80,41 @@ private struct SessionControlStyle: ViewModifier {
 }
 
 private struct ActiveWorkoutView: View {
-    @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject var controller: WorkoutSessionController
+    let preferences: UserPreferences
     @State private var confirmExit = false
     @State private var timer = Timer.publish(every: 0.2, on: .main, in: .common).autoconnect()
 
     var body: some View {
         WorkoutSessionSurface(
             snapshot: WorkoutSessionSnapshot(controller: controller),
-            theme: store.data.preferences.workoutTheme,
-            hapticsEnabled: store.data.preferences.hapticsEnabled,
-            accessibilityIdentifier: "session.screen",
-            controlsEnabled: true,
+            theme: preferences.workoutTheme,
+            hapticsEnabled: preferences.hapticsEnabled,
             actions: WorkoutSessionActions(
                 close: { confirmExit = true },
                 mute: { controller.toggleMute() },
-                pause: { controller.togglePause(preferences: store.data.preferences) },
-                skip: { controller.skip(preferences: store.data.preferences) },
-                restart: { controller.restartTapped(preferences: store.data.preferences) },
-                previous: { controller.returnToPreviousExercise(preferences: store.data.preferences) }
+                pause: { controller.togglePause(preferences: preferences) },
+                skip: { controller.skip(preferences: preferences) },
+                restart: { controller.restartTapped(preferences: preferences) },
+                previous: { controller.returnToPreviousExercise(preferences: preferences) }
             )
         )
         .onAppear {
             timer = Timer.publish(every: controller.tickInterval, on: .main, in: .common).autoconnect()
-            controller.start(preferences: store.data.preferences)
-            if store.data.preferences.keepScreenAwake {
+            controller.start(preferences: preferences)
+            if preferences.keepScreenAwake {
                 UIApplication.shared.isIdleTimerDisabled = true
             }
         }
         .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
         .onReceive(timer) { _ in
-            controller.tick(preferences: store.data.preferences)
+            controller.tick(preferences: preferences)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active {
-                controller.pauseForBackground(preferences: store.data.preferences)
+                controller.pauseForBackground(preferences: preferences)
             }
         }
         .alert("End this workout?", isPresented: $confirmExit) {
@@ -153,27 +167,6 @@ private struct WorkoutSessionSnapshot {
         isPreviousTapArmed = controller.isPreviousTapArmed
         canReturnToPreviousExercise = engine.canReturnToPreviousExercise
     }
-
-    init(
-        planName: String, exerciseCount: Int, phase: WorkoutPhase, remainingSeconds: Int,
-        phaseProgress: Double, totalRemainingSeconds: Int, totalProgress: Double,
-        nextExercisePhase: WorkoutPhase?, hasNotes: Bool, isPaused: Bool, isComplete: Bool
-    ) {
-        self.planName = planName
-        self.exerciseCount = exerciseCount
-        self.phase = phase
-        self.remainingSeconds = remainingSeconds
-        self.phaseProgress = phaseProgress
-        self.totalRemainingSeconds = totalRemainingSeconds
-        self.totalProgress = totalProgress
-        self.nextExercisePhase = nextExercisePhase
-        self.hasNotes = hasNotes
-        self.isPaused = isPaused
-        self.isComplete = isComplete
-        isMuted = false
-        isPreviousTapArmed = false
-        canReturnToPreviousExercise = false
-    }
 }
 
 private struct WorkoutSessionActions {
@@ -183,27 +176,17 @@ private struct WorkoutSessionActions {
     let skip: () -> Void
     let restart: () -> Void
     let previous: () -> Void
-
-    static var preview: WorkoutSessionActions { WorkoutSessionActions(
-        close: {}, mute: {}, pause: {}, skip: {}, restart: {}, previous: {}
-    ) }
 }
 
 private struct WorkoutSessionSurface: View {
     let snapshot: WorkoutSessionSnapshot
     let theme: WorkoutTheme
     let hapticsEnabled: Bool
-    let accessibilityIdentifier: String
-    let controlsEnabled: Bool
     let actions: WorkoutSessionActions
     @State private var contentHeight: CGFloat = 0
     @ScaledMetric(relativeTo: .body) private var notesLineHeight: CGFloat = 22
 
     private var phase: WorkoutPhase? { snapshot.phase }
-    private var childIdentifierPrefix: String {
-        accessibilityIdentifier == "session.screen" ? "session" : accessibilityIdentifier
-    }
-    private func childIdentifier(_ name: String) -> String { "\(childIdentifierPrefix).\(name)" }
     private var phaseColor: Color {
         guard let kind = phase?.kind else { return Color.accentColor }
         return HITheme.phaseColor(kind, in: theme)
@@ -241,7 +224,7 @@ private struct WorkoutSessionSurface: View {
             .scrollBounceBehavior(.basedOnSize)
             .scrollIndicators(.hidden)
             .onPreferenceChange(SessionContentHeightKey.self) { contentHeight = $0 }
-            .accessibilityIdentifier(accessibilityIdentifier)
+            .accessibilityIdentifier("session.screen")
             .accessibilityValue(contentHeight <= geometry.size.height + 1 ? "Fits screen" : "Scrollable content")
         }
         .background {
@@ -250,7 +233,7 @@ private struct WorkoutSessionSurface: View {
                 .accessibilityHidden(true)
         }
         .foregroundStyle(sessionForeground)
-        .preferredColorScheme(.light)
+        .environment(\.colorScheme, usesDarkForeground ? .light : .dark)
     }
 
     private func sessionContent(compact: Bool, availableHeight: CGFloat) -> some View {
@@ -272,7 +255,7 @@ private struct WorkoutSessionSurface: View {
                             .overlay { Capsule().stroke(phaseColor.opacity(0.6), lineWidth: 2) }
                             .shadow(color: .black.opacity(0.3), radius: 18, y: 8)
                             .allowsHitTesting(false)
-                            .accessibilityIdentifier(childIdentifier("paused"))
+                            .accessibilityIdentifier("session.paused")
                     }
                 }
             Spacer(minLength: compact ? 16 : 32)
@@ -291,9 +274,8 @@ private struct WorkoutSessionSurface: View {
                     .frame(width: 44, height: 44)
             }
             .modifier(SessionControlStyle(foreground: sessionForeground))
-            .disabled(!controlsEnabled)
             .accessibilityLabel("End workout")
-            .accessibilityIdentifier(childIdentifier("close"))
+            .accessibilityIdentifier("session.close")
 
             Spacer()
             VStack(spacing: 2) {
@@ -314,9 +296,8 @@ private struct WorkoutSessionSurface: View {
                     .frame(width: 44, height: 44)
             }
             .modifier(SessionControlStyle(foreground: sessionForeground))
-            .disabled(!controlsEnabled)
             .accessibilityLabel(snapshot.isMuted ? "Unmute cues" : "Mute cues")
-            .accessibilityIdentifier(childIdentifier("mute"))
+            .accessibilityIdentifier("session.mute")
         }
     }
 
@@ -336,7 +317,7 @@ private struct WorkoutSessionSurface: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(PhaseStyle.label(for: phase?.kind))
         .accessibilityValue(hapticsEnabled ? "Haptics enabled" : "Haptics disabled")
-        .accessibilityIdentifier(childIdentifier("phase-kind"))
+        .accessibilityIdentifier("session.phase-kind")
     }
 
     private var currentHeading: String {
@@ -357,7 +338,7 @@ private struct WorkoutSessionSurface: View {
                 minimumScale: 0.62
             )
                 .accessibilityLabel(currentHeading)
-                .accessibilityIdentifier(childIdentifier("exercise"))
+                .accessibilityIdentifier("session.exercise")
                 .accessibilityValue("Primary focus")
 
             if snapshot.hasNotes {
@@ -378,7 +359,7 @@ private struct WorkoutSessionSurface: View {
                 .minimumScaleFactor(0.55)
                 .lineLimit(1)
                 .accessibilityLabel(timerAccessibilityLabel)
-                .accessibilityIdentifier(childIdentifier("remaining"))
+                .accessibilityIdentifier("session.remaining")
 
             ProgressView(value: snapshot.phaseProgress)
                 .tint(sessionForeground)
@@ -395,7 +376,7 @@ private struct WorkoutSessionSurface: View {
             .foregroundStyle(sessionSecondary)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(totalRemainingSeconds) seconds remaining in workout")
-            .accessibilityIdentifier(childIdentifier("total-remaining"))
+            .accessibilityIdentifier("session.total-remaining")
 
             HStack {
                 if let position = phase?.position {
@@ -403,7 +384,7 @@ private struct WorkoutSessionSurface: View {
                         "Exercise \(position.exerciseIndex) of \(position.exerciseCount)",
                         systemImage: "figure.strengthtraining.traditional"
                     )
-                    .accessibilityIdentifier(childIdentifier("exercise-progress"))
+                    .accessibilityIdentifier("session.exercise-progress")
                     Spacer()
                     Label(
                         "Round \(position.roundIndex) of \(position.roundCount)",
@@ -463,7 +444,7 @@ private struct WorkoutSessionSurface: View {
         .background(controlSurface, in: RoundedRectangle(cornerRadius: 14))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Notes, \(notes)")
-        .accessibilityIdentifier(childIdentifier("notes"))
+        .accessibilityIdentifier("session.notes")
     }
 
     private func nextPreview(_ title: String, compact: Bool) -> some View {
@@ -494,7 +475,7 @@ private struct WorkoutSessionSurface: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Next up, \(title)")
         .accessibilityValue("Secondary preview")
-        .accessibilityIdentifier(childIdentifier("next"))
+        .accessibilityIdentifier("session.next")
     }
 
     private var controls: some View {
@@ -508,9 +489,8 @@ private struct WorkoutSessionSurface: View {
                     .frame(width: 82, height: 82)
             }
             .modifier(SessionControlStyle(foreground: sessionForeground, prominent: true))
-            .disabled(!controlsEnabled)
             .accessibilityLabel(snapshot.isPaused ? "Resume workout" : "Pause workout")
-            .accessibilityIdentifier(childIdentifier("pause"))
+            .accessibilityIdentifier("session.pause")
 
             controlButton(
                 icon: "forward.end.fill",
@@ -529,7 +509,6 @@ private struct WorkoutSessionSurface: View {
                 .contentShape(Circle())
         }
         .modifier(SessionControlStyle(foreground: sessionForeground))
-        .disabled(!controlsEnabled)
         .accessibilityLabel(snapshot.isPreviousTapArmed ? "Previous exercise" : "Restart phase")
         .accessibilityValue(snapshot.isPreviousTapArmed ? "Back available" : "Restart available")
         .accessibilityHint(
@@ -537,9 +516,9 @@ private struct WorkoutSessionSurface: View {
                 ? "Restarts this phase. Use the Previous exercise action to go back with VoiceOver."
                 : "Restarts this phase."
         )
-        .accessibilityIdentifier(childIdentifier("restart"))
+        .accessibilityIdentifier("session.restart")
         .accessibilityActions {
-            if controlsEnabled && snapshot.canReturnToPreviousExercise {
+            if snapshot.canReturnToPreviousExercise {
                 Button("Previous exercise") {
                     actions.previous()
                 }
@@ -559,9 +538,8 @@ private struct WorkoutSessionSurface: View {
                 .frame(width: 58, height: 58)
         }
         .modifier(SessionControlStyle(foreground: sessionForeground))
-        .disabled(!controlsEnabled)
         .accessibilityLabel(label)
-        .accessibilityIdentifier(childIdentifier(identifier))
+        .accessibilityIdentifier("session.\(identifier)")
     }
 
     private var currentExerciseIndex: Int? {
@@ -584,17 +562,6 @@ private struct WorkoutSessionSurface: View {
 }
 
 private enum PhaseStyle {
-    static func color(for kind: WorkoutPhaseKind?) -> Color {
-        switch kind {
-        case .work: return Color(red: 0.16, green: 0.72, blue: 0.65)
-        case .recovery: return Color(red: 0.52, green: 0.47, blue: 0.95)
-        case .roundRecovery: return Color(red: 0.94, green: 0.62, blue: 0.18)
-        case .warmUp, .sideSwitch: return Color(red: 0.25, green: 0.58, blue: 0.91)
-        case .coolDown: return Color(red: 0.24, green: 0.75, blue: 0.48)
-        case nil: return .accentColor
-        }
-    }
-
     static func label(for kind: WorkoutPhaseKind?) -> String {
         switch kind {
         case .warmUp: return "WARM UP"
@@ -620,100 +587,19 @@ private enum PhaseStyle {
     }
 }
 
-enum WorkoutSessionPreviewScenario: CaseIterable, Equatable {
-    case warmUp
-    case work
-    case recovery
-    case roundRecovery
-    case sideSwitch
-    case paused
-    case countdown
-    case halfway
-    case resume
-    case completion
-
-    static func forToneEvent(_ event: CueToneEvent) -> Self {
-        switch event {
-        case .work: .work
-        case .transition: .recovery
-        case .countdown: .countdown
-        case .halfway: .halfway
-        case .pause: .paused
-        case .resume: .resume
-        case .completion: .completion
-        }
-    }
-}
-
-struct WorkoutSessionPreview: View {
-    let scenario: WorkoutSessionPreviewScenario
-    let theme: WorkoutTheme
-    let hapticsEnabled: Bool
-    let accessibilityIdentifier: String
-
-    var body: some View {
-        WorkoutSessionSurface(
-            snapshot: snapshot,
-            theme: theme,
-            hapticsEnabled: hapticsEnabled,
-            accessibilityIdentifier: accessibilityIdentifier,
-            controlsEnabled: false,
-            actions: .preview
-        )
-        .frame(height: 560)
-    }
-
-    private var snapshot: WorkoutSessionSnapshot {
-        let timeline = Self.sampleTimeline
-        let kind: WorkoutPhaseKind = switch scenario {
-        case .warmUp: .warmUp
-        case .work, .paused, .countdown, .halfway, .resume, .completion: .work
-        case .recovery: .recovery
-        case .sideSwitch: .sideSwitch
-        case .roundRecovery: .roundRecovery
-        }
-        let index = scenario == .completion
-            ? timeline.phases.lastIndex { $0.kind == kind }!
-            : timeline.phases.firstIndex { $0.kind == kind }!
-        let phase = timeline.phases[index]
-        let remaining: Int = switch scenario {
-        case .countdown: 3
-        case .halfway: 20
-        case .resume: 35
-        case .completion: 0
-        default: phase.durationSeconds
-        }
-        let elapsedBefore = timeline.phases[..<index].reduce(0) { $0 + $1.durationSeconds }
-        let elapsed = elapsedBefore + phase.durationSeconds - remaining
-        let next = scenario == .completion ? nil : timeline.phases.dropFirst(index + 1)
-            .first { $0.kind == .work || $0.kind == .coolDown }
-        return WorkoutSessionSnapshot(
-            planName: timeline.planName,
-            exerciseCount: Self.samplePlan.exercises.count,
-            phase: phase,
-            remainingSeconds: remaining,
-            phaseProgress: Double(phase.durationSeconds - remaining) / Double(phase.durationSeconds),
-            totalRemainingSeconds: max(0, timeline.totalDurationSeconds - elapsed),
-            totalProgress: scenario == .completion
-                ? 1 : Double(elapsed) / Double(timeline.totalDurationSeconds),
-            nextExercisePhase: next,
-            hasNotes: true,
-            isPaused: scenario == .paused,
-            isComplete: scenario == .completion
-        )
-    }
-
-    private static let samplePlan = WorkoutPlan(
+/// A normal plan that exercises every phase through the production timer and controls.
+enum WorkoutPreviewPlan {
+    static let plan = WorkoutPlan(
         id: UUID(uuidString: "00000000-0000-0000-0000-000000000010")!,
-        name: "Full Body Reset",
+        name: "Customization preview",
         warmUpSeconds: 10,
         warmUpNotes: "Find your space.",
-        defaultWorkSeconds: 40,
-        defaultRecoverySeconds: 15,
+        defaultWorkSeconds: 20,
+        defaultRecoverySeconds: 10,
         recoveryNotes: "Breathe deeply.",
-        roundRecoverySeconds: 25,
+        roundRecoverySeconds: 10,
         roundRecoveryNotes: "Take a sip of water.",
-        coolDownSeconds: 0,
+        coolDownSeconds: 10,
         roundCount: 2,
         exercises: [
             ExerciseStep(
@@ -731,21 +617,12 @@ struct WorkoutSessionPreview: View {
         createdAt: Date(timeIntervalSince1970: 0),
         updatedAt: Date(timeIntervalSince1970: 0)
     )
-
-    private static let sampleTimeline: WorkoutTimeline = {
-        var timeline = try! WorkoutTimeline(plan: samplePlan)
-        for index in timeline.phases.indices {
-            timeline.phases[index].id = UUID(
-                uuidString: String(format: "00000000-0000-0000-0000-%012d", index)
-            )!
-        }
-        return timeline
-    }()
 }
 
 private struct WorkoutCompletionView: View {
     let entry: WorkoutHistoryEntry
     let didExceedPlan: Bool
+    let isPreview: Bool
     let oneMoreRound: () -> Void
     let done: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -808,7 +685,8 @@ private struct WorkoutCompletionView: View {
                         completionMetric("Moves", "\(entry.exerciseCount)", "figure.run")
                     }
 
-                    Text("Workout saved to History.")
+                    Text(isPreview ? "Preview complete. Nothing saved to History." : "Workout saved to History.")
+                        .accessibilityIdentifier("completion.history-status")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 

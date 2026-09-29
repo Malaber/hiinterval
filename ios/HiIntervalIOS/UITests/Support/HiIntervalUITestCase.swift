@@ -330,6 +330,10 @@ class HiIntervalUITestCase: XCTestCase {
             }
         }
 
+        // Avoid an application-wide geometry snapshot when the control is already ready.
+        // On cold hosted iPads that snapshot can stall before the first Start tap.
+        if target.exists && target.isHittable { return }
+
         // Once materialized, short drags avoid jumping an almost-visible control past the
         // opposite edge of the viewport.
         let viewport = app.frame

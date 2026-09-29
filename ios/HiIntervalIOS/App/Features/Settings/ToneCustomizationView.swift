@@ -3,15 +3,16 @@ import HiIntervalCore
 import SwiftUI
 
 struct ToneCustomizationView: View {
-    let initialConfiguration: CueToneConfiguration
     let theme: WorkoutTheme
     let hapticsEnabled: Bool
     let duckOtherAudio: Bool
     let save: (CueToneConfiguration) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: AppStore
     @State private var draft: CueToneConfiguration
     @State private var selectedEvent: CueToneEvent = .work
+    @State private var isTrainingPreviewPresented = false
     @State private var player: AVAudioPlayer?
     @State private var playbackTask: Task<Void, Never>?
     @State private var playbackError: String?
@@ -23,7 +24,6 @@ struct ToneCustomizationView: View {
         duckOtherAudio: Bool,
         save: @escaping (CueToneConfiguration) -> Void
     ) {
-        self.initialConfiguration = initialConfiguration
         self.theme = theme
         self.hapticsEnabled = hapticsEnabled
         self.duckOtherAudio = duckOtherAudio
@@ -35,16 +35,39 @@ struct ToneCustomizationView: View {
         NavigationStack {
             Form {
                 Section {
-                    WorkoutSessionPreview(
-                        scenario: WorkoutSessionPreviewScenario.forToneEvent(selectedEvent),
-                        theme: theme,
-                        hapticsEnabled: hapticsEnabled,
-                        accessibilityIdentifier: "settings.tone.workout-preview"
-                    )
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(eventTitle(selectedEvent))
+                                .font(.headline)
+                            Text(draft.preset(for: selectedEvent).displayName)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 8)
+                        Button {
+                            playPreview(for: selectedEvent)
+                        } label: {
+                            Label("Play tone", systemImage: "play.circle.fill")
+                                .labelStyle(.iconOnly)
+                                .font(.title2)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("settings.tone.selected-preview")
+                    }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("settings.tone.workout-preview")
+
+                    Button {
+                        stopPlayback()
+                        isTrainingPreviewPresented = true
+                    } label: {
+                        Label("Try with a real training", systemImage: "play.circle")
+                    }
+                    .accessibilityIdentifier("settings.tone.try-training")
                 } header: {
-                    Text("Workout preview")
+                    Text("Preview")
                 } footer: {
-                    Text("Select a cue to see its workout moment. Play previews only the selected tone.")
+                    Text("Choose a cue below to hear it here, or try the tones in a full training session. Preview sessions never save history. Changes are saved only when you tap Save.")
                 }
 
                 Section("Workout tones") {
@@ -103,7 +126,24 @@ struct ToneCustomizationView: View {
                 }
             }
         }
-        .onDisappear { stopPlayback() }
+        .fullScreenCover(isPresented: $isTrainingPreviewPresented) {
+            WorkoutSessionFlow(plan: WorkoutPreviewPlan.plan, previewPreferences: previewPreferences)
+                .environmentObject(store)
+        }
+        .onDisappear {
+            // The training flow owns the shared audio session while presented.
+            if !isTrainingPreviewPresented { stopPlayback() }
+        }
+    }
+
+    private var previewPreferences: UserPreferences {
+        var preferences = store.data.preferences
+        preferences.workoutTheme = theme
+        preferences.toneConfiguration = draft
+        preferences.cueStyle = .tones
+        preferences.hapticsEnabled = hapticsEnabled
+        preferences.duckOtherAudio = duckOtherAudio
+        return preferences
     }
 
     private func presetBinding(for event: CueToneEvent) -> Binding<CueTonePreset> {
