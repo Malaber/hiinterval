@@ -302,6 +302,7 @@ public struct WorkoutHistoryEntry: Codable, Equatable, Identifiable, Sendable {
 public struct UserPreferences: Codable, Equatable, Sendable {
     public var cueStyle: CueStyle
     public var cueLanguage: CueLanguage
+    public var toneConfiguration: CueToneConfiguration
     public var hapticsEnabled: Bool
     public var duckOtherAudio: Bool
     public var pauseWhenInactive: Bool
@@ -315,6 +316,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
     public init(
         cueStyle: CueStyle = .tones,
         cueLanguage: CueLanguage = .system,
+        toneConfiguration: CueToneConfiguration = CueToneConfiguration(),
         hapticsEnabled: Bool = true,
         duckOtherAudio: Bool = false,
         pauseWhenInactive: Bool = true,
@@ -327,6 +329,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
     ) {
         self.cueStyle = cueStyle
         self.cueLanguage = cueLanguage
+        self.toneConfiguration = toneConfiguration
         self.hapticsEnabled = hapticsEnabled
         self.duckOtherAudio = duckOtherAudio
         self.pauseWhenInactive = pauseWhenInactive
@@ -341,6 +344,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case cueStyle
         case cueLanguage
+        case toneConfiguration
         case hapticsEnabled
         case duckOtherAudio
         case pauseWhenInactive
@@ -356,6 +360,8 @@ public struct UserPreferences: Codable, Equatable, Sendable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         cueStyle = try values.decodeIfPresent(CueStyle.self, forKey: .cueStyle) ?? .tones
         cueLanguage = try values.decodeIfPresent(CueLanguage.self, forKey: .cueLanguage) ?? .system
+        toneConfiguration = try values.decodeIfPresent(CueToneConfiguration.self, forKey: .toneConfiguration)
+            ?? CueToneConfiguration()
         hapticsEnabled = try values.decodeIfPresent(Bool.self, forKey: .hapticsEnabled) ?? true
         duckOtherAudio = try values.decodeIfPresent(Bool.self, forKey: .duckOtherAudio) ?? false
         pauseWhenInactive = try values.decodeIfPresent(Bool.self, forKey: .pauseWhenInactive) ?? true
@@ -371,6 +377,7 @@ public struct UserPreferences: Codable, Equatable, Sendable {
         var values = encoder.container(keyedBy: CodingKeys.self)
         try values.encode(cueStyle, forKey: .cueStyle)
         try values.encode(cueLanguage, forKey: .cueLanguage)
+        try values.encode(toneConfiguration, forKey: .toneConfiguration)
         try values.encode(hapticsEnabled, forKey: .hapticsEnabled)
         try values.encode(duckOtherAudio, forKey: .duckOtherAudio)
         try values.encode(pauseWhenInactive, forKey: .pauseWhenInactive)

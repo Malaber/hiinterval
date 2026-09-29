@@ -330,6 +330,10 @@ class HiIntervalUITestCase: XCTestCase {
             }
         }
 
+        // Avoid an application-wide geometry snapshot when the control is already ready.
+        // On cold hosted iPads that snapshot can stall before the first Start tap.
+        if target.exists && target.isHittable { return }
+
         // Once materialized, short drags avoid jumping an almost-visible control past the
         // opposite edge of the viewport.
         let viewport = app.frame
@@ -637,13 +641,19 @@ class HiIntervalUITestCase: XCTestCase {
             waitForExistence(toggle, file: file, line: line)
         }
         let expected = enabled ? "1" : "0"
-        if String(describing: toggle.value ?? "") != expected {
+        let current = String(describing: toggle.value ?? "")
+        guard ["0", "1", "Optional(0)", "Optional(1)"].contains(current) else {
+            XCTFail("Unknown switch value for \(identifier): \(current)", file: file, line: line)
+            return
+        }
+        if current != expected && current != "Optional(\(expected))" {
             revealSwitch(toggle, identifier: identifier, file: file, line: line)
-            // SwiftUI exposes the full Form row as the switch element. Its center can land on
-            // the label without toggling. Use a fixed trailing inset: a percentage misses the
-            // actual switch by roughly 100 points on a full-width iPad Form row.
+            // SwiftUI exposes the full Form row as the switch element on iPad. The hosted iPad
+            // switch center sits about 50 points from the row edge; the old 28-point inset landed
+            // near its right edge without toggling. Aim at the native switch's center.
+            let trailingInset = min(50, toggle.frame.width / 2)
             toggle.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
-                .withOffset(CGVector(dx: -28, dy: 0))
+                .withOffset(CGVector(dx: -trailingInset, dy: 0))
                 .tap()
         }
         waitForValue(expected, on: toggle, file: file, line: line)

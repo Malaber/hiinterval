@@ -24,7 +24,7 @@ Release title: Build your next workout faster
 Internal review details stay out of the release description.
 ```
 
-The release title becomes `v0.5.5: Build your next workout faster`. An empty title
+The release title becomes `v0.6.0: Customize your workout cues`. An empty title
 falls back to the PR title, matching Planini. An empty release-notes section uses
 GitHub-generated notes. The description also links the screenshot ZIP and records
 the source commit/PR. Text is handled as data, never interpolated into shell code.
@@ -41,7 +41,7 @@ GitHub release for the current version if no release exists yet.
 ## Screenshots
 
 `MarketingScreenshotsUITests` captures clean, deterministic demo screens during the
-existing iPhone 17 Pro Max / iPad Pro 13-inch (M5) CI shards. Each device runs the class once. Marketing PNGs are
+existing iPhone 17 Pro Max / iPad Pro 13-inch (M5) CI shards. Each device runs each method once; captures may span multiple shards. Marketing PNGs are
 uploaded separately as `app-store-screenshots-<device>-<shard>`, retained for 14 days.
 Ordinary test evidence remains in its existing artifacts.
 

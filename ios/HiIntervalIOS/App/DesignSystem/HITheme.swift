@@ -61,10 +61,6 @@ enum HITheme {
         endPoint: .bottomTrailing
     )
 
-    static func phaseColor(_ kind: WorkoutPhaseKind) -> Color {
-        phaseColor(kind, in: .default)
-    }
-
     static func phaseColor(_ kind: WorkoutPhaseKind, in theme: WorkoutTheme) -> Color {
         Color(theme.color(for: kind))
     }

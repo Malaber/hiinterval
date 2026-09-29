@@ -72,7 +72,15 @@ defaults initialize replacement steps; plan timing, round overrides, identity, n
 `PhotosPicker` without broad library permission, stay in an in-memory draft until Save, and are
 resized to at most 1,024 pixels. Cleanup retains files referenced by live plans and history snapshots;
 recovery data suppresses cleanup. `UserPreferences.workoutTheme` holds global phase colors, edited
-with previews in Settings. Text switches between black and white for contrast.
+with compact previews in Settings. Text switches between black and white for contrast.
+The color and tone editors can present `WorkoutSessionFlow` with a copied draft
+`UserPreferences` value and `WorkoutPreviewPlan.plan`. This uses the production controller,
+timer, phase rendering, and controls; preview completions (including extra rounds) never call
+`AppStore.addHistory`. The draft remains local until Save. Session contrast uses a local color-scheme
+environment, so it cannot override the appearance of the presenting Settings sheet.
+`CueToneConfiguration` stores one `CueTonePreset` per cue, defaulting missing fields to Classic.
+Classic, Bright, and Mellow use sine tones; Chime, Bell, Pulse, and Sweep add distinct synthesized
+timbres through the same `CueToneSignal` PCM generator used by preview and workout playback.
 
 `HalfwayExerciseCueTracker` derives one cue per round/exercise from active work time across both
 sides. The controller emits it only while running, after higher-priority phase speech, and honors

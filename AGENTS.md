@@ -219,6 +219,10 @@ rules cover their standard locations.
   warm-up/cool-down values. Persist them in `UserPreferences.workoutTheme`, edited in Settings; never
   attach themes to individual plans. `WorkoutPlan.logo` is per plan. Use the system photo picker;
   keep photo drafts memory-only until Save and retain assets referenced by history or recovery data.
+- Customization trials use `WorkoutSessionFlow` with copied draft preferences and `WorkoutPreviewPlan.plan`.
+  Use the production timer and controls, never save preview completions to history (including extra
+  rounds), and keep preference changes local until Save. Session contrast must not force the
+  presenting sheet into light mode.
 - Deleted catalogue IDs remain tombstoned in `AppData.deletedCatalogueExerciseIDs` so retained plan
   steps cannot recreate removed entries. Saved `generationOptions` support exercise-only reshuffling.
 - History includes a plan snapshot so editing a saved plan does not rewrite completed workouts.
@@ -323,8 +327,16 @@ progress updates. Once the process finishes, check its exit status and read the 
 result summary. If it failed, inspect the relevant failure logs/artifacts and investigate the cause.
 Report the completed result or an actionable blocker. Inspect a running process only when needed
 to diagnose a suspected hang, respond to a user status request, or handle an interruption.
-Tests run once; any assertion or infrastructure failure fails the suite. Do not add automatic reruns
-or accept a later pass as evidence of correctness.
+Each suite invocation runs once; any assertion or infrastructure failure fails that invocation.
+Investigate failures and rerun as needed. A later complete passing local gate is valid for delivery;
+an earlier failed or interrupted run does not permanently block delivery. Do not weaken assertions
+or add automatic retries that hide failures within a run.
+While waiting for the gate, use one tool-side loop that checks process completion or its saved exit
+status, sleeps 30 seconds, and repeats silently. Do not issue a separate model/tool call for each
+poll, read live logs, or send progress commentary. The loop waits for the existing test process;
+it must never launch or rerun tests. Yield control for user input as needed and report only when
+the process finishes or an actionable blocker appears. Read results after completion.
+Never trigger Codex quota resets; the user manages those.
 
 `run_ui_e2e.sh` builds once without signing, uses one simulator at a time, disables slow verbose
 test-diagnostic collection, and uninstalls the app before its single test run. Logs, screenshots,
@@ -343,9 +355,10 @@ hardware Silent Mode audio, or on-device Apple Intelligence availability; those 
 
 - `ci.yml` runs on PRs, `main` pushes, and manual dispatch. `ios-checks.yml` runs core coverage in
   Linux `swift:6.2` and UI suites on macOS 26 with `iPhone 17 Pro Max` and `iPad Pro 13-inch (M5)`.
-  CI splits each device suite into three disjoint class shards on isolated runners; tests stay serial
-  within each simulator. New test classes join automatically. A 35-minute command deadline fails
-  the test step before the 50-minute job deadline, leaving time to upload evidence. CI concurrency
+  CI splits each device suite into three disjoint method shards on isolated runners; tests stay serial
+  within each simulator. New test classes and methods join automatically; methods from large
+  classes spread across shards. A 35-minute command deadline fails the test step before the
+  50-minute job deadline, leaving time to upload evidence. CI concurrency
   is scoped to a commit so newer pushes do not cancel older revisions. Local full suites stay unsharded.
   Coverage/UI artifacts are retained for 14 days. Use actual job logs when diagnosing failures.
 - App versions belong in `project.yml`; keep the TestFlight workflow fallback and release examples

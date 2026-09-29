@@ -1,28 +1,46 @@
 #!/usr/bin/env python3
-"""Deterministic, disjoint UI class shards balanced by test-method count."""
+"""Select deterministic, disjoint UI test-method shards."""
 import argparse
 from pathlib import Path
 import re
 
 
+CLASS_PATTERN = re.compile(
+    r'^\s*(?:final\s+)?class\s+(\w+UITests)\s*:\s*HiIntervalUITestCase\s*\{',
+    re.MULTILINE,
+)
+METHOD_PATTERN = re.compile(r'^\s*func\s+(test\w+)\s*\(', re.MULTILINE)
+
+
 def shards(directory, count):
     if count < 1:
         raise ValueError('shard count must be positive')
-    classes = []
+
+    discovered = {}
     for path in sorted(Path(directory).glob('*UITests.swift')):
         source = path.read_text()
-        names = re.findall(r'final class (\w+UITests): HiIntervalUITestCase', source)
-        methods = re.findall(r'func (test\w+)\(', source)
-        if len(names) != 1 or not methods:
-            raise ValueError(f'Cannot discover test class/methods in {path}')
-        classes.append((len(methods), names[0]))
-    if len(classes) < count:
+        classes = CLASS_PATTERN.findall(source)
+        methods = METHOD_PATTERN.findall(source)
+        if len(classes) != 1 or not methods:
+            raise ValueError(f'Cannot discover one test class with methods in {path}')
+        name = classes[0]
+        if name in discovered:
+            raise ValueError(f'Duplicate UI test class: {name}')
+        if len(methods) != len(set(methods)):
+            raise ValueError(f'Duplicate UI test method in {path}')
+        discovered[name] = methods
+
+    selectors = [
+        f'HiIntervalUITests/{name}/{method}'
+        for name in sorted(discovered)
+        for method in sorted(discovered[name])
+    ]
+    if len(selectors) < count:
         raise ValueError('shard count would produce empty shards')
-    groups, loads = [[] for _ in range(count)], [0] * count
-    for size, name in sorted(classes, key=lambda item: (-item[0], item[1])):
-        index = min(range(count), key=lambda index: (loads[index], index))
-        groups[index].append('HiIntervalUITests/' + name)
-        loads[index] += size
+
+    groups = [[] for _ in range(count)]
+    for index, selector in enumerate(selectors):
+        groups[index % count].append(selector)
     return groups
 
 
