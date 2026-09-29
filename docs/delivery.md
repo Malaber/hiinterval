@@ -22,7 +22,7 @@ UI tests launch with deterministic `--ui-testing` fixture mode. Tests must query
 With an Xcode Apple account configured for team `VWKG94374J`, upload a signed archive directly:
 
 ```bash
-.venv/bin/inv upload-testflight --marketing-version=0.6.1 --build-number=1
+.venv/bin/inv upload-testflight --marketing-version=0.6.2 --build-number=1
 ```
 
 Each later upload uses a fresh marketing version, increased by at least one SemVer patch. Never
@@ -51,7 +51,7 @@ TestFlight variables:
 - `TESTFLIGHT_UPLOAD_ENABLED`: `true` for automatic successful-`main` delivery.
 - `APPLE_TEAM_ID`: defaults to `VWKG94374J`.
 - `IOS_BUNDLE_IDENTIFIER`: defaults to `de.malaber.hiinterval`.
-- `IOS_MARKETING_VERSION`: defaults to `0.6.1`.
+- `IOS_MARKETING_VERSION`: defaults to `0.6.2`.
 - `APP_STORE_CONNECT_APP_ID`: numeric App Store Connect app ID.
 
 TestFlight secrets:
@@ -70,10 +70,11 @@ Superseded CI runs cancel by event/ref. Both automatic and manual delivery verif
 
 ## UI CI parallelism and timeouts
 
-UI tests run on `macos-26`, with three isolated class shards for each iPhone/iPad
+UI tests run on `macos-26`, with three isolated method shards for each iPhone/iPad
 suite (up to six jobs). Each simulator still runs serially. The shard selector
-balances discovered classes by test-method count and includes new classes automatically;
-each class runs exactly once per device. Artifact names include the shard index.
+distributes the sorted methods of every discovered class across the shards and includes new
+classes and methods automatically. Each test runs exactly once per device. This prevents one
+large catalogue class from monopolizing a runner. Artifact names include the shard index.
 
 The command has a 35-minute deadline and exits 124 with an explicit error on timeout.
 The 50-minute job deadline leaves room for setup and uploading failure evidence.

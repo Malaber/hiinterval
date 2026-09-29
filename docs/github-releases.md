@@ -41,7 +41,7 @@ GitHub release for the current version if no release exists yet.
 ## Screenshots
 
 `MarketingScreenshotsUITests` captures clean, deterministic demo screens during the
-existing iPhone 17 Pro Max / iPad Pro 13-inch (M5) CI shards. Each device runs the class once. Marketing PNGs are
+existing iPhone 17 Pro Max / iPad Pro 13-inch (M5) CI shards. Each device runs each method once; captures may span multiple shards. Marketing PNGs are
 uploaded separately as `app-store-screenshots-<device>-<shard>`, retained for 14 days.
 Ordinary test evidence remains in its existing artifacts.
 

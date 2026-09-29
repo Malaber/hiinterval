@@ -33,6 +33,7 @@ final class SettingsUITests: HiIntervalUITestCase {
 
         XCTAssertTrue(element("settings.free-status").exists)
         openCustomization()
+        setSwitch("settings.haptics", to: true)
         setSwitch("settings.haptics", to: false)
         setSwitch("settings.duck-audio", to: true)
         setSwitch("settings.halfway-cue", to: false)
